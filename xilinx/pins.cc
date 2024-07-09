@@ -182,6 +182,8 @@ void get_invertible_pins(Context *ctx, std::unordered_map<IdString, std::unorder
     invertible_pins[ctx->id("RAMB36E2")].insert(ctx->id("RSTRAMB"));
     invertible_pins[ctx->id("RAMB36E2")].insert(ctx->id("RSTREGARSTREG"));
     invertible_pins[ctx->id("RAMB36E2")].insert(ctx->id("RSTREGB"));
+    invertible_pins[ctx->id("RAMS32")].insert(ctx->id("CLK"));
+    invertible_pins[ctx->id("RAMS64E")].insert(ctx->id("CLK"));    
     invertible_pins[ctx->id("RX_BITSLICE")].insert(ctx->id("CLK_EXT"));
     invertible_pins[ctx->id("RX_BITSLICE")].insert(ctx->id("CLK"));
     invertible_pins[ctx->id("RX_BITSLICE")].insert(ctx->id("RST_DLY_EXT"));

@@ -469,7 +469,26 @@ void XilinxPacker::pack_dram()
                         dpr->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
                     z--;
                 }
+                packed_cells.insert(cell->name);
+            }
+        } else if (cs.memtype == ctx->id("RAM32X1S")) {
+            int z = height - 1;
+            CellInfo *base = nullptr;
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == ctx->id("RAM32X1S")); // FIXME
 
+                NetInfo *spo = get_net_or_empty(cell, ctx->id("O"));
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
+                if (spo != nullptr) {
+                    std::vector<NetInfo *> address(cs.wa.begin(),
+                                                   cs.wa.begin() + std::min<size_t>(cs.wa.size(), 5));
+                    CellInfo *dpr = create_dram32_lut(cell->name.str(ctx) + "/SP", base, cs, address, di, spo, false, true, z);
+                    if (cell->params.count(ctx->id("INIT")))
+                        dpr->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
+                    z--;
+                }
                 packed_cells.insert(cell->name);
             }
         } else if (cs.memtype == ctx->id("RAM128X1D") || cs.memtype == ctx->id("RAM256X1D")) {

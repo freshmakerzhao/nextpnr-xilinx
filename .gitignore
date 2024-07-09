@@ -40,3 +40,5 @@ install_manifest.txt
 __pycache__/
 *.pyc
 .vscode/
+xilinx/examples/ram32x1s
+xilinx/examples/ram64x1s

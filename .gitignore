@@ -39,3 +39,4 @@ install_manifest.txt
 *.bba
 __pycache__/
 *.pyc
+.vscode/

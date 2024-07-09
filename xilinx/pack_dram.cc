@@ -177,6 +177,18 @@ void XilinxPacker::pack_dram()
     dram_rules[ctx->id("RAMD64E")].port_xform[ctx->id("I")] = id_DI1;
     dram_rules[ctx->id("RAMD64E")].port_xform[ctx->id("O")] = id_O6;
 
+    // Rules for RAMS64E
+    sp_dram_rules[ctx->id("RAMS64E")].new_type = id_SLICE_LUTX;
+    sp_dram_rules[ctx->id("RAMS64E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), "1");
+    for (int i = 0; i < 6; i++)
+        sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("ADR" + std::to_string(i))] =
+                ctx->id("A" + std::to_string(i + 1));
+    for (int i = 6; i < 8; i++)
+        sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("WADR" + std::to_string(i))] =
+                ctx->id("WA" + std::to_string(i + 1));
+    sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("I")] = id_DI1;
+    sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("O")] = id_O6;
+
     // Rules for upper and lower RAMD32E
     dram32_6_rules[ctx->id("RAMD32")].new_type = id_SLICE_LUTX;
     dram32_6_rules[ctx->id("RAMD32")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
@@ -193,6 +205,15 @@ void XilinxPacker::pack_dram()
     dram32_5_rules = dram32_6_rules;
     dram32_5_rules[ctx->id("RAMD32")].port_xform[ctx->id("I")] = id_DI1;
     dram32_5_rules[ctx->id("RAMD32")].port_xform[ctx->id("O")] = id_O5;
+
+    // Rules for RAMS32
+    sp_dram32_rules[ctx->id("RAMS32")].new_type = id_SLICE_LUTX;
+    sp_dram32_rules[ctx->id("RAMS32")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), "1");
+    for (int i = 0; i < 5; i++)
+        sp_dram32_rules[ctx->id("RAMS32")].port_xform[ctx->id("ADR" + std::to_string(i))] =
+                ctx->id("A" + std::to_string(i + 1));
+    sp_dram32_rules[ctx->id("RAMS32")].port_xform[ctx->id("I")] = id_DI2;
+    sp_dram32_rules[ctx->id("RAMS32")].port_xform[ctx->id("O")] = id_O6;
 
     // Optimise DRAM with tied-low inputs, to more efficiently routeable tied-high inputs
     int inverted_ports = 0;

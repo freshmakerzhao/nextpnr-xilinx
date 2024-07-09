@@ -236,6 +236,8 @@ class SAPlacer
                     continue;
                 else if (ci->constr_parent != nullptr)
                     continue;
+                else if (ci->name == IdString(ctx, "$PACKER_VCC_DRV") || ci->name == IdString(ctx, "$PACKER_GND_DRV") )
+                    continue;
                 else if (!ci->constr_children.empty() || ci->constr_z != ci->UNCONSTR)
                     chain_basis.push_back(ci);
                 else

@@ -377,7 +377,7 @@ public class json2dcp {
                     //System.out.println(param.getKey() + " = " + param.getValue());
                 }
 
-                if (nc.rwCell.getType().equals("RAMD64E")) {
+                if (nc.rwCell.getType().equals("RAMD64E") || nc.rwCell.getType().equals("RAMS64E")) {
                     // FIXME: move to nextpnr
                     nc.rwCell.addProperty("RAM_ADDRESS_MASK", "2'b11");
                     nc.rwCell.addProperty("RAM_ADDRESS_SPACE", "2'b11");

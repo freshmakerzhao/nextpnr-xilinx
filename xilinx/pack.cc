@@ -212,13 +212,13 @@ void XilinxPacker::pack_ffs()
     ff_rules[ctx->id("FDRE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDRE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDRE")].port_xform[ctx->id("R")] = id_SR;
-    ff_rules[ctx->id("FDRE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), "1");
+    ff_rules[ctx->id("FDRE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), Property(1));
     // ff_rules[ctx->id("FDRE")].param_xform[ctx->id("IS_R_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDSE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDSE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDSE")].port_xform[ctx->id("S")] = id_SR;
-    ff_rules[ctx->id("FDSE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), "1");
+    ff_rules[ctx->id("FDSE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), Property(1));
     // ff_rules[ctx->id("FDSE")].param_xform[ctx->id("IS_S_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDCE_1")] = ff_rules[ctx->id("FDCE")];
@@ -238,14 +238,14 @@ void XilinxPacker::pack_ffs()
     ff_rules[ctx->id("LDCE")].port_xform[ctx->id("G")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("LDCE")].port_xform[ctx->id("CLR")] = id_SR;
     ff_rules[ctx->id("LDCE")].port_xform[ctx->id("GE")] = id_CE;
-    ff_rules[ctx->id("LDCE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), "1");
+    ff_rules[ctx->id("LDCE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), Property(1));
     ff_rules[ctx->id("LDCE")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
 
     ff_rules[ctx->id("LDPE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("LDPE")].port_xform[ctx->id("G")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("LDPE")].port_xform[ctx->id("PRE")] = id_SR;
     ff_rules[ctx->id("LDPE")].port_xform[ctx->id("GE")] = id_CE;
-    ff_rules[ctx->id("LDPE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), "1");
+    ff_rules[ctx->id("LDPE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), Property(1));
     ff_rules[ctx->id("LDPE")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
 
     generic_xform(ff_rules, true);
@@ -261,7 +261,7 @@ void XilinxPacker::pack_lutffs()
         if (ci->type != id_SLICE_FFX)
             continue;
         NetInfo *d = get_net_or_empty(ci, id_D);
-        if (d->driver.cell == nullptr || d->driver.cell->type != id_SLICE_LUTX || d->driver.port != id_O6)
+        if (d->driver.cell == nullptr || d->driver.cell->type != id_SLICE_LUTX || (d->driver.port != id_O6 && d->driver.port != id_O5))
             continue;
         CellInfo *lut = d->driver.cell;
         if (lut->constr_parent != nullptr || !lut->constr_children.empty())
@@ -270,7 +270,12 @@ void XilinxPacker::pack_lutffs()
         ci->constr_parent = lut;
         ci->constr_x = 0;
         ci->constr_y = 0;
-        ci->constr_z = (BEL_FF - BEL_6LUT);
+        if(d->driver.port == id_O6){
+            ci->constr_z = (BEL_FF - BEL_6LUT);
+        }else{
+            ci->constr_z = (BEL_FF2 - BEL_5LUT);
+        }
+        
         ++pairs;
     }
     log_info("Constrained %d LUTFF pairs.\n", pairs);
@@ -419,16 +424,16 @@ void XilinxPacker::pack_srls()
     srl_rules[ctx->id("SRL16E")].new_type = id_SLICE_LUTX;
     srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("CLK")] = id_CLK;
     srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("CE")] = id_WE;
-    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("D")] = id_DI2;
-    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("Q")] = id_O6;
-    srl_rules[ctx->id("SRL16E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), "1");
+    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("D")] = id_DI1;
+    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("Q")] = id_O5;
+    srl_rules[ctx->id("SRL16E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
 
     srl_rules[ctx->id("SRLC32E")].new_type = id_SLICE_LUTX;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("CLK")] = id_CLK;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("CE")] = id_WE;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("D")] = id_DI1;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("Q")] = id_O6;
-    srl_rules[ctx->id("SRLC32E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), "1");
+    srl_rules[ctx->id("SRLC32E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
     // FIXME: Q31 support
     generic_xform(srl_rules, true);
     // Fixup SRL inputs
@@ -441,11 +446,24 @@ void XilinxPacker::pack_srls()
             for (int i = 3; i >= 0; i--) {
                 rename_port(ctx, ci, ctx->id("A" + std::to_string(i)), ctx->id("A" + std::to_string(i + 2)));
             }
-            for (auto tp : {id_A1, id_A6}) {
+            for (auto tp : {id_A1}) {
                 ci->ports[tp].name = tp;
                 ci->ports[tp].type = PORT_IN;
                 connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, tp);
             }
+            // 修改params INIT
+            auto init_it = ci->params.find(ctx->id("INIT"));
+            if(init_it != ci->params.end()){
+                std::string ts(init_it->second.str);
+                init_it->second.str.reserve(ts.size()*2);
+                init_it->second.str.clear();
+                for(u_int i=0; i<ts.size(); i++){
+                    init_it->second.str.push_back(ts[i]);
+                    init_it->second.str.push_back(ts[i]);
+                }
+                init_it->second.update_intval();
+            }
+            
         } else if (orig_type == "SRLC32E") {
             for (int i = 4; i >= 0; i--) {
                 rename_port(ctx, ci, ctx->id("A" + std::to_string(i)), ctx->id("A" + std::to_string(i + 2)));

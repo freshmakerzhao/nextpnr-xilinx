@@ -403,6 +403,24 @@ struct FasmBackend
         for (int i = 1; i <= 6; i++)
             phys_inputs.push_back(ctx->id("A" + std::to_string(i)));
 
+        if (lut5 != nullptr){
+            auto otir = lut5->attrs.find(ctx->id("X_ORIG_TYPE"));
+                    
+            if(otir != lut5->attrs.end()){
+                auto origin_type = otir->second.str;
+                if(origin_type == "SRL16E"){
+                    auto init_it = lut5->params.find(ctx->id("INIT"));
+                    if(init_it != lut5->params.end()){
+                        // 填充到lut的低32位
+                        for(int i=0; i<32; i++){
+                            bits[i] = (init_it->second.str.at(i) == Property::S1);
+                        }
+                        return bits;
+                    }
+                }
+            }
+        }
+        
         for (int i = 0; i < 2; i++) {
             CellInfo *lut = (i == 1) ? lut5 : lut6;
             if (lut == nullptr)

@@ -167,7 +167,7 @@ void XilinxPacker::pack_dram()
     // Transform from RAMD64E UNISIM to SLICE_LUTX bel
     dram_rules[ctx->id("RAMD64E")].new_type = id_SLICE_LUTX;
     dram_rules[ctx->id("RAMD64E")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
-    dram_rules[ctx->id("RAMD64E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), "1");
+    dram_rules[ctx->id("RAMD64E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property("1"));
     for (int i = 0; i < 6; i++)
         dram_rules[ctx->id("RAMD64E")].port_xform[ctx->id("RADR" + std::to_string(i))] =
                 ctx->id("A" + std::to_string(i + 1));
@@ -180,7 +180,7 @@ void XilinxPacker::pack_dram()
     // Rules for upper and lower RAMD32E
     dram32_6_rules[ctx->id("RAMD32")].new_type = id_SLICE_LUTX;
     dram32_6_rules[ctx->id("RAMD32")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
-    dram32_6_rules[ctx->id("RAMD32")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), "1");
+    dram32_6_rules[ctx->id("RAMD32")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property("1"));
     for (int i = 0; i < 5; i++)
         dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("RADR" + std::to_string(i))] =
                 ctx->id("A" + std::to_string(i + 1));

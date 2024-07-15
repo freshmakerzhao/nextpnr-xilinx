@@ -44,7 +44,7 @@ struct XilinxPacker
         std::unordered_map<IdString, IdString> port_xform;
         std::unordered_map<IdString, std::vector<IdString>> port_multixform;
         std::unordered_map<IdString, IdString> param_xform;
-        std::vector<std::pair<IdString, std::string>> set_attrs;
+        std::vector<std::pair<IdString, Property>> set_attrs;
         std::vector<std::pair<IdString, Property>> set_params;
     };
 

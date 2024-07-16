@@ -470,11 +470,14 @@ void XilinxPacker::pack_srls()
             auto init_it = ci->params.find(ctx->id("INIT"));
             if(init_it != ci->params.end()){
                 std::string ts(init_it->second.str);
-                init_it->second.str.reserve(ts.size()*2);
+                // init_it->second.str.reserve(32);
                 init_it->second.str.clear();
                 for(u_int i=0; i<ts.size(); i++){
                     init_it->second.str.push_back(ts[i]);
                     init_it->second.str.push_back(ts[i]);
+                }
+                for(uint pre_index=init_it->second.str.size(); pre_index < 32; pre_index++){
+                    init_it->second.str.push_back('0');
                 }
                 init_it->second.update_intval();
             }
@@ -492,11 +495,13 @@ void XilinxPacker::pack_srls()
             auto init_it = ci->params.find(ctx->id("INIT"));
             if(init_it != ci->params.end()){
                 std::string ts(init_it->second.str);
-                init_it->second.str.reserve(ts.size()*2);
                 init_it->second.str.clear();
                 for(u_int i=0; i<ts.size(); i++){
                     init_it->second.str.push_back(ts[i]);
                     init_it->second.str.push_back(ts[i]);
+                }
+                for(uint pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
+                    init_it->second.str.push_back('0');
                 }
                 init_it->second.update_intval();
             }
@@ -509,11 +514,13 @@ void XilinxPacker::pack_srls()
             auto init_it = ci->params.find(ctx->id("INIT"));
             if(init_it != ci->params.end()){
                 std::string ts(init_it->second.str);
-                init_it->second.str.reserve(ts.size()*2);
                 init_it->second.str.clear();
                 for(u_int i=0; i<ts.size(); i++){
                     init_it->second.str.push_back(ts[i]);
                     init_it->second.str.push_back(ts[i]);
+                }
+                for(uint pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
+                    init_it->second.str.push_back('0');
                 }
                 init_it->second.update_intval();
             }
@@ -795,6 +802,23 @@ void XC7Packer::pack_bram()
     bram_rules[ctx->id("RAMB18E1")].port_multixform[ctx->id(std::string("WEA[1]"))] = {ctx->id("WEA2"),
                                                                                        ctx->id("WEA3")};
     bram_rules[ctx->id("RAMB36E1")].new_type = id_RAMB36E1_RAMB36E1;
+
+    // fifo
+    bram_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    for(int i=0; i<32; i++){
+        if(i<16){
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i));
+        }else{
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i-16));
+        }
+    }
+    for(int i=0; i<4; i++){
+        if(i<2){
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i));
+        } else {
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-2));
+        }
+    }
 
     // Some ports have upper/lower bel pins in 36-bit mode
     std::vector<std::pair<IdString, std::vector<std::string>>> ul_pins;

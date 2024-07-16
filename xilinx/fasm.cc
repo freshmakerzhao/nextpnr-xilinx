@@ -388,6 +388,8 @@ struct FasmBackend
             return {ctx->id("A0"), ctx->id("A1"), ctx->id("A2"), ctx->id("A3")};
         else if (type == ctx->id("SRLC32E"))
             return {ctx->id("A[0]"), ctx->id("A[1]"), ctx->id("A[2]"), ctx->id("A[3]"), ctx->id("A[4]")};
+        else if (type == ctx->id("CFGLUT5"))
+            return {ctx->id("I0"), ctx->id("I1"), ctx->id("I2"), ctx->id("I3"), ctx->id("I4")};
         else if (type == ctx->id("RAMD32"))
             return {ctx->id("RADR0"), ctx->id("RADR1"), ctx->id("RADR2"), ctx->id("RADR3"), ctx->id("RADR4")};
         else
@@ -413,6 +415,23 @@ struct FasmBackend
                     if(init_it != lut5->params.end()){
                         // 填充到lut的低32位
                         for(int i=0; i<32; i++){
+                            bits[i] = (init_it->second.str.at(i) == Property::S1);
+                        }
+                        return bits;
+                    }
+                }
+            }
+        }
+        if (lut6 != nullptr){
+            auto otir = lut6->attrs.find(ctx->id("X_ORIG_TYPE"));
+                    
+            if(otir != lut6->attrs.end()){
+                auto origin_type = otir->second.str;
+                if(origin_type == "SRLC32E" || origin_type == "CFGLUT5"){
+                    auto init_it = lut6->params.find(ctx->id("INIT"));
+                    if(init_it != lut6->params.end()){
+                        // 填充到lut
+                        for(int i=0; i<64; i++){
                             bits[i] = (init_it->second.str.at(i) == Property::S1);
                         }
                         return bits;
@@ -688,6 +707,8 @@ struct FasmBackend
                         is_srl = true;
                         is_small = true;
                     } else if (type == "SRLC32E") {
+                        is_srl = true;
+                    } else if (type == "CFGLUT5"){
                         is_srl = true;
                     }
                     wa7_used |= (get_net_or_empty(lut, ctx->id("WA7")) != nullptr);

@@ -434,6 +434,21 @@ void XilinxPacker::pack_srls()
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("D")] = id_DI1;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("Q")] = id_O6;
     srl_rules[ctx->id("SRLC32E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
+
+    // CFGLUT5
+    srl_rules[ctx->id("CFGLUT5")].new_type = id_SLICE_LUTX;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("CLK")] = id_CLK;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("CE")] = id_WE;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("CDI")] = id_DI1;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("O6")] = id_O6;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("O5")] = id_O5;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I0")] = id_A2;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I1")] = id_A3;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I2")] = id_A4;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I3")] = id_A5;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I4")] = id_A6;
+    srl_rules[ctx->id("CFGLUT5")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
+
     // FIXME: Q31 support
     generic_xform(srl_rules, true);
     // Fixup SRL inputs
@@ -472,6 +487,35 @@ void XilinxPacker::pack_srls()
                 ci->ports[tp].name = tp;
                 ci->ports[tp].type = PORT_IN;
                 connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, tp);
+            }
+            // 修改params INIT
+            auto init_it = ci->params.find(ctx->id("INIT"));
+            if(init_it != ci->params.end()){
+                std::string ts(init_it->second.str);
+                init_it->second.str.reserve(ts.size()*2);
+                init_it->second.str.clear();
+                for(u_int i=0; i<ts.size(); i++){
+                    init_it->second.str.push_back(ts[i]);
+                    init_it->second.str.push_back(ts[i]);
+                }
+                init_it->second.update_intval();
+            }
+        } else if(orig_type == "CFGLUT5"){
+            ci->ports[id_A1].name = id_A1;
+            ci->ports[id_A1].type = PORT_IN;
+            connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, id_A1);
+
+            // 修改params INIT
+            auto init_it = ci->params.find(ctx->id("INIT"));
+            if(init_it != ci->params.end()){
+                std::string ts(init_it->second.str);
+                init_it->second.str.reserve(ts.size()*2);
+                init_it->second.str.clear();
+                for(u_int i=0; i<ts.size(); i++){
+                    init_it->second.str.push_back(ts[i]);
+                    init_it->second.str.push_back(ts[i]);
+                }
+                init_it->second.update_intval();
             }
         }
     }

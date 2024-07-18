@@ -384,6 +384,9 @@ struct FasmBackend
         else if (type == ctx->id("RAMD64E"))
             return {ctx->id("RADR0"), ctx->id("RADR1"), ctx->id("RADR2"),
                     ctx->id("RADR3"), ctx->id("RADR4"), ctx->id("RADR5")};
+        else if (type == ctx->id("RAMS64E"))//[lgl] get inputs of RAMS64E                                
+            return {ctx->id("ADR0"), ctx->id("ADR1"), ctx->id("ADR2"),                                   
+                    ctx->id("ADR3"), ctx->id("ADR4"), ctx->id("ADR5")};    
         else if (type == ctx->id("SRL16E"))
             return {ctx->id("A0"), ctx->id("A1"), ctx->id("A2"), ctx->id("A3")};
         else if (type == ctx->id("SRLC32E"))
@@ -392,6 +395,8 @@ struct FasmBackend
             return {ctx->id("I0"), ctx->id("I1"), ctx->id("I2"), ctx->id("I3"), ctx->id("I4")};
         else if (type == ctx->id("RAMD32"))
             return {ctx->id("RADR0"), ctx->id("RADR1"), ctx->id("RADR2"), ctx->id("RADR3"), ctx->id("RADR4")};
+        else if (type == ctx->id("RAMS32"))//[lgl] get inputs of RAMS32                                  
+            return {ctx->id("ADR0"), ctx->id("ADR1"), ctx->id("ADR2"), ctx->id("ADR3"), ctx->id("ADR4")};            
         else
             NPNR_ASSERT_FALSE("unsupported LUT-type cell");
     }

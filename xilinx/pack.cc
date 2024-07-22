@@ -803,23 +803,6 @@ void XC7Packer::pack_bram()
                                                                                        ctx->id("WEA3")};
     bram_rules[ctx->id("RAMB36E1")].new_type = id_RAMB36E1_RAMB36E1;
 
-    // fifo
-    bram_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
-    for(int i=0; i<32; i++){
-        if(i<16){
-            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i));
-        }else{
-            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i-16));
-        }
-    }
-    for(int i=0; i<4; i++){
-        if(i<2){
-            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i));
-        } else {
-            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-2));
-        }
-    }
-
     // Some ports have upper/lower bel pins in 36-bit mode
     std::vector<std::pair<IdString, std::vector<std::string>>> ul_pins;
     get_bram36_ul_pins(ctx, ul_pins);
@@ -874,6 +857,48 @@ void XC7Packer::pack_bram()
              int_or_default(ci->params, ctx->id(std::string("WRITE_WIDTH_B")), 0) == 72))
             xform_cell(sdp_bram_rules, ci);
     }
+
+     // fifo
+    std::unordered_map<IdString, XFormRule> fifo_normal_rules, fifo_max_rules;//fifo18_36和fifo_36_72使用fifo_max_rules
+    fifo_normal_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    fifo_max_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    for(int i=0; i<32; i++){
+        if(i<16){
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i));
+        }else{
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i-16));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i-16));
+        }
+    }
+    for(int i=0; i<4; i++){
+        if(i<2){
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i));
+        } else {
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i-2));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-2));
+        }
+    }
+    fifo_max_rules[ctx->id("FIFO18E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLK"),ctx->id("RDRCLK")};
+    // fifo映射
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if(ci->type == ctx->id("FIFO18E1")){
+            fold_inverter(ci, "RST");
+            std::string fifo_mode = str_or_default(ci->params, ctx->id("FIFO_MODE"),"FIFO18");
+            if(fifo_mode == "FIFO18"){
+                xform_cell(fifo_normal_rules, ci);
+            } else{
+                // FIFO18_36
+                NPNR_ASSERT(fifo_mode == "FIFO18_36");
+                xform_cell(fifo_max_rules, ci);
+            }
+        }
+    }
+
+
+
 
     // Rewrite byte enables according to data width
     for (auto cell : sorted(ctx->cells)) {
@@ -1033,9 +1058,9 @@ bool Arch::pack()
         packer.pack_muxfs();
         packer.pack_carries();
         packer.pack_srls();
-        packer.pack_luts();
         packer.pack_dram();
         packer.pack_bram();
+        packer.pack_luts();
         packer.pack_dsps();
         packer.pack_ffs();
         packer.finalise_muxfs();

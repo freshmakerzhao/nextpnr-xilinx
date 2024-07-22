@@ -1463,6 +1463,29 @@ struct FasmBackend
         }
     }
 
+    void write_fifo_width(CellInfo *ci, bool is_max=false)
+    {
+        if(is_max){
+            write_bit("SDP_READ_WIDTH_36");
+            write_bit("SDP_WRITE_WIDTH_36");
+            write_bit("WRITE_WIDTH_A_18");
+            write_bit("WRITE_WIDTH_B_18");
+            write_bit("READ_WIDTH_A_18");
+            write_bit("READ_WIDTH_B_18");
+            return;
+        }
+        int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 0);
+        if (width == 0)
+            return;
+        
+        // 普通模式下固定值
+        write_bit("WRITE_WIDTH_A_1");
+        write_bit("READ_WIDTH_B_1");
+
+        write_bit("READ_WIDTH_A_" + std::to_string(width));
+        write_bit("WRITE_WIDTH_B_" + std::to_string(width));
+    }
+
     void write_bram_init(int half, CellInfo *ci, bool is_36)
     {
         for (std::string mode : {"", "P"}) {
@@ -1507,15 +1530,44 @@ struct FasmBackend
         if (ci != nullptr) {
             bool is_36 = ci->type == id_RAMB36E1_RAMB36E1;
             write_bit("IN_USE");
-            write_bram_width(ci, "READ_WIDTH_A", is_36, half == 1);
-            write_bram_width(ci, "READ_WIDTH_B", is_36, half == 1);
-            write_bram_width(ci, "WRITE_WIDTH_A", is_36, half == 1);
-            write_bram_width(ci, "WRITE_WIDTH_B", is_36, half == 1);
-            write_bit("DOA_REG", bool_or_default(ci->params, ctx->id("DOA_REG"), false));
-            write_bit("DOB_REG", bool_or_default(ci->params, ctx->id("DOB_REG"), false));
-            for (auto &invpin : invertible_pins[ctx->id(ci->attrs[ctx->id("X_ORIG_TYPE")].as_string())])
-                write_bit("ZINV_" + invpin.str(ctx),
-                          !bool_or_default(ci->params, ctx->id("IS_" + invpin.str(ctx) + "_INVERTED"), false));
+            if(ci->type == id_FIFO18E1_FIFO18E1){
+                // FIFO
+                std::string fifo_mode = str_or_default(ci->params, ctx->id("FIFO_MODE"),"FIFO18");
+                if(fifo_mode == "FIFO18"){
+                    write_fifo_width(ci);
+                }else{
+                    NPNR_ASSERT(fifo_mode == "FIFO18_36");
+                    write_fifo_width(ci, true);
+                }
+                write_bit("FIFO_MODE");
+                write_bit("DOA_REG", bool_or_default(ci->params, ctx->id("DO_REG"), false));
+                write_bit("DOB_REG", bool_or_default(ci->params, ctx->id("DO_REG"), false));
+                write_bit("RDADDR_COLLISION_HWCONFIG_DELAYED_WRITE");
+                write_bit("RSTREG_PRIORITY_A_RSTREG");
+                write_bit("RSTREG_PRIORITY_B_RSTREG");
+                write_bit("WRITE_MODE_A_NO_CHANGE");
+                write_bit("WRITE_MODE_B_NO_CHANGE");
+                // 反向器
+                write_bit("ZINV_CLKARDCLK", !bool_or_default(ci->params, ctx->id("IS_RDCLK_INVERTED"), false));
+                write_bit("ZINV_ENARDEN", !bool_or_default(ci->params, ctx->id("IS_RDEN_INVERTED"), false));
+                write_bit("ZINV_RSTREGB", !bool_or_default(ci->params, ctx->id("IS_RSTREG_INVERTED"), false));
+                write_bit("ZINV_RSTRAMARSTRAM", !bool_or_default(ci->params, ctx->id("IS_RST_INVERTED"), false));
+                write_bit("ZINV_CLKBWRCLK", !bool_or_default(ci->params, ctx->id("IS_WRCLK_INVERTED"), false));
+                write_bit("ZINV_ENBWREN", !bool_or_default(ci->params, ctx->id("IS_WREN_INVERTED"), false));
+                // 未发现不出现的情况
+                write_bit("ZINV_REGCLKARDRCLK");
+                
+            } else {
+                // BRAM
+                write_bram_width(ci, "READ_WIDTH_A", is_36, half == 1);
+                write_bram_width(ci, "READ_WIDTH_B", is_36, half == 1);
+                write_bram_width(ci, "WRITE_WIDTH_A", is_36, half == 1);
+                write_bram_width(ci, "WRITE_WIDTH_B", is_36, half == 1);
+                write_bit("DOA_REG", bool_or_default(ci->params, ctx->id("DOA_REG"), false));
+                write_bit("DOB_REG", bool_or_default(ci->params, ctx->id("DOB_REG"), false));
+                for (auto &invpin : invertible_pins[ctx->id(ci->attrs[ctx->id("X_ORIG_TYPE")].as_string())])
+                    write_bit("ZINV_" + invpin.str(ctx), !bool_or_default(ci->params, ctx->id("IS_" + invpin.str(ctx) + "_INVERTED"), false));
+            }
             for (auto wrmode : {"WRITE_MODE_A", "WRITE_MODE_B"}) {
                 std::string mode = str_or_default(ci->params, ctx->id(wrmode), "WRITE_FIRST");
                 if (mode != "WRITE_FIRST")
@@ -1535,6 +1587,46 @@ struct FasmBackend
             write_bit("CASCOUT_ARD_ACTIVE", !used_rdaddrcasc.empty());
             write_bit("CASCOUT_BWR_ACTIVE", !used_wraddrcasc.empty());
         }
+        if (ci != nullptr && ci->type == id_FIFO18E1_FIFO18E1){
+            std::vector<bool>almost_empty_offset_vector;
+            auto almost_empty_offset = Property(128,13);
+            auto found = ci->params.find(ctx->id("ALMOST_EMPTY_OFFSET"));
+            if (found != ci->params.end()){
+                almost_empty_offset = Property(found->second.intval,13);
+            } 
+            for(auto c:almost_empty_offset.str){
+                // 取反
+                almost_empty_offset_vector.push_back(c == Property::S0);
+            }
+            write_vector("ZALMOST_EMPTY_OFFSET[12:0]",almost_empty_offset_vector);
+
+            std::vector<bool>almost_full_offset_vector;
+            auto almost_full_offset = Property(129,13);
+            auto full_found = ci->params.find(ctx->id("ALMOST_FULL_OFFSET"));
+            if (full_found != ci->params.end()){
+                almost_full_offset = Property(full_found->second.intval+1,13);
+            }
+            for(auto c:almost_full_offset.str){
+                // 取反
+                almost_full_offset_vector.push_back(c == Property::S0);
+            }
+            write_vector("ZALMOST_FULL_OFFSET[12:0]",almost_full_offset_vector);
+            
+            int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 0);
+            if (width == 4){
+                write_bit("FIFO_BITWIDTH_0");
+            } else if(width == 9){
+                write_bit("FIFO_BITWIDTH_1");
+            } else if(width == 18){
+                write_bit("FIFO_BITWIDTH_0");
+                write_bit("FIFO_BITWIDTH_1");
+            } else if(width ==36){
+                write_bit("FIFO_BITWIDTH_2");
+            }
+            
+            std::string en_syn = str_or_default(ci->params, ctx->id("EN_SYN"), "FALSE");
+            write_bit("EN_SYN", en_syn == "TRUE");
+        }
         pop();
     }
 
@@ -1552,7 +1644,10 @@ struct FasmBackend
                         l = bts->cells[BEL_RAM36];
                         u = bts->cells[BEL_RAM36];
                     } else {
-                        l = bts->cells[BEL_RAM18_L];
+                        if(bts->cells[BEL_FIFO18_L] != nullptr)
+                            l = bts->cells[BEL_FIFO18_L];
+                        else
+                            l = bts->cells[BEL_RAM18_L];
                         u = bts->cells[BEL_RAM18_U];
                     }
                 }

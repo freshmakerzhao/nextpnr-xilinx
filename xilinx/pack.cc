@@ -803,6 +803,23 @@ void XC7Packer::pack_bram()
                                                                                        ctx->id("WEA3")};
     bram_rules[ctx->id("RAMB36E1")].new_type = id_RAMB36E1_RAMB36E1;
 
+    // fifo
+    bram_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    for(int i=0; i<32; i++){
+        if(i<16){
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i));
+        }else{
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i-16));
+        }
+    }
+    for(int i=0; i<4; i++){
+        if(i<2){
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i));
+        } else {
+            bram_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-2));
+        }
+    }
+
     // Some ports have upper/lower bel pins in 36-bit mode
     std::vector<std::pair<IdString, std::vector<std::string>>> ul_pins;
     get_bram36_ul_pins(ctx, ul_pins);

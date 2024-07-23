@@ -19,7 +19,30 @@
 
 #include "log.h"
 #include "nextpnr.h"
+#include <fstream>
 NEXTPNR_NAMESPACE_BEGIN
+// 判断字符串是不是一个合法的8位16进制数
+bool is_valid_hex32(const std::string &str) {
+    std::string hex_digits = "0123456789abcdefABCDEF";
+    // Check for optional "0x" or "0X" prefix
+    size_t start = 0;
+    if (str.size() > 2 && (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))) {
+        start = 2;
+    }
+    // Check length
+    if (str.size() != start + 8) {
+         log_error("The hexadecimal number is invalid\n");
+        return false;
+    }
+    // Check if all characters are valid hex digits
+    for (size_t i = start; i < str.size(); ++i) {
+        if (hex_digits.find(str[i]) == std::string::npos) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 void Arch::parseXdc(std::istream &in)
 {
@@ -121,7 +144,7 @@ void Arch::parseXdc(std::istream &in)
             line = line.substr(0, cstart);
         if (isempty(line))
             continue;
-
+           
         std::vector<std::string> arguments = split_to_args(line, true);
         if (arguments.empty())
             continue;
@@ -143,9 +166,23 @@ void Arch::parseXdc(std::istream &in)
             if (arguments.at(1) == "INTERNAL_VREF")
                 continue;
             if (arguments.at(3).size() > 2 && arguments.at(3) == "[current_design]") {
-                log_warning("[current_design] isn't supported, ignoring (on line %d)\n", lineno);
-                continue;
-            }
+                // 判断pair.first是否包含BITSTREAM.CONFIG.USR_ACCESS
+                std::string first_key = std::get<0>(arg_pairs[0]);
+                if(first_key.find("BITSTREAM.CONFIG.USR_ACCESS") != std::string::npos) {
+                    // 判断pair.second是不是一个32位的16进制数
+                    std::string first_value = std::get<1>(arg_pairs[0]);
+                    bool paramter_is_valid = is_valid_hex32(first_value);
+                    if(paramter_is_valid){
+                         // 打开一个输出文件流（ofstream）
+                            std::string filename = "order.txt";
+                            std::ofstream outfile(filename);
+                            outfile << line;
+                            // 关闭文件
+                            outfile.close();
+                    }
+                    }
+                    continue;
+                }
             std::vector<CellInfo *> dest = get_cells(arguments.at(3));
             for (auto c : dest)
                 for (const auto &pair : arg_pairs)

@@ -62,6 +62,27 @@ void XC7Packer::prepare_clocking()
         } else if (ci->type == id_BUFH || ci->type == id_BUFHCE) {
             ci->type = id_BUFHCE_BUFHCE;
             tie_port(ci, "CE", true, true);
+        } else if (ci->type == ctx->id("BUFGMUX")) {
+            ci->type = ctx->id("BUFGCTRL");
+            NetInfo *s_net = get_net_or_empty(ci, ctx->id("S"));
+            if(s_net)
+            {
+                ci->ports[ctx->id("CE0")] = PortInfo{ctx->id("CE0"), s_net, PORT_IN}; 
+                ci->ports[ctx->id("CE1")] = PortInfo{ctx->id("CE1"), s_net, PORT_IN}; 
+                ci->ports.erase(ctx->id("S"));
+            }else {
+                log_warning("BUFGMUX '%s' has no S port connected\n", ctx->nameOf(ci));
+                // 如果没有S端口，我们需要设置默认值
+                tie_port(ci, "CE0", true);
+                tie_port(ci, "CE1", false);
+            }
+            ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);
+            ci->params[ctx->id("IS_CE1_INVERTED")] = Property(0);
+            tie_port(ci, "S0", true, true);
+            tie_port(ci, "S1", true, true);
+            tie_port(ci, "IGNORE0", false, true);
+            tie_port(ci, "IGNORE1", false, true);
+            // log_info("Converted BUFGMUX '%s' to BUFGCTRL\n", ctx->nameOf(ci));
         }
     }
 }
@@ -111,7 +132,6 @@ void XC7Packer::pack_gbs()
     log_info("Packing global buffers...\n");
     std::unordered_map<IdString, XFormRule> gb_rules;
     gb_rules[ctx->id("BUFGCTRL")].new_type = ctx->id("BUFGCTRL");
-
     generic_xform(gb_rules);
 
     // Make sure prerequisites are set up first

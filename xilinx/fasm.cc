@@ -1296,7 +1296,7 @@ struct FasmBackend
 
             if (ci->type == id_ICAP_ICAP) {
                 push("ICAP");
-                std::string width = str_or_default(ci->params, ctx->id("ICAP_WIDTH"), "X32");
+                std::string width = str_or_default(ci->params, id_ICAP_WIDTH, "X32");
                 // std::string device_id = int_or_default(ci->params, ctx->id("DEVICE_ID"), 3651093);
                 // std::string sim_cfg_file_name = str_or_default(ci->params, ctx->id("SIM_CFG_FILE_NAME"), "NONE");
                 if (width != "X32" && width != "X16" && width != "X8")

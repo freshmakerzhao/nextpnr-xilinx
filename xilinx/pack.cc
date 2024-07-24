@@ -880,6 +880,7 @@ void XC7Packer::pack_bram()
             fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-2));
         }
     }
+    fifo_normal_rules[ctx->id("FIFO18E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLK"),ctx->id("RDRCLK")};
     fifo_max_rules[ctx->id("FIFO18E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLK"),ctx->id("RDRCLK")};
     // fifo映射
     for (auto cell : sorted(ctx->cells)) {

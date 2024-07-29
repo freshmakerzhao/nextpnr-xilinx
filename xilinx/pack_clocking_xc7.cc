@@ -63,11 +63,10 @@ void XC7Packer::prepare_clocking()
             ci->type = id_BUFHCE_BUFHCE;
             tie_port(ci, "CE", true, true);
         } else if (ci->type == ctx->id("BUFGMUX")) {
-            ci->type = ctx->id("BUFGCTRL");
             //设置bufgmux的配置规则，将S端口所有配置信息应用到CE0和CE1      
             std::unordered_map<IdString, XFormRule> bufgmux_rules;
-            bufgmux_rules[ctx->id("BUFGCTRL")].new_type = ctx->id("BUFGCTRL");
-            bufgmux_rules[ctx->id("BUFGCTRL")].port_multixform[ctx->id(std::string("S"))] = {ctx->id("CE0"),
+            bufgmux_rules[ctx->id("BUFGMUX")].new_type = ctx->id("BUFGCTRL");
+            bufgmux_rules[ctx->id("BUFGMUX")].port_multixform[ctx->id(std::string("S"))] = {ctx->id("CE0"),
                                                                                             ctx->id("CE1")};
             //应用bufgmux_rules中的规则
             generic_xform(bufgmux_rules, false);
@@ -137,6 +136,7 @@ void XC7Packer::pack_gbs()
     log_info("Packing global buffers...\n");
     std::unordered_map<IdString, XFormRule> gb_rules;
     gb_rules[ctx->id("BUFGCTRL")].new_type = ctx->id("BUFGCTRL");
+    
     generic_xform(gb_rules);
 
     // Make sure prerequisites are set up first

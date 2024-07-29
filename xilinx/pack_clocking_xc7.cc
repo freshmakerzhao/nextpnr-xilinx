@@ -69,7 +69,7 @@ void XC7Packer::prepare_clocking()
             bufgmux_rules[ctx->id("BUFGMUX")].port_multixform[ctx->id(std::string("S"))] = {ctx->id("CE0"),
                                                                                             ctx->id("CE1")};
             //应用bufgmux_rules中的规则
-            generic_xform(bufgmux_rules, false);
+            xform_cell(bufgmux_rules, ci);
 
             //根据DEVICE，设置CE0反相，CE1不反相
             ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);

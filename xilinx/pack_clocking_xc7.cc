@@ -64,25 +64,30 @@ void XC7Packer::prepare_clocking()
             tie_port(ci, "CE", true, true);
         } else if (ci->type == ctx->id("BUFGMUX")) {
             ci->type = ctx->id("BUFGCTRL");
-            NetInfo *s_net = get_net_or_empty(ci, ctx->id("S"));
-            if(s_net)
-            {
-                ci->ports[ctx->id("CE0")] = PortInfo{ctx->id("CE0"), s_net, PORT_IN}; 
-                ci->ports[ctx->id("CE1")] = PortInfo{ctx->id("CE1"), s_net, PORT_IN}; 
-                ci->ports.erase(ctx->id("S"));
-            }else {
-                log_warning("BUFGMUX '%s' has no S port connected\n", ctx->nameOf(ci));
-                // 如果没有S端口，我们需要设置默认值
-                tie_port(ci, "CE0", true);
-                tie_port(ci, "CE1", false);
-            }
+            //设置bufgmux的配置规则，将S端口所有配置信息应用到CE0和CE1      
+            std::unordered_map<IdString, XFormRule> bufgmux_rules;
+            bufgmux_rules[ctx->id("BUFGCTRL")].new_type = ctx->id("BUFGCTRL");
+            bufgmux_rules[ctx->id("BUFGCTRL")].port_multixform[ctx->id(std::string("S"))] = {ctx->id("CE0"),
+                                                                                            ctx->id("CE1")};
+            //应用bufgmux_rules中的规则
+            generic_xform(bufgmux_rules, false);
+
+            //根据DEVICE，设置CE0反相，CE1不反相
             ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);
             ci->params[ctx->id("IS_CE1_INVERTED")] = Property(0);
+        /*
+	        这些设置确保BUFGCTRL的行为模拟BUFGMUX:
+					S0和S1设为高电平使得CE0和CE1控制输入选择。
+					IGNORE0和IGNORE1设为高电平，内部默认反相，所以不需要再反相。
+        
+        */
+            //配置持续高电平还是低电平，是否反相
             tie_port(ci, "S0", true, true);
             tie_port(ci, "S1", true, true);
-            tie_port(ci, "IGNORE0", false, true);
-            tie_port(ci, "IGNORE1", false, true);
-            // log_info("Converted BUFGMUX '%s' to BUFGCTRL\n", ctx->nameOf(ci));
+            //配置IGNORE0和IGNORE1，持续高电平，
+            tie_port(ci, "IGNORE0", true, false);
+            tie_port(ci, "IGNORE1", true, false);
+
         }
     }
 }

@@ -861,7 +861,10 @@ void XC7Packer::pack_bram()
      // fifo
     std::unordered_map<IdString, XFormRule> fifo_normal_rules, fifo_max_rules;//fifo18_36和fifo_36_72使用fifo_max_rules
     fifo_normal_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    fifo_normal_rules[ctx->id("FIFO36E1")].new_type = id_FIFO36E1_FIFO36E1;
     fifo_max_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    fifo_max_rules[ctx->id("FIFO36E1")].new_type = id_FIFO36E1_FIFO36E1;
+    // fifo18
     for(int i=0; i<32; i++){
         if(i<16){
             fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i));
@@ -882,6 +885,34 @@ void XC7Packer::pack_bram()
     }
     fifo_normal_rules[ctx->id("FIFO18E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLK"),ctx->id("RDRCLK")};
     fifo_max_rules[ctx->id("FIFO18E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLK"),ctx->id("RDRCLK")};
+    // fifo36
+    for(int i=0; i<64; i++){
+        if(i<32){
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i));
+        }else{
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i-32));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i-32));
+        }
+    }
+    for(int i=0; i<8; i++){
+        if(i<4){
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i));
+        } else {
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i-4));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-4));
+        }
+    }
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLKU"),ctx->id("RDCLKL"),ctx->id("RDRCLKU"),ctx->id("RDRCLKL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("WRCLK"))] = {ctx->id("WRCLKU"),ctx->id("WRCLKL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("RDEN"))] = {ctx->id("RDENU"),ctx->id("RDENL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("WREN"))] = {ctx->id("WRENU"),ctx->id("WRENL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("REGCE"))] = {ctx->id("REGCEU"),ctx->id("REGCEL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("RSTREG"))] = {ctx->id("RSTREGU"),ctx->id("RSTREGL")};
+    fifo_max_rules[ctx->id("FIFO36E1")].port_multixform = fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform;
+
+
     // fifo映射
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -895,11 +926,17 @@ void XC7Packer::pack_bram()
                 NPNR_ASSERT(fifo_mode == "FIFO18_36");
                 xform_cell(fifo_max_rules, ci);
             }
+        } else if(ci->type == ctx->id("FIFO36E1")){
+            fold_inverter(ci, "RST");
+            std::string fifo_mode = str_or_default(ci->params, ctx->id("FIFO_MODE"),"FIFO36");
+            if(fifo_mode == "FIFO36"){
+                xform_cell(fifo_normal_rules, ci);
+            } else {
+                NPNR_ASSERT(fifo_mode == "FIFO36_72");
+                xform_cell(fifo_max_rules, ci);
+            }
         }
     }
-
-
-
 
     // Rewrite byte enables according to data width
     for (auto cell : sorted(ctx->cells)) {

@@ -1463,7 +1463,7 @@ struct FasmBackend
         }
     }
 
-    void write_fifo_width(CellInfo *ci, bool is_max=false)
+    void write_fifo_width(CellInfo *ci, bool is_max=false, bool is_fifo36=false)
     {
         if(is_max){
             write_bit("SDP_READ_WIDTH_36");
@@ -1474,16 +1474,20 @@ struct FasmBackend
             write_bit("READ_WIDTH_B_18");
             return;
         }
-        int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 0);
+        int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 4);
         if (width == 0)
             return;
         
         // 普通模式下固定值
         write_bit("WRITE_WIDTH_A_1");
         write_bit("READ_WIDTH_B_1");
-
-        write_bit("READ_WIDTH_A_" + std::to_string(width));
-        write_bit("WRITE_WIDTH_B_" + std::to_string(width));
+        if(!is_fifo36){
+            write_bit("READ_WIDTH_A_" + std::to_string(width));
+            write_bit("WRITE_WIDTH_B_" + std::to_string(width));
+        } else {
+            write_bit("READ_WIDTH_A_" + std::to_string(width/2));
+            write_bit("WRITE_WIDTH_B_" + std::to_string(width/2));
+        }
     }
 
     void write_bram_init(int half, CellInfo *ci, bool is_36)
@@ -1557,6 +1561,31 @@ struct FasmBackend
                 // 未发现不出现的情况
                 write_bit("ZINV_REGCLKARDRCLK");
                 
+            } else if (ci->type == id_FIFO36E1_FIFO36E1) {
+                std::string fifo_mode = str_or_default(ci->params, ctx->id("FIFO_MODE"), "FIFO36");
+                if(fifo_mode == "FIFO36"){
+                    write_fifo_width(ci, false, true);
+                }else{
+                    NPNR_ASSERT(fifo_mode == "FIFO36_72");
+                    write_fifo_width(ci, true, true);
+                }
+                write_bit("FIFO_MODE");
+                write_bit("DOA_REG", bool_or_default(ci->params, ctx->id("DO_REG"), false));
+                write_bit("DOB_REG", bool_or_default(ci->params, ctx->id("DO_REG"), false));
+                write_bit("RDADDR_COLLISION_HWCONFIG_DELAYED_WRITE");
+                write_bit("RSTREG_PRIORITY_A_RSTREG");
+                write_bit("RSTREG_PRIORITY_B_RSTREG");
+                write_bit("WRITE_MODE_A_NO_CHANGE");
+                write_bit("WRITE_MODE_B_NO_CHANGE");
+                // 反向器
+                write_bit("ZINV_CLKARDCLK", !bool_or_default(ci->params, ctx->id("IS_RDCLK_INVERTED"), false));
+                write_bit("ZINV_ENARDEN", !bool_or_default(ci->params, ctx->id("IS_RDEN_INVERTED"), false));
+                write_bit("ZINV_RSTREGB", !bool_or_default(ci->params, ctx->id("IS_RSTREG_INVERTED"), false));
+                write_bit("ZINV_RSTRAMARSTRAM", !bool_or_default(ci->params, ctx->id("IS_RST_INVERTED"), false));
+                write_bit("ZINV_CLKBWRCLK", !bool_or_default(ci->params, ctx->id("IS_WRCLK_INVERTED"), false));
+                write_bit("ZINV_ENBWREN", !bool_or_default(ci->params, ctx->id("IS_WREN_INVERTED"), false));
+                // 未发现不出现的情况
+                write_bit("ZINV_REGCLKARDRCLK");
             } else {
                 // BRAM
                 write_bram_width(ci, "READ_WIDTH_A", is_36, half == 1);
@@ -1586,46 +1615,51 @@ struct FasmBackend
             auto used_wraddrcasc = used_wires_starting_with(tile, "BRAM_CASCOUT_ADDRBWRADDR", false);
             write_bit("CASCOUT_ARD_ACTIVE", !used_rdaddrcasc.empty());
             write_bit("CASCOUT_BWR_ACTIVE", !used_wraddrcasc.empty());
-        }
-        if (ci != nullptr && ci->type == id_FIFO18E1_FIFO18E1){
-            std::vector<bool>almost_empty_offset_vector;
-            auto almost_empty_offset = Property(128,13);
-            auto found = ci->params.find(ctx->id("ALMOST_EMPTY_OFFSET"));
-            if (found != ci->params.end()){
-                almost_empty_offset = Property(found->second.intval,13);
-            } 
-            for(auto c:almost_empty_offset.str){
-                // 取反
-                almost_empty_offset_vector.push_back(c == Property::S0);
-            }
-            write_vector("ZALMOST_EMPTY_OFFSET[12:0]",almost_empty_offset_vector);
+            if(ci != nullptr && (ci->type == id_FIFO36E1_FIFO36E1 || ci->type == id_FIFO18E1_FIFO18E1) ) {
+                std::vector<bool>almost_empty_offset_vector;
+                auto almost_empty_offset = Property(128,13);
+                auto found = ci->params.find(ctx->id("ALMOST_EMPTY_OFFSET"));
+                if (found != ci->params.end()){
+                    almost_empty_offset = Property(found->second.intval,13);
+                } 
+                for(auto c:almost_empty_offset.str){
+                    // 取反
+                    almost_empty_offset_vector.push_back(c == Property::S0);
+                }
+                write_vector("ZALMOST_EMPTY_OFFSET[12:0]",almost_empty_offset_vector);
 
-            std::vector<bool>almost_full_offset_vector;
-            auto almost_full_offset = Property(129,13);
-            auto full_found = ci->params.find(ctx->id("ALMOST_FULL_OFFSET"));
-            if (full_found != ci->params.end()){
-                almost_full_offset = Property(full_found->second.intval+1,13);
+                std::vector<bool>almost_full_offset_vector;
+                auto almost_full_offset = Property(129,13);
+                auto full_found = ci->params.find(ctx->id("ALMOST_FULL_OFFSET"));
+                if (full_found != ci->params.end()){
+                    almost_full_offset = Property(full_found->second.intval+1,13);
+                }
+                for(auto c:almost_full_offset.str){
+                    // 取反
+                    almost_full_offset_vector.push_back(c == Property::S0);
+                }
+                write_vector("ZALMOST_FULL_OFFSET[12:0]",almost_full_offset_vector);
+                
+                int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 0);
+                if(ci->type == id_FIFO36E1_FIFO36E1) {
+                    width = int(width/2);
+                }
+                if (width == 4 ){
+                    write_bit("FIFO_BITWIDTH_0");
+                } else if(width == 9 ){
+                    write_bit("FIFO_BITWIDTH_1");
+                } else if(width == 18 ){
+                    write_bit("FIFO_BITWIDTH_0");
+                    write_bit("FIFO_BITWIDTH_1");
+                } else if(width ==36 ){
+                    write_bit("FIFO_BITWIDTH_2");
+                } else if(width == 72) {
+                    write_bit("FIFO_BITWIDTH_0");
+                    write_bit("FIFO_BITWIDTH_2");
+                }
+                std::string en_syn = str_or_default(ci->params, ctx->id("EN_SYN"), "FALSE");
+                write_bit("EN_SYN", en_syn == "TRUE");
             }
-            for(auto c:almost_full_offset.str){
-                // 取反
-                almost_full_offset_vector.push_back(c == Property::S0);
-            }
-            write_vector("ZALMOST_FULL_OFFSET[12:0]",almost_full_offset_vector);
-            
-            int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 0);
-            if (width == 4){
-                write_bit("FIFO_BITWIDTH_0");
-            } else if(width == 9){
-                write_bit("FIFO_BITWIDTH_1");
-            } else if(width == 18){
-                write_bit("FIFO_BITWIDTH_0");
-                write_bit("FIFO_BITWIDTH_1");
-            } else if(width ==36){
-                write_bit("FIFO_BITWIDTH_2");
-            }
-            
-            std::string en_syn = str_or_default(ci->params, ctx->id("EN_SYN"), "FALSE");
-            write_bit("EN_SYN", en_syn == "TRUE");
         }
         pop();
     }
@@ -1643,6 +1677,9 @@ struct FasmBackend
                     if (bts->cells[BEL_RAM36] != nullptr) {
                         l = bts->cells[BEL_RAM36];
                         u = bts->cells[BEL_RAM36];
+                    } else if(bts->cells[BEL_FIFO36] != nullptr) {
+                        l = bts->cells[BEL_FIFO36];
+                        u = bts->cells[BEL_FIFO36];
                     } else {
                         if(bts->cells[BEL_FIFO18_L] != nullptr)
                             l = bts->cells[BEL_FIFO18_L];

@@ -34,6 +34,7 @@ def main():
 	d = import_device(args.device, xraydb_root, metadata_root)
 	# Import tile types
 	seen_tiletypes = set()
+	seen_clockregion = {}
 	tile_types = []
 	tile_type_index = {}
 	timing = NextpnrTimingData()
@@ -53,8 +54,15 @@ def main():
 	for y in range(d.height):
 		for x in range(d.width):
 			t = d.tiles_by_xy[x, y]
+			
+			# convert clock region string to constId
+			if t.clock_region not in seen_clockregion:
+				clock_region_id = constid.make(t.clock_region)
+				seen_clockregion[t.clock_region] = clock_region_id
+			
 			nti = NextpnrTileInst(index=len(tile_insts), name=t.name,
-				tile_type=tile_type_index[t.tile_type()])
+				tile_type=tile_type_index[t.tile_type()], 
+				clock_region=seen_clockregion[t.clock_region])
 			for s in t.sites():
 				nsi = NextpnrSiteInst(name=s.name, package_pin="." if s.package_pin is None else s.package_pin,
 					site_xy=s.grid_xy, rel_xy=s.rel_xy(), inter_xy=t.interconn_xy)
@@ -266,6 +274,7 @@ def main():
 			bba.ref("ti{}_wire_to_node".format(ti.index)) # reference to tilewire-to-node list
 			bba.u32(len(ti.sites)) # number of sites in tile
 			bba.ref("ti{}_sites".format(ti.index)) # reference to list of site data
+			bba.u32(ti.clock_region) # clock region, string
 		# List of nodes
 		bba.label("nodes")
 		for i in range(len(node_wire_count)):

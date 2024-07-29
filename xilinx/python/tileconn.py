@@ -9,7 +9,7 @@ def apply_tileconn(f, d):
 
 	tj = json.load(f)
 	# Restructure to tiletype -> coord offset -> type -> wire_pairs
-	ttn = {}
+	ttn = {}  # ttn stands for???
 	for entry in tj:
 		tile0, tile1 = entry["tile_types"]
 		dx, dy = entry["grid_deltas"]
@@ -33,6 +33,6 @@ def apply_tileconn(f, d):
 			if ntt not in nd:
 				continue
 			# Found a pair with connections
-			wc = nd[ntt]
+			wc = nd[ntt]	# wc: wire connection = wire pair
 			for wirea, wireb in wc:
 				merge_nodes(tile.wire(wirea).node(), ntile.wire(wireb).node())

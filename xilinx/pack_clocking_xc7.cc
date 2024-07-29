@@ -40,7 +40,7 @@ void XC7Packer::prepare_clocking()
     upgrade[ctx->id("MMCME2_BASE")] = ctx->id("MMCME2_ADV");
     upgrade[ctx->id("PLLE2_BASE")] = ctx->id("PLLE2_ADV");
 
-    for (auto cell : sorted(ctx->cells)) {
+    for (auto cell : sorted(ctx->cells)) { 
         CellInfo *ci = cell.second;
         if (upgrade.count(ci->type)) {
             IdString new_type = upgrade.at(ci->type);
@@ -62,6 +62,14 @@ void XC7Packer::prepare_clocking()
         } else if (ci->type == id_BUFH || ci->type == id_BUFHCE) {
             ci->type = id_BUFHCE_BUFHCE;
             tie_port(ci, "CE", true, true);
+        } else if (ci->type == id_BUFR) {
+            ci->type = id_BUFR_BUFR;
+            ci->setParam(ctx->id("SIM_DEVICE"), Property("7SERIES"));
+
+            if (ci->ports[ctx->id("CE")].net == nullptr)
+                tie_port(ci, "CE", true, false);
+            if (ci->ports[ctx->id("CLR")].net == nullptr)
+                tie_port(ci, "CLR", false, false);
         }
     }
 }

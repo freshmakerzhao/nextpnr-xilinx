@@ -259,7 +259,7 @@ class Site:
 		return vsite
 
 class Tile:
-	def __init__(self, x, y, name, data, interconn_xy, site_insts):
+	def __init__(self, x, y, name, data, interconn_xy, site_insts, clock_region):
 		self.x = x
 		self.y = y
 		self.name = name
@@ -268,6 +268,7 @@ class Tile:
 		self.site_insts = site_insts
 		self.wire_to_node = {}
 		self.node_autoidx = 0
+		self.clock_region = clock_region
 	def get_pip_data(self, i):
 		return self.data.pips[i]
 	def get_wire_data(self, i):
@@ -469,10 +470,18 @@ def import_device(name, prjxray_root, metadata_root):
 	for tile, tiledata in sorted(tgj.items()):
 		x = int(tiledata["grid_x"])
 		y = int(tiledata["grid_y"])
+
+		if "clock_region" in tiledata.keys():
+			clock_region = str(tiledata["clock_region"])
+		else:
+			clock_region = "NULL"
+
+		# Update device size
 		d.width = max(d.width, x + 1)
 		d.height = max(d.height, y + 1)
+		
 		tiletype = tiledata["type"]
-		t = Tile(x, y, tile, get_tile_type_data(tiletype), (-1, -1), [])
+		t = Tile(x, y, tile, get_tile_type_data(tiletype), (-1, -1), [], clock_region)
 		for idx, (site, sitetype) in enumerate(sorted(tiledata["sites"].items())):
 				si = Site(t, site, idx, parse_xy(site), get_site_type_data(sitetype))
 				t.site_insts.append(si)
@@ -483,7 +492,7 @@ def import_device(name, prjxray_root, metadata_root):
 
 	# Resolve interconnect tile coordinates
 	for t in d.tiles:
-		for delta in range(0, 30):
+		for delta in range(0, 30): # ???
 			if t.interconn_xy != (-1, -1):
 				break # found, done
 			for direction in (-1, +1):

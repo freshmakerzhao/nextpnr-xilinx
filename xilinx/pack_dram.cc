@@ -54,8 +54,10 @@ CellInfo *XilinxPacker::create_dram_lut(const std::string &name, CellInfo *base,
             else
                 connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
         } else {
-            connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
-            connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
+            if (i < 6)
+                connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
+            if (i < 8)
+                connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
         }
     }
 

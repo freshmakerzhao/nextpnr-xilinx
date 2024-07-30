@@ -536,7 +536,7 @@ void XilinxPacker::pack_dram()
                 CellInfo *base = nullptr;
 
                 for (int i = 0; i < (m256 ? 4 : 2); i++){
-                    NetInfo *spo_i = create_internal_net(cell->name, "SPO_" + std::to_string(i), false);
+                    NetInfo *spo_i = create_internal_net(cell->name, "O_" + std::to_string(i), false);
                     CellInfo *spr = create_dram_lut(cell->name.str(ctx) + "/ADDR" + std::to_string(i), base, cs, addressw_64, get_net_or_empty(cell, ctx->id("D")), spo_i, z);
                     if (base == nullptr)
                         base = spr;
@@ -545,7 +545,7 @@ void XilinxPacker::pack_dram()
                     z--;
                 }
                 // Decode mux tree using MUXF[78]
-                create_muxf_tree(base, "SPO", spo_pre, addressw_high, spo, m256 ? 0 : 2);
+                create_muxf_tree(base, "O", spo_pre, addressw_high, spo, m256 ? 0 : 2);
                 packed_cells.insert(cell->name);
             }
         }

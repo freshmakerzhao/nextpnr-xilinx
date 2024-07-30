@@ -170,8 +170,14 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         disconnect_port(ctx, xil_iob, ctx->id("O"));
 
         IdString ibuf_type = ctx->id("IBUFDS");
+        if (xil_iob->type == ctx->id("IBUFDS_IBUFDISABLE"))
+            ibuf_type = ctx->id("IBUFDS_IBUFDISABLE");
+        if (xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE"))
+            ibuf_type = ctx->id("IBUFDS_INTERMDISABLE_INT");
         CellInfo *inbuf = insert_diffibuf(int_name(xil_iob->name, "IBUF", is_se_iobuf), ibuf_type,
                                           {pad_p_net, pad_n_net}, top_out);
+        replace_port(xil_iob, ctx->id("IBUFDISABLE"), inbuf, ctx->id("IBUFDISABLE"));
+        replace_port(xil_iob, ctx->id("INTERMDISABLE"), inbuf, ctx->id("INTERMDISABLE"));
         if (is_riob18) {
             inbuf->attrs[ctx->id("BEL")] = site_p + "/IOB18M/INBUF_DCIEN";
             inbuf->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18M");
@@ -410,7 +416,7 @@ void XC7Packer::pack_io()
     // 在类型转换之前，根据原语类别补充默认parameter
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
-        if(ci->type == IdString(ctx, "IBUF_IBUFDISABLE")){
+        if(ci->type == IdString(ctx, "IBUF_IBUFDISABLE") || ci->type == IdString(ctx, "IBUFDS_INTERMDISABLE_INT")){
             ci->params.emplace(IdString(ctx, "USE_IBUFDISABLE"), Property("TRUE"));
         }
     }

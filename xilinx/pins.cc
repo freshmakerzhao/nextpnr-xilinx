@@ -106,10 +106,10 @@ void get_invertible_pins(Context *ctx, std::unordered_map<IdString, std::unorder
     invertible_pins[ctx->id("ISERDESE3")].insert(ctx->id("CLK_B"));
     invertible_pins[ctx->id("ISERDESE3")].insert(ctx->id("CLK"));
     invertible_pins[ctx->id("ISERDESE3")].insert(ctx->id("RST"));
-    invertible_pins[ctx->id("LDCE")].insert(ctx->id("CLR"));
+    // invertible_pins[ctx->id("LDCE")].insert(ctx->id("CLR"));
     invertible_pins[ctx->id("LDCE")].insert(ctx->id("G"));
     invertible_pins[ctx->id("LDPE")].insert(ctx->id("G"));
-    invertible_pins[ctx->id("LDPE")].insert(ctx->id("PRE"));
+    // invertible_pins[ctx->id("LDPE")].insert(ctx->id("PRE"));
     invertible_pins[ctx->id("MMCME3_ADV")].insert(ctx->id("CLKFBIN"));
     invertible_pins[ctx->id("MMCME3_ADV")].insert(ctx->id("CLKIN1"));
     invertible_pins[ctx->id("MMCME3_ADV")].insert(ctx->id("CLKIN2"));
@@ -158,12 +158,14 @@ void get_invertible_pins(Context *ctx, std::unordered_map<IdString, std::unorder
     invertible_pins[ctx->id("RAM32M")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM32M16")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM32X1D")].insert(ctx->id("WCLK"));
+    invertible_pins[ctx->id("RAMS32")].insert(ctx->id("CLK"));//[lgl] specify invertible CLK pin on RAMS32               
     invertible_pins[ctx->id("RAM32X1S")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM32X2S")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM512X1S")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM64M")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM64M8")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM64X1D")].insert(ctx->id("WCLK"));
+    invertible_pins[ctx->id("RAMS64E")].insert(ctx->id("CLK"));//[lgl] specify invertible CLK pin on RAMS64E 
     invertible_pins[ctx->id("RAM64X1S")].insert(ctx->id("WCLK"));
     invertible_pins[ctx->id("RAM64X8SW")].insert(ctx->id("WCLK"));
     // invertible_pins[ctx->id("RAMB18E2")].insert(ctx->id("CLKARDCLK"));

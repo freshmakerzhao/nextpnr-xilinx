@@ -212,13 +212,13 @@ void XilinxPacker::pack_ffs()
     ff_rules[ctx->id("FDRE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDRE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDRE")].port_xform[ctx->id("R")] = id_SR;
-    ff_rules[ctx->id("FDRE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), "1");
+    ff_rules[ctx->id("FDRE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), Property(1));
     // ff_rules[ctx->id("FDRE")].param_xform[ctx->id("IS_R_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDSE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDSE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDSE")].port_xform[ctx->id("S")] = id_SR;
-    ff_rules[ctx->id("FDSE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), "1");
+    ff_rules[ctx->id("FDSE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), Property(1));
     // ff_rules[ctx->id("FDSE")].param_xform[ctx->id("IS_S_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDCE_1")] = ff_rules[ctx->id("FDCE")];
@@ -233,6 +233,21 @@ void XilinxPacker::pack_ffs()
     ff_rules[ctx->id("FDSE_1")] = ff_rules[ctx->id("FDSE")];
     ff_rules[ctx->id("FDSE_1")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
 
+    // 添加LATCH映射
+    ff_rules[ctx->id("LDCE")].new_type = id_SLICE_FFX;
+    ff_rules[ctx->id("LDCE")].port_xform[ctx->id("G")] = ctx->xc7 ? id_CK : id_CLK;
+    ff_rules[ctx->id("LDCE")].port_xform[ctx->id("CLR")] = id_SR;
+    ff_rules[ctx->id("LDCE")].port_xform[ctx->id("GE")] = id_CE;
+    ff_rules[ctx->id("LDCE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), Property(1));
+    ff_rules[ctx->id("LDCE")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+
+    ff_rules[ctx->id("LDPE")].new_type = id_SLICE_FFX;
+    ff_rules[ctx->id("LDPE")].port_xform[ctx->id("G")] = ctx->xc7 ? id_CK : id_CLK;
+    ff_rules[ctx->id("LDPE")].port_xform[ctx->id("PRE")] = id_SR;
+    ff_rules[ctx->id("LDPE")].port_xform[ctx->id("GE")] = id_CE;
+    ff_rules[ctx->id("LDPE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), Property(1));
+    ff_rules[ctx->id("LDPE")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+
     generic_xform(ff_rules, true);
 }
 
@@ -246,7 +261,7 @@ void XilinxPacker::pack_lutffs()
         if (ci->type != id_SLICE_FFX)
             continue;
         NetInfo *d = get_net_or_empty(ci, id_D);
-        if (d->driver.cell == nullptr || d->driver.cell->type != id_SLICE_LUTX || d->driver.port != id_O6)
+        if (d->driver.cell == nullptr || d->driver.cell->type != id_SLICE_LUTX || (d->driver.port != id_O6 && d->driver.port != id_O5))
             continue;
         CellInfo *lut = d->driver.cell;
         if (lut->constr_parent != nullptr || !lut->constr_children.empty())
@@ -255,7 +270,12 @@ void XilinxPacker::pack_lutffs()
         ci->constr_parent = lut;
         ci->constr_x = 0;
         ci->constr_y = 0;
-        ci->constr_z = (BEL_FF - BEL_6LUT);
+        if(d->driver.port == id_O6){
+            ci->constr_z = (BEL_FF - BEL_6LUT);
+        }else{
+            ci->constr_z = (BEL_FF2 - BEL_5LUT);
+        }
+        
         ++pairs;
     }
     log_info("Constrained %d LUTFF pairs.\n", pairs);
@@ -404,16 +424,31 @@ void XilinxPacker::pack_srls()
     srl_rules[ctx->id("SRL16E")].new_type = id_SLICE_LUTX;
     srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("CLK")] = id_CLK;
     srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("CE")] = id_WE;
-    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("D")] = id_DI2;
-    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("Q")] = id_O6;
-    srl_rules[ctx->id("SRL16E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), "1");
+    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("D")] = id_DI1;
+    srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("Q")] = id_O5;
+    srl_rules[ctx->id("SRL16E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
 
     srl_rules[ctx->id("SRLC32E")].new_type = id_SLICE_LUTX;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("CLK")] = id_CLK;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("CE")] = id_WE;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("D")] = id_DI1;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("Q")] = id_O6;
-    srl_rules[ctx->id("SRLC32E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), "1");
+    srl_rules[ctx->id("SRLC32E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
+
+    // CFGLUT5
+    srl_rules[ctx->id("CFGLUT5")].new_type = id_SLICE_LUTX;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("CLK")] = id_CLK;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("CE")] = id_WE;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("CDI")] = id_DI1;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("O6")] = id_O6;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("O5")] = id_O5;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I0")] = id_A2;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I1")] = id_A3;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I2")] = id_A4;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I3")] = id_A5;
+    srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I4")] = id_A6;
+    srl_rules[ctx->id("CFGLUT5")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
+
     // FIXME: Q31 support
     generic_xform(srl_rules, true);
     // Fixup SRL inputs
@@ -426,11 +461,27 @@ void XilinxPacker::pack_srls()
             for (int i = 3; i >= 0; i--) {
                 rename_port(ctx, ci, ctx->id("A" + std::to_string(i)), ctx->id("A" + std::to_string(i + 2)));
             }
-            for (auto tp : {id_A1, id_A6}) {
+            for (auto tp : {id_A1}) {
                 ci->ports[tp].name = tp;
                 ci->ports[tp].type = PORT_IN;
                 connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, tp);
             }
+            // 修改params INIT
+            auto init_it = ci->params.find(ctx->id("INIT"));
+            if(init_it != ci->params.end()){
+                std::string ts(init_it->second.str);
+                // init_it->second.str.reserve(32);
+                init_it->second.str.clear();
+                for(u_int i=0; i<ts.size(); i++){
+                    init_it->second.str.push_back(ts[i]);
+                    init_it->second.str.push_back(ts[i]);
+                }
+                for(uint pre_index=init_it->second.str.size(); pre_index < 32; pre_index++){
+                    init_it->second.str.push_back('0');
+                }
+                init_it->second.update_intval();
+            }
+            
         } else if (orig_type == "SRLC32E") {
             for (int i = 4; i >= 0; i--) {
                 rename_port(ctx, ci, ctx->id("A" + std::to_string(i)), ctx->id("A" + std::to_string(i + 2)));
@@ -439,6 +490,39 @@ void XilinxPacker::pack_srls()
                 ci->ports[tp].name = tp;
                 ci->ports[tp].type = PORT_IN;
                 connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, tp);
+            }
+            // 修改params INIT
+            auto init_it = ci->params.find(ctx->id("INIT"));
+            if(init_it != ci->params.end()){
+                std::string ts(init_it->second.str);
+                init_it->second.str.clear();
+                for(u_int i=0; i<ts.size(); i++){
+                    init_it->second.str.push_back(ts[i]);
+                    init_it->second.str.push_back(ts[i]);
+                }
+                for(uint pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
+                    init_it->second.str.push_back('0');
+                }
+                init_it->second.update_intval();
+            }
+        } else if(orig_type == "CFGLUT5"){
+            ci->ports[id_A1].name = id_A1;
+            ci->ports[id_A1].type = PORT_IN;
+            connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, id_A1);
+
+            // 修改params INIT
+            auto init_it = ci->params.find(ctx->id("INIT"));
+            if(init_it != ci->params.end()){
+                std::string ts(init_it->second.str);
+                init_it->second.str.clear();
+                for(u_int i=0; i<ts.size(); i++){
+                    init_it->second.str.push_back(ts[i]);
+                    init_it->second.str.push_back(ts[i]);
+                }
+                for(uint pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
+                    init_it->second.str.push_back('0');
+                }
+                init_it->second.update_intval();
             }
         }
     }
@@ -774,6 +858,86 @@ void XC7Packer::pack_bram()
             xform_cell(sdp_bram_rules, ci);
     }
 
+     // fifo
+    std::unordered_map<IdString, XFormRule> fifo_normal_rules, fifo_max_rules;//fifo18_36和fifo_36_72使用fifo_max_rules
+    fifo_normal_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    fifo_normal_rules[ctx->id("FIFO36E1")].new_type = id_FIFO36E1_FIFO36E1;
+    fifo_max_rules[ctx->id("FIFO18E1")].new_type = id_FIFO18E1_FIFO18E1;
+    fifo_max_rules[ctx->id("FIFO36E1")].new_type = id_FIFO36E1_FIFO36E1;
+    // fifo18
+    for(int i=0; i<32; i++){
+        if(i<16){
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i));
+        }else{
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i-16));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i-16));
+        }
+    }
+    for(int i=0; i<4; i++){
+        if(i<2){
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i));
+        } else {
+            fifo_normal_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i-2));
+            fifo_max_rules[ctx->id("FIFO18E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-2));
+        }
+    }
+    fifo_normal_rules[ctx->id("FIFO18E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLK"),ctx->id("RDRCLK")};
+    fifo_max_rules[ctx->id("FIFO18E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLK"),ctx->id("RDRCLK")};
+    // fifo36
+    for(int i=0; i<64; i++){
+        if(i<32){
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i));
+        }else{
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIADI" + std::to_string(i-32));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DI[" + std::to_string(i) + "]"))] = ctx->id("DIBDI" + std::to_string(i-32));
+        }
+    }
+    for(int i=0; i<8; i++){
+        if(i<4){
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i));
+        } else {
+            fifo_normal_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPADIP" + std::to_string(i-4));
+            fifo_max_rules[ctx->id("FIFO36E1")].port_xform[ctx->id(std::string("DIP[" + std::to_string(i) + "]"))] = ctx->id("DIPBDIP" + std::to_string(i-4));
+        }
+    }
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("RDCLK"))] = {ctx->id("RDCLKU"),ctx->id("RDCLKL"),ctx->id("RDRCLKU"),ctx->id("RDRCLKL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("WRCLK"))] = {ctx->id("WRCLKU"),ctx->id("WRCLKL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("RDEN"))] = {ctx->id("RDENU"),ctx->id("RDENL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("WREN"))] = {ctx->id("WRENU"),ctx->id("WRENL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("REGCE"))] = {ctx->id("REGCEU"),ctx->id("REGCEL")};
+    fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform[ctx->id(std::string("RSTREG"))] = {ctx->id("RSTREGU"),ctx->id("RSTREGL")};
+    fifo_max_rules[ctx->id("FIFO36E1")].port_multixform = fifo_normal_rules[ctx->id("FIFO36E1")].port_multixform;
+
+
+    // fifo映射
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if(ci->type == ctx->id("FIFO18E1")){
+            fold_inverter(ci, "RST");
+            std::string fifo_mode = str_or_default(ci->params, ctx->id("FIFO_MODE"),"FIFO18");
+            if(fifo_mode == "FIFO18"){
+                xform_cell(fifo_normal_rules, ci);
+            } else{
+                // FIFO18_36
+                NPNR_ASSERT(fifo_mode == "FIFO18_36");
+                xform_cell(fifo_max_rules, ci);
+            }
+        } else if(ci->type == ctx->id("FIFO36E1")){
+            fold_inverter(ci, "RST");
+            std::string fifo_mode = str_or_default(ci->params, ctx->id("FIFO_MODE"),"FIFO36");
+            if(fifo_mode == "FIFO36"){
+                xform_cell(fifo_normal_rules, ci);
+            } else {
+                NPNR_ASSERT(fifo_mode == "FIFO36_72");
+                xform_cell(fifo_max_rules, ci);
+            }
+        }
+    }
+
     // Rewrite byte enables according to data width
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -932,9 +1096,9 @@ bool Arch::pack()
         packer.pack_muxfs();
         packer.pack_carries();
         packer.pack_srls();
-        packer.pack_luts();
         packer.pack_dram();
         packer.pack_bram();
+        packer.pack_luts();
         packer.pack_dsps();
         packer.pack_ffs();
         packer.finalise_muxfs();

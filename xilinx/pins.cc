@@ -695,7 +695,7 @@ void get_bram36_ul_pins(Context *ctx, std::vector<std::pair<IdString, std::vecto
 // Gets a list of pins that are to be directly connected to a top level IO pin (only)
 void get_top_level_pins(Context *ctx, std::unordered_map<IdString, std::unordered_set<IdString>> &toplevel_pins)
 {
-    toplevel_pins[ctx->id("IBUF")] = {ctx->id("I")};
+    toplevel_pins[ctx->id("IBUF")] = {ctx->id("I")}; 
     toplevel_pins[ctx->id("IBUF_ANALOG")] = {ctx->id("I")};
     toplevel_pins[ctx->id("IBUF_IBUFDISABLE")] = {ctx->id("I")};
     toplevel_pins[ctx->id("IBUF_INTERMDISABLE")] = {ctx->id("I")};
@@ -709,6 +709,7 @@ void get_top_level_pins(Context *ctx, std::unordered_map<IdString, std::unordere
     toplevel_pins[ctx->id("IBUFDS_GTE3")] = {ctx->id("I"), ctx->id("IB")};
     toplevel_pins[ctx->id("IBUFDS_GTE4")] = {ctx->id("I"), ctx->id("IB")};
     toplevel_pins[ctx->id("IBUFDS_INTERMDISABLE")] = {ctx->id("I"), ctx->id("IB")};
+    toplevel_pins[ctx->id("IBUFDS_IBUFDISABLE")] = {ctx->id("I"), ctx->id("IB")};
     toplevel_pins[ctx->id("IBUFDSE3")] = {ctx->id("I"), ctx->id("IB")};
 
     toplevel_pins[ctx->id("IOBUF")] = {ctx->id("IO")};

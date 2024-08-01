@@ -142,7 +142,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
             subcells.push_back(obuf);
     }
 
-    bool is_diff_ibuf = xil_iob->type == ctx->id("IBUFDS") || xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE");
+    bool is_diff_ibuf = xil_iob->type == ctx->id("IBUFDS") || xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE") || xil_iob->type == ctx->id("IBUFDS_IBUFDISABLE");
     bool is_diff_iobuf = xil_iob->type == ctx->id("IOBUFDS") || xil_iob->type == ctx->id("IOBUFDS_DCIEN");
     bool is_diff_out_iobuf = xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT") ||
                              xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_DCIEN") ||
@@ -170,6 +170,10 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         disconnect_port(ctx, xil_iob, ctx->id("O"));
 
         IdString ibuf_type = ctx->id("IBUFDS");
+        if (xil_iob->type == ctx->id("IBUFDS_IBUFDISABLE"))
+            ibuf_type = ctx->id("IBUFDS_IBUFDISABLE");
+        if (xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE"))
+            ibuf_type = ctx->id("IBUFDS_INTERMDISABLE");
         CellInfo *inbuf = insert_diffibuf(int_name(xil_iob->name, "IBUF", is_se_iobuf), ibuf_type,
                                           {pad_p_net, pad_n_net}, top_out);
         if (is_riob18) {
@@ -427,8 +431,10 @@ void XC7Packer::pack_io()
     hriobuf_rules[ctx->id("IBUF")].port_xform[ctx->id("O")] = ctx->id("OUT");
     hriobuf_rules[ctx->id("IBUF_INTERMDISABLE")] = hriobuf_rules[ctx->id("IBUF")];
     hriobuf_rules[ctx->id("IBUF_IBUFDISABLE")] = hriobuf_rules[ctx->id("IBUF")];
-    hriobuf_rules[ctx->id("IBUFDS_INTERMDISABLE_INT")] = hriobuf_rules[ctx->id("IBUF")];
-    hriobuf_rules[ctx->id("IBUFDS_INTERMDISABLE_INT")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
+    hriobuf_rules[ctx->id("IBUFDS_INTERMDISABLE")] = hriobuf_rules[ctx->id("IBUF")];
+    hriobuf_rules[ctx->id("IBUFDS_INTERMDISABLE")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
+    hriobuf_rules[ctx->id("IBUFDS_IBUFDISABLE")] = hriobuf_rules[ctx->id("IBUF")];
+    hriobuf_rules[ctx->id("IBUFDS_IBUFDISABLE")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
     hriobuf_rules[ctx->id("IBUFDS")] = hriobuf_rules[ctx->id("IBUF")];
     hriobuf_rules[ctx->id("IBUFDS")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
 
@@ -443,8 +449,10 @@ void XC7Packer::pack_io()
     hpiobuf_rules[ctx->id("IBUF")].port_xform[ctx->id("O")] = ctx->id("OUT");
     hpiobuf_rules[ctx->id("IBUF_INTERMDISABLE")] = hpiobuf_rules[ctx->id("IBUF")];
     hpiobuf_rules[ctx->id("IBUF_IBUFDISABLE")] = hpiobuf_rules[ctx->id("IBUF")];
-    hriobuf_rules[ctx->id("IBUFDS_INTERMDISABLE_INT")] = hriobuf_rules[ctx->id("IBUF")];
-    hpiobuf_rules[ctx->id("IBUFDS_INTERMDISABLE_INT")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
+    hpiobuf_rules[ctx->id("IBUFDS_INTERMDISABLE")] = hpiobuf_rules[ctx->id("IBUF")];
+    hpiobuf_rules[ctx->id("IBUFDS_INTERMDISABLE")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
+    hpiobuf_rules[ctx->id("IBUFDS_IBUFDISABLE")] = hpiobuf_rules[ctx->id("IBUF")];
+    hpiobuf_rules[ctx->id("IBUFDS_IBUFDISABLE")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
     hpiobuf_rules[ctx->id("IBUFDS")] = hpiobuf_rules[ctx->id("IBUF")];
     hpiobuf_rules[ctx->id("IBUFDS")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
 
@@ -464,6 +472,10 @@ void XC7Packer::pack_io()
         if (belname.substr(pos+1, 5) == "IOB18")
             rules = hpiobuf_rules;
         else if (belname.substr(pos+1, 5) == "IOB33")
+            rules = hriobuf_rules;
+        else if (belname.substr(pos+1, 5) == "IOB33M")
+            rules = hriobuf_rules;
+        else if (belname.substr(pos+1, 5) == "IOB33S")
             rules = hriobuf_rules;
         else
             log_error("Unexpected IOBUF BEL %s\n", belname.c_str());

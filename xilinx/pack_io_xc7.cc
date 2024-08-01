@@ -473,10 +473,6 @@ void XC7Packer::pack_io()
             rules = hpiobuf_rules;
         else if (belname.substr(pos+1, 5) == "IOB33")
             rules = hriobuf_rules;
-        else if (belname.substr(pos+1, 5) == "IOB33M")
-            rules = hriobuf_rules;
-        else if (belname.substr(pos+1, 5) == "IOB33S")
-            rules = hriobuf_rules;
         else
             log_error("Unexpected IOBUF BEL %s\n", belname.c_str());
         if (rules.count(ci->type)) {

@@ -240,8 +240,12 @@ class SAPlacer
                     continue;
                 else if (!ci->constr_children.empty() || ci->constr_z != ci->UNCONSTR)
                     chain_basis.push_back(ci);
-                else
+                else {
+                    bool is_slicem = bool_or_default(ci->attrs, ctx->id("X_IS_SLICEM"), false);
+                    if (is_slicem)
+                        continue;
                     autoplaced.push_back(ci);
+                }
             }
             require_legal = false;
             diameter = 3;

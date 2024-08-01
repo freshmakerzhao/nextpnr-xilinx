@@ -427,6 +427,7 @@ void XilinxPacker::pack_srls()
     srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("D")] = id_DI1;
     srl_rules[ctx->id("SRL16E")].port_xform[ctx->id("Q")] = id_O5;
     srl_rules[ctx->id("SRL16E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
+    srl_rules[ctx->id("SRL16E")].set_attrs.emplace_back(ctx->id("X_IS_SLICEM"), Property(1));
 
     srl_rules[ctx->id("SRLC32E")].new_type = id_SLICE_LUTX;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("CLK")] = id_CLK;
@@ -434,6 +435,7 @@ void XilinxPacker::pack_srls()
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("D")] = id_DI1;
     srl_rules[ctx->id("SRLC32E")].port_xform[ctx->id("Q")] = id_O6;
     srl_rules[ctx->id("SRLC32E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
+    srl_rules[ctx->id("SRLC32E")].set_attrs.emplace_back(ctx->id("X_IS_SLICEM"), Property(1));
 
     // CFGLUT5
     srl_rules[ctx->id("CFGLUT5")].new_type = id_SLICE_LUTX;
@@ -448,6 +450,7 @@ void XilinxPacker::pack_srls()
     srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I3")] = id_A5;
     srl_rules[ctx->id("CFGLUT5")].port_xform[ctx->id("I4")] = id_A6;
     srl_rules[ctx->id("CFGLUT5")].set_attrs.emplace_back(ctx->id("X_LUT_AS_SRL"), Property(1));
+    srl_rules[ctx->id("CFGLUT5")].set_attrs.emplace_back(ctx->id("X_IS_SLICEM"), Property(1));
 
     // FIXME: Q31 support
     generic_xform(srl_rules, true);

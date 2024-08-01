@@ -62,11 +62,11 @@ void XC7Packer::prepare_clocking()
         } else if (ci->type == id_BUFH || ci->type == id_BUFHCE) {
             ci->type = id_BUFHCE_BUFHCE;
             tie_port(ci, "CE", true, true);
-        } else if (ci->type == ctx->id("BUFGMUX")) {
+        } else if (ci->type == ctx->id("BUFGMUX") || ci->type == ctx->id("BUFGMUX_1")) {
             //设置bufgmux的配置规则，将S端口所有配置信息应用到CE0和CE1      
             std::unordered_map<IdString, XFormRule> bufgmux_rules;
-            bufgmux_rules[ctx->id("BUFGMUX")].new_type = ctx->id("BUFGCTRL");
-            bufgmux_rules[ctx->id("BUFGMUX")].port_multixform[ctx->id(std::string("S"))] = {ctx->id("CE0"),
+            bufgmux_rules[ci->type].new_type = ctx->id("BUFGCTRL");
+            bufgmux_rules[ci->type].port_multixform[ctx->id(std::string("S"))] = {ctx->id("CE0"),
                                                                                             ctx->id("CE1")};
             //应用bufgmux_rules中的规则
             xform_cell(bufgmux_rules, ci);

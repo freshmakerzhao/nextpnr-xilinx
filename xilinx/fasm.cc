@@ -1346,7 +1346,8 @@ struct FasmBackend
                 auto xy = ctx->getSiteLocInTile(ci->bel);
                 push("BUFGCTRL.BUFGCTRL_X" + std::to_string(xy.x) + "Y" + std::to_string(xy.y));
                 write_bit("IN_USE");
-                if(ci->attrs[ctx->id("X_ORIG_TYPE")].to_string() == "BUFGMUX_1")
+                std::string origin_type = str_or_default(ci->attrs, ctx->id("BUFGMUX_1"), "");
+                if(origin_type == "BUFGMUX_1")
                 {
                     write_bit("INIT_OUT",true);
                 }

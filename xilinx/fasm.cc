@@ -1346,6 +1346,11 @@ struct FasmBackend
                 auto xy = ctx->getSiteLocInTile(ci->bel);
                 push("BUFGCTRL.BUFGCTRL_X" + std::to_string(xy.x) + "Y" + std::to_string(xy.y));
                 write_bit("IN_USE");
+                std::string origin_type = str_or_default(ci->attrs, ctx->id("BUFGMUX_1"), "");
+                if(origin_type == "BUFGMUX_1")
+                {
+                    write_bit("INIT_OUT",true);
+                }
                 write_bit("INIT_OUT", bool_or_default(ci->params, ctx->id("INIT_OUT")));
                 write_bit("IS_IGNORE0_INVERTED", bool_or_default(ci->params, ctx->id("IS_IGNORE0_INVERTED")));
                 write_bit("IS_IGNORE1_INVERTED", bool_or_default(ci->params, ctx->id("IS_IGNORE1_INVERTED")));

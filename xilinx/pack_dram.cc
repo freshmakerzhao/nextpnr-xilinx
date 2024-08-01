@@ -35,7 +35,7 @@ CellInfo *XilinxPacker::create_dram_lut(const std::string &name, CellInfo *base,
                                         std::vector<NetInfo *> address, NetInfo *di, NetInfo *dout, int z)
 {
     // [lgl] 判断是否是单端，单端的话使用RAMS64E，双端的话使用RAMD64E
-    bool is_single_port = (ctrlset.memtype == ctx->id("RAM64X1S"));
+    bool is_single_port = (ctrlset.memtype == ctx->id("RAM64X1S") || ctrlset.memtype == ctx->id("RAM128X1S") || ctrlset.memtype == ctx->id("RAM256X1S"));
     IdString cell_type = is_single_port ? ctx->id("RAMS64E") : ctx->id("RAMD64E");
 
     std::unique_ptr<CellInfo> dram_lut = create_cell(ctx, cell_type, ctx->id(name));
@@ -54,8 +54,10 @@ CellInfo *XilinxPacker::create_dram_lut(const std::string &name, CellInfo *base,
             else
                 connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
         } else {
-            connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
-            connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
+            if (i < 6)
+                connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
+            if (i < 8)
+                connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
         }
     }
 
@@ -517,6 +519,36 @@ void XilinxPacker::pack_dram()
                 create_muxf_tree(base, "DPO", dpo_pre, addressr_high, dpo, m256 ? 0 : (ctx->xc7 ? 0 : 4));
 
                 packed_cells.insert(ci->name);
+            }
+        } else if (cs.memtype == ctx->id("RAM128X1S") || cs.memtype == ctx->id("RAM256X1S")) {
+            bool m256 = cs.memtype == ctx->id("RAM256X1S");
+            for (auto cell : group.second){
+                auto init = get_or_default(cell->params, ctx->id("INIT"), Property(0, m256 ? 256 : 128));
+                std::vector<NetInfo *> spo_pre, dpo_pre;
+                int z = (height - 1);
+
+                NetInfo *spo = get_net_or_empty(cell, ctx->id("O"));
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                //LOW 6 bits of address - connect directly to RAM cells
+                std::vector<NetInfo *> addressw_64(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
+
+                //Upper bits of address - feed decode muxes
+                std::vector<NetInfo *> addressw_high(cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6), cs.wa.end());
+                CellInfo *base = nullptr;
+
+                for (int i = 0; i < (m256 ? 4 : 2); i++){
+                    NetInfo *spo_i = create_internal_net(cell->name, "O_" + std::to_string(i), false);
+                    CellInfo *spr = create_dram_lut(cell->name.str(ctx) + "/ADDR" + std::to_string(i), base, cs, addressw_64, get_net_or_empty(cell, ctx->id("D")), spo_i, z);
+                    if (base == nullptr)
+                        base = spr;
+                    spo_pre.push_back(spo_i);
+                    spr->params[ctx->id("INIT")] = init.extract(i * 64, 64);
+                    z--;
+                }
+                // Decode mux tree using MUXF[78]
+                create_muxf_tree(base, "O", spo_pre, addressw_high, spo, m256 ? 0 : 2);
+                packed_cells.insert(cell->name);
             }
         }
     }

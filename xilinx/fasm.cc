@@ -25,7 +25,7 @@
 #include "nextpnr.h"
 #include "pins.h"
 #include "util.h"
-
+#include "json.hpp"
 NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct FasmBackend
@@ -1203,9 +1203,10 @@ struct FasmBackend
     void write_ibuf_config(CellInfo *ci){
         // 根据cellinfo内部的parameter，确定需要什么fasm
         // log_info("this is write_ibuf_config");
-        auto iter = ci->params.find(ctx->id("USE_IBUFDISABLE"));
-        if(iter != ci->params.end()){
-            if(iter->second.str == "TRUE"){
+        std::string origin_type = str_or_default(ci->attrs, ctx->id("X_ORIG_TYPE"), "");
+        if(origin_type == "IBUF_IBUFDISABLE" || origin_type == "IBUF_INTERMDISABLE" || origin_type == "IBUFDS_INTERMDISABLE" || origin_type == "IBUFDS_IBUFDISABLE"){
+            std::string usd_ibufdisable = str_or_default(ci->params, ctx->id("USE_IBUFDISABLE") , "TRUE");
+            if(usd_ibufdisable == "TRUE"){
                 std::string tile = get_tile_name(ci->bel.tile);
                 push(tile);
                 Loc ioLoc = ctx->getSiteLocInTile(ci->bel);
@@ -1237,9 +1238,9 @@ struct FasmBackend
                        ci->type == ctx->id("ODELAYE2_ODELAYE2")) {
                 write_iol_config(ci);
                 blank();
-            } else if(ci->type == ctx->id("IOB33_INBUF_EN")){
+            } else if(ci->type == ctx->id("IOB33_INBUF_EN") || ci->type == ctx->id("IOB33M_INBUF_EN") || ci->type == ctx->id("IOB33S_INBUF_EN") ){
                 write_ibuf_config(ci);
-            }
+            } 
         }
         for (auto &hclk : ioconfig_by_hclk) {
             push(get_tile_name(hclk.first));
@@ -1301,6 +1302,48 @@ struct FasmBackend
                     log_error("Unknown ICAP_WIDTH of '%s\n'. Allowed values are: X32, X16 and X8.", width.c_str());
                 if (width == "X16") write_bit("ICAP_WIDTH_X16");
                 if (width == "X8") write_bit("ICAP_WIDTH_X8");
+                auto xy = ctx->getSiteLocInTile(ci->bel);
+                std::string icap_location ="ICAP_Y" +  std::to_string(xy.y);
+                // 将使用icap的信息存入order.json文件，用来判断是否需要在头文件插入数据
+                if(icap_location == "ICAP_Y0"){
+                    nlohmann::json order_data;
+                    std::string file_path = "order.json";
+                    // 读取 order.json 文件
+                    std::ifstream file_in(file_path);
+                    if(file_in.is_open()){
+                        try {
+                            // 将json文件内容回读到json对象实现追加内容操作
+					        file_in >> order_data;
+					    } catch (nlohmann::detail::exception& e) {
+                            log_error("[Implementation_fasm_hybrd]：order.json file content append error: %s", e.what());
+					    }
+                        file_in.close();
+                    }
+                    // 向 JSON 对象中添加数据
+                    order_data["icap"] = {
+                        {"icap_head_value_1", "0x40000401"},
+                        {"icap_head_value_2", "0x40000501"}
+                    };
+                   // 将更新后的 JSON 对象写回文件
+                    std::ofstream file_out(file_path);
+                    if (file_out.is_open()) {
+                        file_out << order_data.dump(4); // 格式化输出，缩进 4 个空格
+                        file_out.close();
+                    } else {
+                        log_error("[Implementation_fasm_hybrd]：Unable to open order.file for writing");
+                        return;
+                    }
+                    write_bit("CFG_ICAP_BOTM_EN_TMR0");
+                    write_bit("CFG_ICAP_BOTM_EN_TMR1");
+                    write_bit("CFG_ICAP_BOTM_EN_TMR2");
+                } else {
+                    assert("ICAP_Y1" == icap_location);
+                    write_bit("CFG_ICAP_TOP_EN_TMR0");
+                    write_bit("CFG_ICAP_TOP_EN_TMR1");
+                    write_bit("CFG_ICAP_TOP_EN_TMR2");
+                }
+                push(icap_location);
+                pop();
                 pop();
             }
 
@@ -1565,8 +1608,8 @@ struct FasmBackend
                 write_bit("ZINV_ENBWREN", !bool_or_default(ci->params, ctx->id("IS_WREN_INVERTED"), false));
                 // 未发现不出现的情况
                 write_bit("ZINV_REGCLKARDRCLK");
-                
-            } else if (ci->type == id_FIFO36E1_FIFO36E1) {
+
+                            } else if (ci->type == id_FIFO36E1_FIFO36E1) {
                 std::string fifo_mode = str_or_default(ci->params, ctx->id("FIFO_MODE"), "FIFO36");
                 if(fifo_mode == "FIFO36"){
                     write_fifo_width(ci, false, true);
@@ -1621,30 +1664,30 @@ struct FasmBackend
             write_bit("CASCOUT_ARD_ACTIVE", !used_rdaddrcasc.empty());
             write_bit("CASCOUT_BWR_ACTIVE", !used_wraddrcasc.empty());
             if(ci != nullptr && (ci->type == id_FIFO36E1_FIFO36E1 || ci->type == id_FIFO18E1_FIFO18E1) ) {
-                std::vector<bool>almost_empty_offset_vector;
-                auto almost_empty_offset = Property(128,13);
-                auto found = ci->params.find(ctx->id("ALMOST_EMPTY_OFFSET"));
-                if (found != ci->params.end()){
-                    almost_empty_offset = Property(found->second.intval,13);
-                } 
-                for(auto c:almost_empty_offset.str){
-                    // 取反
-                    almost_empty_offset_vector.push_back(c == Property::S0);
-                }
-                write_vector("ZALMOST_EMPTY_OFFSET[12:0]",almost_empty_offset_vector);
+            std::vector<bool>almost_empty_offset_vector;
+            auto almost_empty_offset = Property(128,13);
+            auto found = ci->params.find(ctx->id("ALMOST_EMPTY_OFFSET"));
+            if (found != ci->params.end()){
+                almost_empty_offset = Property(found->second.intval,13);
+            } 
+            for(auto c:almost_empty_offset.str){
+                // 取反
+                almost_empty_offset_vector.push_back(c == Property::S0);
+            }
+            write_vector("ZALMOST_EMPTY_OFFSET[12:0]",almost_empty_offset_vector);
 
-                std::vector<bool>almost_full_offset_vector;
-                auto almost_full_offset = Property(129,13);
-                auto full_found = ci->params.find(ctx->id("ALMOST_FULL_OFFSET"));
-                if (full_found != ci->params.end()){
-                    almost_full_offset = Property(full_found->second.intval+1,13);
-                }
-                for(auto c:almost_full_offset.str){
-                    // 取反
-                    almost_full_offset_vector.push_back(c == Property::S0);
-                }
-                write_vector("ZALMOST_FULL_OFFSET[12:0]",almost_full_offset_vector);
-                
+            std::vector<bool>almost_full_offset_vector;
+            auto almost_full_offset = Property(129,13);
+            auto full_found = ci->params.find(ctx->id("ALMOST_FULL_OFFSET"));
+            if (full_found != ci->params.end()){
+                almost_full_offset = Property(full_found->second.intval+1,13);
+            }
+            for(auto c:almost_full_offset.str){
+                // 取反
+                almost_full_offset_vector.push_back(c == Property::S0);
+            }
+            write_vector("ZALMOST_FULL_OFFSET[12:0]",almost_full_offset_vector);
+
                 int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 0);
                 if(ci->type == id_FIFO36E1_FIFO36E1) {
                     width = int(width/2);

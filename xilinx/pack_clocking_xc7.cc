@@ -72,21 +72,34 @@ void XC7Packer::prepare_clocking()
             //应用bufgmux_rules中的规则
             xform_cell(bufgmux_rules, ci);
 
+            std::string sel_type = str_or_default(ci->params, ctx->id("CLK_SEL_TYPE"), "");
+            if(sel_type == "ASYNC")
+            {
+                //配置持续高电平，不反相
+                tie_port(ci, "S0", true, true);
+                tie_port(ci, "S1", true, true);
+                //配置IGNORE0和IGNORE1，持续高电平，不反相
+                tie_port(ci, "IGNORE0", false, true);
+                tie_port(ci, "IGNORE1", false, true);
+
+            }
+            else{
+                 /*
+                这些设置确保BUFGCTRL的行为模拟BUFGMUX:
+                        S0和S1设为高电平使得CE0和CE1控制输入选择。
+                        IGNORE0和IGNORE1设为高电平，内部默认反相，所以不需要再反相。
+            
+                */
+                //配置持续高电平，不反相
+                tie_port(ci, "S0", true, true);
+                tie_port(ci, "S1", true, true);
+                //配置IGNORE0和IGNORE1，持续高电平，反相
+                tie_port(ci, "IGNORE0", true, false);
+                tie_port(ci, "IGNORE1", true, false);
+            }
             //根据DEVICE，设置CE0反相，CE1不反相
             ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);
             ci->params[ctx->id("IS_CE1_INVERTED")] = Property(0);
-        /*
-	        这些设置确保BUFGCTRL的行为模拟BUFGMUX:
-					S0和S1设为高电平使得CE0和CE1控制输入选择。
-					IGNORE0和IGNORE1设为高电平，内部默认反相，所以不需要再反相。
-        
-        */
-            //配置持续高电平还是低电平，是否反相
-            tie_port(ci, "S0", true, true);
-            tie_port(ci, "S1", true, true);
-            //配置IGNORE0和IGNORE1，持续高电平，
-            tie_port(ci, "IGNORE0", true, false);
-            tie_port(ci, "IGNORE1", true, false);
 
         }
     }

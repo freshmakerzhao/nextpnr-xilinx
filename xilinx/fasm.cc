@@ -1206,7 +1206,8 @@ struct FasmBackend
         std::string origin_type = str_or_default(ci->attrs, ctx->id("X_ORIG_TYPE"), "");
         if(origin_type == "IBUF_IBUFDISABLE" || origin_type == "IBUF_INTERMDISABLE" || origin_type == "IBUFDS_INTERMDISABLE" || origin_type == "IBUFDS_IBUFDISABLE"){
             std::string usd_ibufdisable = str_or_default(ci->params, ctx->id("USE_IBUFDISABLE") , "TRUE");
-            if(usd_ibufdisable == "TRUE"){
+            std::string usd_intermdisable = str_or_default(ci->params, ctx->id("USE_IBUFDISABLE") , "TRUE");
+            if(usd_ibufdisable == "TRUE" || usd_intermdisable == "TRUE"){
                 std::string tile = get_tile_name(ci->bel.tile);
                 push(tile);
                 Loc ioLoc = ctx->getSiteLocInTile(ci->bel);
@@ -1214,7 +1215,12 @@ struct FasmBackend
                 bool is_top_sing = ci->bel.tile < ctx->getHclkForIob(ci->bel);
                 auto yLoc = is_sing ? (is_top_sing ? 1 : 0) : (1 - ioLoc.y);
                 push("IOB_Y" + std::to_string(yLoc));
-                write_bit("IBUFDISABLE.I");
+                if(usd_ibufdisable == "TRUE"){
+                    write_bit("IBUFDISABLE.I");
+                }
+                if (usd_intermdisable == "TRUE"){
+                    write_bit("INTERMDISABLE.I");
+                }
                 pop();
                 pop();
             }

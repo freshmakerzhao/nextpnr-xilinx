@@ -710,6 +710,12 @@ void XC7Packer::pack_iologic()
     iologic_rules[ctx->id("IDDR")].port_xform[ctx->id("S")] = ctx->id("SR");
     iologic_rules[ctx->id("IDDR")].port_xform[ctx->id("R")] = ctx->id("SR");
 
+    iologic_rules[ctx->id("IDDR_2CLK")].new_type = ctx->id("ILOGICE3_IFF");
+    iologic_rules[ctx->id("IDDR_2CLK")].port_xform[ctx->id("C")] = ctx->id("CK");
+    iologic_rules[ctx->id("IDDR_2CLK")].port_xform[ctx->id("CB")] = ctx->id("CKB");
+    iologic_rules[ctx->id("IDDR_2CLK")].port_xform[ctx->id("S")] = ctx->id("SR");
+    iologic_rules[ctx->id("IDDR_2CLK")].port_xform[ctx->id("R")] = ctx->id("SR");
+
     // SERDES
     iologic_rules[ctx->id("ISERDESE2")].new_type = ctx->id("ISERDESE2_ISERDESE2");
     iologic_rules[ctx->id("OSERDESE2")].new_type = ctx->id("OSERDESE2_OSERDESE2");
@@ -793,7 +799,7 @@ void XC7Packer::pack_iologic()
             ci->attrs[ctx->id("BEL")] = iol_site + "/ODELAYE2";
             ci->attrs[ctx->id("X_IO_BEL")] = ctx->getBelName(io_bel).str(ctx);
             iodelay_to_io[ci->name] = io_bel;
-        }
+        } 
     }
 
     std::unordered_set<BelId> used_oserdes_bels;
@@ -860,8 +866,16 @@ void XC7Packer::pack_iologic()
             } else {
                 log_error("%s '%s' has illegal fanout on OQ or OFB output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
             }
-        } else if (ci->type == ctx->id("IDDR")) {
+        } else if (ci->type == ctx->id("IDDR") || ci->type == ctx->id("IDDR_2CLK")) {
             fold_inverter(ci, "C");
+            if(ci->type == ctx->id("IDDR_2CLK")){
+                fold_inverter(ci, "CB");
+            }
+
+            NetInfo *s_in = get_net_or_empty(ci, ctx->id("S"));
+            if (s_in != nullptr && s_in->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("S"));
+            NetInfo *r_in = get_net_or_empty(ci, ctx->id("R"));
+            if (r_in != nullptr && r_in->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("R"));
 
             BelId io_bel;
             NetInfo *d = get_net_or_empty(ci, ctx->id("D"));

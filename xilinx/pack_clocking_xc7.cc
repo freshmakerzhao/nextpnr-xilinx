@@ -72,6 +72,21 @@ void XC7Packer::prepare_clocking()
             tie_port(ci, "CE", true, true);
         } else if (ci->type == ctx->id("BUFGMUX") || ci->type == ctx->id("BUFGMUX_1")) {
 
+            //吸收端口前的反相器
+            fold_inverter(ci,std::string("S"));
+            int inverter = int_or_default(ci->params,ctx->id("IS_S_INVERTED"));
+            if(inverter)
+            {
+                //根据DEVICE，设置CE1反相，CE0不反相
+                ci->params[ctx->id("IS_CE0_INVERTED")] = Property(0);
+                ci->params[ctx->id("IS_CE1_INVERTED")] = Property(1);
+            }
+            else{
+                //根据DEVICE，设置CE0反相，CE1不反相
+                ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);
+                ci->params[ctx->id("IS_CE1_INVERTED")] = Property(0);
+            }
+
             //应用bufgmux_rules中的规则
             xform_cell(bufgmux_rules, ci);
 
@@ -97,17 +112,27 @@ void XC7Packer::prepare_clocking()
                 tie_port(ci, "IGNORE0", true, false);
                 tie_port(ci, "IGNORE1", true, false);
             }
-            //根据DEVICE，设置CE0反相，CE1不反相
-            ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);
-            ci->params[ctx->id("IS_CE1_INVERTED")] = Property(0);
 
         }else if(ci->type == ctx->id("BUFGMUX_CTRL")){
+
+            //吸收端口前的反相器
+            fold_inverter(ci,std::string("S"));
+            int inverter = int_or_default(ci->params,ctx->id("IS_S_INVERTED"));
+            if(inverter)
+            {
+                //根据DEVICE，设置S1反相，S0不反相
+                ci->params[ctx->id("IS_S0_INVERTED")] = Property(0);
+                ci->params[ctx->id("IS_S1_INVERTED")] = Property(1);
+            }
+            else{
+                //根据DEVICE，设置S0反相，S1不反相
+                ci->params[ctx->id("IS_S0_INVERTED")] = Property(1);
+                ci->params[ctx->id("IS_S1_INVERTED")] = Property(0);
+            }
+            
             //应用bufgmux_rules中的规则
             xform_cell(bufgmux_rules, ci);
 
-            //根据DEVICE，设置S0反相，S1不反相
-            ci->params[ctx->id("IS_S0_INVERTED")] = Property(1);
-            ci->params[ctx->id("IS_S1_INVERTED")] = Property(0);
             /*这些设置确保BUFGCTRL的行为模拟BUFGMUX_CTRL:
                 1.CE0和CE1设为高电平使得S0和S1控制输入选择。
                 2.IGNORE0和IGNORE1设为高电平，内部默认反相，所以不需要再反相.*/

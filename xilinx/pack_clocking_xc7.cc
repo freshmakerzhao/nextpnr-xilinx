@@ -40,7 +40,7 @@ void XC7Packer::prepare_clocking()
     upgrade[ctx->id("MMCME2_BASE")] = ctx->id("MMCME2_ADV");
     upgrade[ctx->id("PLLE2_BASE")] = ctx->id("PLLE2_ADV");
 
-    for (auto cell : sorted(ctx->cells)) { 
+    for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (upgrade.count(ci->type)) {
             IdString new_type = upgrade.at(ci->type);
@@ -63,13 +63,21 @@ void XC7Packer::prepare_clocking()
             ci->type = id_BUFHCE_BUFHCE;
             tie_port(ci, "CE", true, true);
         } else if (ci->type == id_BUFR) {
-            ci->type = id_BUFR_BUFR;
-            ci->setParam(ctx->id("SIM_DEVICE"), Property("7SERIES"));
+            //ci->type = id_BUFR_BUFR;
+            ci->setParam(ctx->id("SIM_DEVICE"), Property("7SERIES"));  //  for HybrdChip, always set to '7SERIES'
 
             if (ci->ports[ctx->id("CE")].net == nullptr)
                 tie_port(ci, "CE", true, false);
-            if (ci->ports[ctx->id("CLR")].net == nullptr)
+            if (ci->ports[ctx->id("CLR")].net == nullptr) 
                 tie_port(ci, "CLR", false, false);
+
+            std::unordered_map<IdString, XFormRule> bufr_rules;
+            bufr_rules[ctx->id("BUFR")].new_type = ctx->id("BUFR_BUFR");
+            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("CE")] = ctx->id("CE");
+            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("CLR")] = ctx->id("CLR");
+            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("I")] = ctx->id("I");
+            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("O")] = ctx->id("O");
+            xform_cell(bufr_rules, ci);
         }
     }
 }

@@ -1077,6 +1077,7 @@ struct FasmBackend
         } else if (ci->type == ctx->id("OLOGICE2_OUTFF") || ci->type == ctx->id("OLOGICE3_OUTFF")) {
             std::string edge = str_or_default(ci->params, ctx->id("DDR_CLK_EDGE"), "OPPOSITE_EDGE");
             if (edge == "SAME_EDGE") write_bit("ODDR.DDR_CLK_EDGE.SAME_EDGE");
+            else if (edge == "OPPOSITE_EDGE") write_bit("ODDR.DDR_CLK_EDGE.OPPOSITE_EDGE");
 
             write_bit("ODDR_TDDR.IN_USE");
             write_bit("OQUSED");
@@ -1090,7 +1091,7 @@ struct FasmBackend
                 write_bit("IS_" + d + "_INVERTED",
                           bool_or_default(ci->params, ctx->id("IS_" + d + "_INVERTED"), false));
 
-            auto init = int_or_default(ci->params, ctx->id("INIT"), 1);
+            auto init = int_or_default(ci->params, ctx->id("INIT"), 0);
             if (init == 0) write_bit("ZINIT_OQ");
 
             write_bit("ODDR.SRUSED", get_net_or_empty(ci, ctx->id("SR")) != nullptr);

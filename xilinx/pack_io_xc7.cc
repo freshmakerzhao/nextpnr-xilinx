@@ -881,6 +881,11 @@ void XC7Packer::pack_iologic()
             PortRef dest_port = *q->users.begin();
             auto is_tristate = dest_port.port == ctx->id("TRI");
 
+            NetInfo *s_in = get_net_or_empty(ci, ctx->id("S"));
+            if (s_in != nullptr && s_in->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("S"));
+            NetInfo *r_in = get_net_or_empty(ci, ctx->id("R"));
+            if (r_in != nullptr && r_in->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("R"));
+
             std::unordered_map<IdString, XFormRule> oddr_rules;
             if (boost::contains(io_bel_str, "IOB18"))
                 oddr_rules[ctx->id("ODDR")].new_type = is_tristate ? ctx->id("OLOGICE2_TFF") : ctx->id("OLOGICE2_OUTFF");
@@ -890,6 +895,8 @@ void XC7Packer::pack_iologic()
             oddr_rules[ctx->id("ODDR")].port_xform[ctx->id("S")] = ctx->id("SR");
             oddr_rules[ctx->id("ODDR")].port_xform[ctx->id("R")] = ctx->id("SR");
             xform_cell(oddr_rules, ci);
+
+            fold_inverter(ci, "CLK");
 
             ci->attrs[ctx->id("BEL")] = ol_site + (is_tristate ? "/TFF" : "/OUTFF");
         } else if (ci->type == ctx->id("OSERDESE2")) {

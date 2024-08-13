@@ -27,7 +27,7 @@ NEXTPNR_NAMESPACE_BEGIN
 bool is_valid_hex32(const std::string &str) {
     std::string hex_digits = "0123456789abcdefABCDEF";
     // Check for optional "0x" or "0X" prefix
-    assert(hex_digits.size() == 10);
+    assert(str.size() == 10);
     assert((str[0] == '0' && (str[1] == 'x' || str[1] == 'X')));
     // Check if all characters are valid hex digits
     for (size_t i = 2; i < str.size(); ++i) {

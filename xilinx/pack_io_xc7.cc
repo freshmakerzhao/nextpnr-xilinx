@@ -66,13 +66,11 @@ std::string XC7Packer::get_tilename_by_sitename(Context *ctx, std::string site)
 void XC7Packer::update_usr_ibufdisable(Context *ctx,CellInfo *inbuf) {
     auto it = inbuf->ports.find(ctx->id("IBUFDISABLE"));
     if (it != inbuf->ports.end()) {
-        const auto& port_value = it->second;
+        auto& port_value = it->second;
         // 仅当 port_value 的驱动类型为 PSEUDO_GND 时执行操作
-        if (port_value.net->driver.cell->type == ctx->id("PSEUDO_GND")) {
+        if (port_value.net == nullptr || port_value.net->driver.cell->type == ctx->id("PSEUDO_GND"))
             inbuf->params[ctx->id("USE_IBUFDISABLE")] = Property("FALSE");
-        }
-    }
-    else {
+    } else {
         return;
     }
 }
@@ -197,9 +195,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         IdString ibuf_type = ctx->id("IBUFDS");
         if (xil_iob->type == ctx->id("IBUFDS_IBUFDISABLE"))
             ibuf_type = ctx->id("IBUFDS_IBUFDISABLE");
-        if (xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE"))
-            ibuf_type = ctx->id("IBUFDS_INTERMDISABLE");
-        if (xil_iob->type == ctx->id("IOBUFDS_INTERMDISABLE"))
+        if (xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE") || xil_iob->type == ctx->id("IOBUFDS_INTERMDISABLE"))
             ibuf_type = ctx->id("IBUFDS_INTERMDISABLE");
         CellInfo *inbuf = insert_diffibuf(int_name(xil_iob->name, "IBUF", is_se_iobuf), ibuf_type,
                                           {pad_p_net, pad_n_net}, top_out);
@@ -345,6 +341,8 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         }
         // 迁移原cell的parameter
         inbuf_n->params.insert(xil_iob->params.begin(), xil_iob->params.end());
+        if(driver_ibufdisable_port)
+            update_usr_ibufdisable(ctx, inbuf_n);
         subcells.push_back(inbuf_n);
     }
     if(is_diff_out_iobuf){
@@ -390,6 +388,9 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         replace_port(xil_iob, ctx->id("INTERMDISABLE"), inbuf_n, ctx->id("INTERMDISABLE"));
         // 迁移原cell的parameter
         inbuf_n->params.insert(xil_iob->params.begin(), xil_iob->params.end());
+         // 更新与USE_IBUFDISABLE相关的IO原语
+        if(driver_ibufdisable_port)
+            update_usr_ibufdisable(ctx, inbuf_n);
         if (is_riob18) {
         } else {
             inbuf_n->attrs[ctx->id("BEL")] = site_n + "/IOB33S/INBUF_EN";

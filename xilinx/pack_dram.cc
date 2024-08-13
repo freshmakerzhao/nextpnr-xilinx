@@ -348,7 +348,7 @@ void XilinxPacker::pack_dram()
                     if (z == (height - 2)) {
                         // Can fold DPO into address buffer
                         connect_port(ctx, spo, base, ctx->id("O6"));
-                        connect_port(ctx, di, base, ctx->id("DI2"));
+                        connect_port(ctx, di, base, ctx->id("DI1"));
                         if (cell->params.count(ctx->id("INIT")))
                             base->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
                     } else {

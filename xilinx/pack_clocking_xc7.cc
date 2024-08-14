@@ -40,33 +40,44 @@ void XC7Packer::prepare_clocking()
     upgrade[ctx->id("MMCME2_BASE")] = ctx->id("MMCME2_ADV");
     upgrade[ctx->id("PLLE2_BASE")] = ctx->id("PLLE2_ADV");
     //设置bufgmux的配置规则，BUFGMUX和BUFGMUX_1将S端口所有配置信息应用到CE0和CE1      
-    std::unordered_map<IdString, XFormRule> bufgmux_rules;
-    bufgmux_rules[ctx->id("BUFGMUX")].new_type = ctx->id("BUFGCTRL");
-    bufgmux_rules[ctx->id("BUFGMUX")].port_multixform[ctx->id("S")] = {ctx->id("CE0"),ctx->id("CE1")};
-    bufgmux_rules[ctx->id("BUFGMUX_1")] = bufgmux_rules[ctx->id("BUFGMUX")];
+    std::unordered_map<IdString, XFormRule> bufgctrl_rules;
+    bufgctrl_rules[ctx->id("BUFGMUX")].new_type = ctx->id("BUFGCTRL");
+    bufgctrl_rules[ctx->id("BUFGMUX")].port_multixform[ctx->id("S")] = {ctx->id("CE0"),ctx->id("CE1")};
+    bufgctrl_rules[ctx->id("BUFGMUX_1")] = bufgctrl_rules[ctx->id("BUFGMUX")];
 
-    bufgmux_rules[ctx->id("BUFGMUX_CTRL")].new_type = ctx->id("BUFGCTRL");
-    bufgmux_rules[ctx->id("BUFGMUX_CTRL")].port_multixform[ctx->id("S")] = {ctx->id("S0"),ctx->id("S1")};
+    bufgctrl_rules[ctx->id("BUFGMUX_CTRL")].new_type = ctx->id("BUFGCTRL");
+    bufgctrl_rules[ctx->id("BUFGMUX_CTRL")].port_multixform[ctx->id("S")] = {ctx->id("S0"),ctx->id("S1")};
+
+    bufgctrl_rules[ctx->id("BUFGCE")].new_type = ctx->id("BUFGCTRL");
+    bufgctrl_rules[ctx->id("BUFGCE")].port_xform[ctx->id("I")] = ctx->id("I0");
+    bufgctrl_rules[ctx->id("BUFGCE")].port_xform[ctx->id("CE")] = ctx->id("CE0");
+    bufgctrl_rules[ctx->id("BUFGCE_1")] = bufgctrl_rules[ctx->id("BUFGCE")];
+
+    bufgctrl_rules[ctx->id("BUFG")].new_type = ctx->id("BUFGCTRL");
+    bufgctrl_rules[ctx->id("BUFG")].port_xform[ctx->id("I")] = ctx->id("I0");
 
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (upgrade.count(ci->type)) {
-            IdString new_type = upgrade.at(ci->type);
-            ci->type = new_type;
+            bufgctrl_rules[ci->type].new_type = upgrade.at(ci->type);
         } else if (ci->type == ctx->id("BUFG")) {
-            ci->type = ctx->id("BUFGCTRL");
-            rename_port(ctx, ci, ctx->id("I"), ctx->id("I0"));
             tie_port(ci, "CE0", true, true);
             tie_port(ci, "S0", true, true);
             tie_port(ci, "S1", false, true);
             tie_port(ci, "IGNORE0", true, true);
-        } else if (ci->type == ctx->id("BUFGCE")) {
-            ci->type = ctx->id("BUFGCTRL");
-            rename_port(ctx, ci, ctx->id("I"), ctx->id("I0"));
-            rename_port(ctx, ci, ctx->id("CE"), ctx->id("CE0"));
+        } else if (ci->type == ctx->id("BUFGCE") || ci->type == ctx->id("BUFGCE_1")) {
+            fold_inverter(ci,"CE");
+            int inverter = int_or_default(ci->params,ctx->id("IS_CE_INVERTED"));
+            if(inverter)
+            {
+                //根据DEVICE，设置CE1反相，CE0不反相
+                ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);
+                ci->params.erase(ctx->id("IS_CE_INVERTED"));
+            }
             tie_port(ci, "S0", true, true);
             tie_port(ci, "S1", false, true);
             tie_port(ci, "IGNORE0", true, true);
+            tie_port(ci, "IGNORE1", false, true);
         } else if (ci->type == id_BUFH || ci->type == id_BUFHCE) {
             ci->type = id_BUFHCE_BUFHCE;
             tie_port(ci, "CE", true, true);
@@ -74,10 +85,6 @@ void XC7Packer::prepare_clocking()
             
             //吸收端口前的反相器
             fold_inverter(ci,"S");
-            for(auto& it : ci->params)
-            {
-                std::string str = it.first.c_str(ctx);
-            }
             int inverter = int_or_default(ci->params,ctx->id("IS_S_INVERTED"));
             if(inverter)
             {
@@ -91,9 +98,6 @@ void XC7Packer::prepare_clocking()
                 ci->params[ctx->id("IS_CE0_INVERTED")] = Property(1);
                 ci->params[ctx->id("IS_CE1_INVERTED")] = Property(0);
             }
-
-            //应用bufgmux_rules中的规则
-            xform_cell(bufgmux_rules, ci);
 
             std::string sel_type = str_or_default(ci->params, ctx->id("CLK_SEL_TYPE"), "SYNC");
             if(sel_type == "ASYNC")
@@ -139,10 +143,6 @@ void XC7Packer::prepare_clocking()
                 ci->params[ctx->id("IS_S0_INVERTED")] = Property(1);
                 ci->params[ctx->id("IS_S1_INVERTED")] = Property(0);
             }
-
-            //应用bufgmux_rules中的规则
-            xform_cell(bufgmux_rules, ci);
-
             /*这些设置确保BUFGCTRL的行为模拟BUFGMUX_CTRL:
                 1.CE0和CE1设为高电平使得S0和S1控制输入选择。
                 2.IGNORE0和IGNORE1设为高电平，内部默认反相，所以不需要再反相.*/
@@ -154,6 +154,8 @@ void XC7Packer::prepare_clocking()
             tie_port(ci, "IGNORE1", true, false);
         }
     }
+    //应用bufgmux_rules中的规则
+    generic_xform(bufgctrl_rules);
 }
 
 void XC7Packer::pack_plls()

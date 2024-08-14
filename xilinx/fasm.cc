@@ -1398,7 +1398,7 @@ struct FasmBackend
                 push("BUFGCTRL.BUFGCTRL_X" + std::to_string(xy.x) + "Y" + std::to_string(xy.y));
                 write_bit("IN_USE");
                 std::string origin_type = str_or_default(ci->attrs, ctx->id("X_ORIG_TYPE"), "");
-                if(origin_type == "BUFGMUX_1")
+                if(origin_type == "BUFGMUX_1" ||origin_type == "BUFGCE_1")
                 {
                     write_bit("INIT_OUT",true);
                 }

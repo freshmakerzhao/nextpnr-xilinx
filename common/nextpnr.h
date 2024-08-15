@@ -454,7 +454,7 @@ struct CellInfo : ArchCellInfo
     std::unordered_map<IdString, PortInfo> ports;
     std::unordered_map<IdString, Property> attrs, params;
 
-    BelId bel;
+    BelId bel;  // Gussing: bel that cell is placed at
     PlaceStrength belStrength = STRENGTH_NONE;
 
     // cell_port -> bel_pin

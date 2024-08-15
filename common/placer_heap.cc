@@ -144,13 +144,19 @@ class HeAPPlacer
         auto startt = std::chrono::high_resolution_clock::now();
 
         ctx->lock();
+        
         place_constraints();
-        build_fast_bels();
-        seed_placement();
+        build_fast_bels();  // ?? What does fast_bels do?
+        seed_placement();   // Initial ramdom placement
         update_all_chains();
         wirelen_t hpwl = total_hpwl();
         log_info("Creating initial analytic placement for %d cells, random placement wirelen = %d.\n",
                  int(place_cells.size()), int(hpwl));
+
+        /**********************************************************/
+        /** Setup & Selving Equations, Initial Analitical Placer **/
+        /**********************************************************/
+        
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
             auto solve_startt = std::chrono::high_resolution_clock::now();
@@ -166,14 +172,18 @@ class HeAPPlacer
             log_info("    at initial placer iter %d, wirelen = %d\n", i, int(hpwl));
         }
 
+        /****************************************************************/
+        /** Chosing HeAP Run Type (All at once, rotate, or all+rotate) **/
+        /****************************************************************/
+
         wirelen_t solved_hpwl = 0, spread_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
         int iter = 0, stalled = 0;
 
         std::vector<std::tuple<CellInfo *, BelId, PlaceStrength>> solution;
 
-        std::vector<std::unordered_set<IdString>> heap_runs;
+        std::vector<std::unordered_set<IdString>> heap_runs;  // one run per unordered_set. Each set may contain more than one cell type.
         std::unordered_set<IdString> all_celltypes;
-        std::unordered_map<IdString, int> ct_count;
+        std::unordered_map<IdString, int> ct_count; // cell type count
 
         for (auto cell : place_cells) {
             if (!all_celltypes.count(cell->type)) {
@@ -197,9 +207,15 @@ class HeAPPlacer
             heap_runs.clear();
         }
 
-        heap_runs.push_back(all_celltypes);
-        // The main HeAP placer loop
+        heap_runs.push_back(all_celltypes); // One run for all cell types.
+
+
+        /*******************************/
+        /** The main HeAP placer loop **/
+        /*******************************/
+
         log_info("Running main analytical placer.\n");
+        // If stall 5 times continiously, break.
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
             // Alternate between particular Bel types and all bels
             for (auto &run : heap_runs) {
@@ -252,7 +268,7 @@ class HeAPPlacer
 
             if (legal_hpwl < best_hpwl) {
                 best_hpwl = legal_hpwl;
-                stalled = 0;
+                stalled = 0; // if success, reset stall
                 // Save solution
                 solution.clear();
                 for (auto cell : sorted(ctx->cells)) {
@@ -273,7 +289,7 @@ class HeAPPlacer
         for (auto &sc : solution) {
             CellInfo *cell = std::get<0>(sc);
             if (cell->bel != BelId())
-                ctx->unbindBel(cell->bel);
+                ctx->unbindBel(cell->bel);  // unbine, if bel already occuppied
         }
         for (auto &sc : solution) {
             CellInfo *cell;
@@ -300,6 +316,10 @@ class HeAPPlacer
         log_info("  of which strict legalisation: %.02fs\n", sl_time);
 
         ctx->check();
+
+        /************************************/
+        /** Zero Degree Refine (Quenching) **/
+        /************************************/
 
         auto placer1_cfg = Placer1Cfg(ctx);
         placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
@@ -371,10 +391,10 @@ class HeAPPlacer
         // Initial constraints placer
         for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
-            auto loc = cell->attrs.find(ctx->id("BEL"));
+            auto loc = cell->attrs.find(ctx->id("BEL"));  // If "BEL" is defined (through contraint file), it stores bel's name, site name, and physical tile name as on-chip location info.
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second.as_string();
-                BelId bel = ctx->getBelByName(ctx->id(loc_name));
+                BelId bel = ctx->getBelByName(ctx->id(loc_name));  // Take the bell at this location
                 if (bel == BelId()) {
                     log_error("No Bel named \'%s\' located for "
                               "this chip (processing BEL attribute on \'%s\')\n",
@@ -399,7 +419,7 @@ class HeAPPlacer
                               cell->name.c_str(ctx), loc_name.c_str(), bound_cell->name.c_str(ctx));
                 }
 
-                ctx->bindBel(bel, cell, STRENGTH_USER);
+                ctx->bindBel(bel, cell, STRENGTH_USER);  // Bind the physical bel with the cell.
                 placed_cells++;
             }
         }
@@ -411,6 +431,7 @@ class HeAPPlacer
     void build_fast_bels()
     {
 
+        // Prepare bel_types used in the next two for-loops
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
             IdString type = ctx->getBelType(bel);
@@ -420,6 +441,8 @@ class HeAPPlacer
                 std::get<1>(bel_types.at(type))++;
             }
         }
+
+        // To build fast_bels variable
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
                 continue;
@@ -437,6 +460,8 @@ class HeAPPlacer
             fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
         }
 
+        // Setup nearest_row_with_bel and nearest_col_with_bel.
+        // ??? How to use them? What roles are they playing?
         nearest_row_with_bel.resize(num_bel_types, std::vector<int>(max_y + 1, -1));
         nearest_col_with_bel.resize(num_bel_types, std::vector<int>(max_x + 1, -1));
         for (auto bel : ctx->getBels()) {
@@ -447,21 +472,25 @@ class HeAPPlacer
             auto &nr = nearest_row_with_bel.at(type_idx), &nc = nearest_col_with_bel.at(type_idx);
             // Traverse outwards through nearest_row_with_bel and nearest_col_with_bel, stopping once
             // another row/col is already recorded as being nearer
+            // To fill nc from loc.x all the way to the max_x
             for (int x = loc.x; x <= max_x; x++) {
                 if (nc.at(x) != -1 && std::abs(loc.x - nc.at(x)) <= (x - loc.x))
                     break;
                 nc.at(x) = loc.x;
             }
+            // To fill nc from loc.x all the way to 0
             for (int x = loc.x - 1; x >= 0; x--) {
                 if (nc.at(x) != -1 && std::abs(loc.x - nc.at(x)) <= (loc.x - x))
                     break;
                 nc.at(x) = loc.x;
             }
+            // To fill nc from loc.y all the way to the max_y
             for (int y = loc.y; y <= max_y; y++) {
                 if (nr.at(y) != -1 && std::abs(loc.y - nr.at(y)) <= (y - loc.y))
                     break;
                 nr.at(y) = loc.y;
             }
+            // To fill nc from loc.y all the way to 0
             for (int y = loc.y - 1; y >= 0; y--) {
                 if (nr.at(y) != -1 && std::abs(loc.y - nr.at(y)) <= (loc.y - y))
                     break;
@@ -520,7 +549,7 @@ class HeAPPlacer
     // FIXME: Are there better approaches to the initial placement (e.g. greedy?)
     void seed_placement()
     {
-        std::unordered_map<IdString, std::deque<BelId>> available_bels;
+        std::unordered_map<IdString, std::deque<BelId>> available_bels;  // Physical available bels to be filled
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
                 continue;
@@ -535,7 +564,7 @@ class HeAPPlacer
                 Loc loc = ctx->getBelLocation(ci->bel);
                 cell_locs[cell.first].x = loc.x;
                 cell_locs[cell.first].y = loc.y;
-                cell_locs[cell.first].locked = true;
+                cell_locs[cell.first].locked = true;  // why true?
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(ci->bel);
             } else if (ci->constr_parent == nullptr) {
                 bool placed = false;
@@ -543,12 +572,12 @@ class HeAPPlacer
                     if (!available_bels.count(ci->type) || available_bels.at(ci->type).empty())
                         log_error("Unable to place cell '%s', no Bels remaining of type '%s'\n", ci->name.c_str(ctx),
                                   ci->type.c_str(ctx));
-                    BelId bel = available_bels.at(ci->type).back();
-                    available_bels.at(ci->type).pop_back();
+                    BelId bel = available_bels.at(ci->type).back();  // Try to fit cell to available bels one by one
+                    available_bels.at(ci->type).pop_back();  // Physical bel occupied, not available anymore
                     Loc loc = ctx->getBelLocation(bel);
                     cell_locs[cell.first].x = loc.x;
                     cell_locs[cell.first].y = loc.y;
-                    cell_locs[cell.first].locked = false;
+                    cell_locs[cell.first].locked = false;  // why false?
                     cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
                     // FIXME
                     if (has_connectivity(cell.second) && !cfg.ioBufTypes.count(ci->type)) {
@@ -560,7 +589,7 @@ class HeAPPlacer
                             cell_locs[cell.first].locked = true;
                             placed = true;
                         } else {
-                            available_bels.at(ci->type).push_front(bel);
+                            available_bels.at(ci->type).push_front(bel);  // If cell placement not valid, push bel back to available_bels
                         }
                     }
                 }

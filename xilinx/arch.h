@@ -237,6 +237,7 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     // at least for now, due to differing coordinate systems
     int32_t num_sites;
     RelPtr<SiteInstInfoPOD> site_insts;
+    int32_t clock_region;
 });
 
 NPNR_PACKED_STRUCT(struct ConstIDDataPOD {

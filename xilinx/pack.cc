@@ -459,7 +459,7 @@ void XilinxPacker::pack_srls()
         CellInfo *ci = cell.second;
         if (ci->type != id_SLICE_LUTX)
             continue;
-        std::string orig_type = str_or_default(ci->attrs, ctx->id("X_ORIG_TYPE"));
+        std::string orig_type = str_or_default(ci->attrs, ctx->id("X_ORIG_TYPE"), "");
         if (orig_type == "SRL16E") {
             for (int i = 3; i >= 0; i--) {
                 rename_port(ctx, ci, ctx->id("A" + std::to_string(i)), ctx->id("A" + std::to_string(i + 2)));
@@ -475,11 +475,11 @@ void XilinxPacker::pack_srls()
                 std::string ts(init_it->second.str);
                 // init_it->second.str.reserve(32);
                 init_it->second.str.clear();
-                for(u_int i=0; i<ts.size(); i++){
+                for(auto i=0; i<ts.size(); i++){
                     init_it->second.str.push_back(ts[i]);
                     init_it->second.str.push_back(ts[i]);
                 }
-                for(uint pre_index=init_it->second.str.size(); pre_index < 32; pre_index++){
+                for(auto pre_index=init_it->second.str.size(); pre_index < 32; pre_index++){
                     init_it->second.str.push_back('0');
                 }
                 init_it->second.update_intval();
@@ -499,11 +499,11 @@ void XilinxPacker::pack_srls()
             if(init_it != ci->params.end()){
                 std::string ts(init_it->second.str);
                 init_it->second.str.clear();
-                for(u_int i=0; i<ts.size(); i++){
+                for(auto i=0; i<ts.size(); i++){
                     init_it->second.str.push_back(ts[i]);
                     init_it->second.str.push_back(ts[i]);
                 }
-                for(uint pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
+                for(auto pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
                     init_it->second.str.push_back('0');
                 }
                 init_it->second.update_intval();
@@ -518,11 +518,11 @@ void XilinxPacker::pack_srls()
             if(init_it != ci->params.end()){
                 std::string ts(init_it->second.str);
                 init_it->second.str.clear();
-                for(u_int i=0; i<ts.size(); i++){
+                for(auto i=0; i<ts.size(); i++){
                     init_it->second.str.push_back(ts[i]);
                     init_it->second.str.push_back(ts[i]);
                 }
-                for(uint pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
+                for(auto pre_index=init_it->second.str.size(); pre_index < 64; pre_index++){
                     init_it->second.str.push_back('0');
                 }
                 init_it->second.update_intval();

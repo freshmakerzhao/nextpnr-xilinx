@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  nextpnr -- Next Generation Place and Route
  *
  *  Copyright (C) 2019  David Shah <david@symbioticeda.com>

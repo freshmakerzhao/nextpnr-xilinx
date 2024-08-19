@@ -1303,6 +1303,12 @@ struct FasmBackend
                 write_bit("DCIRESET.ENABLED");
             }
 
+            if (ci->type == id_DNA_PORT_DNA_PORT) {
+                write_bit("CFG_EFUSE_CTRL.CFG_EFUSE_DNA_EN_TMR3");
+                write_bit("CFG_EFUSE_CTRL.CFG_EFUSE_DNA_EN_TMR2");
+                write_bit("CFG_EFUSE_CTRL.CFG_EFUSE_DNA_EN_TMR1");
+            }
+
             if (ci->type == id_ICAP_ICAP) {
                 push("ICAP");
                 std::string width = str_or_default(ci->params, id_ICAP_WIDTH, "X32");

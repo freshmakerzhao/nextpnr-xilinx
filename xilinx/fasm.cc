@@ -1349,7 +1349,7 @@ struct FasmBackend
                 write_bit("ZINV_S0", !bool_or_default(ci->params, ctx->id("IS_S0_INVERTED")));
                 write_bit("ZINV_S1", !bool_or_default(ci->params, ctx->id("IS_S1_INVERTED")));
                 pop(2);
-            } else if (ci->type == id_BUFHCE) {
+            } else if (ci->type == id_BUFHCE_BUFHCE) {
                 push(get_tile_name(ci->bel.tile));
                 auto xy = ctx->getSiteLocInTile(ci->bel);
                 push("BUFHCE.BUFHCE_X" + std::to_string(xy.x) + "Y" + std::to_string(xy.y));

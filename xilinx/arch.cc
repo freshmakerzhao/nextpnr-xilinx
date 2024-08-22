@@ -322,21 +322,23 @@ PipId Arch::getPipByName(IdString name) const
 IdString Arch::getPipName(PipId pip) const
 {
     NPNR_ASSERT(pip != PipId());
-    auto loc_info  = locInfo(pip);
-    auto pip_data  = loc_info.pip_data[pip.index];
-    auto tile_inst = chip_info->tile_insts[pip.tile];
-    auto site      = pip_data.site;
-    auto bel       = pip_data.bel;
+    // auto loc_info  = locInfo(pip);
+    // auto pip_data  = loc_info.pip_data[pip.index];
+    // auto tile_inst = chip_info->tile_insts[pip.tile];
+    // auto site      = pip_data.site;
+    // auto bel       = pip_data.bel;
 
-    if (site != -1 && pip_data.flags == PIP_SITE_INTERNAL && bel != -1) {
-        return id(std::string("SITEPIP/") +
-                    tile_inst.site_insts[site].name.get() +
-                    std::string("/") + IdString(bel).str(this) + "/" +
-                    IdString(loc_info.wire_data[pip_data.src_index].name).str(this));
-    } else {
-        return id(getWireName(getPipSrcWire(pip)).str(this) + "->" +
-                  getWireName(getPipDstWire(pip)).str(this));
-    }
+    // if (site != -1 && pip_data.flags == PIP_SITE_INTERNAL && bel != -1) {
+    //     return id(std::string("SITEPIP/") +
+    //                 tile_inst.site_insts[site].name.get() +
+    //                 std::string("/") + IdString(bel).str(this) + "/" +
+    //                 IdString(loc_info.wire_data[pip_data.src_index].name).str(this));
+    // } else {
+    //     return id(getWireName(getPipSrcWire(pip)).str(this) + "->" +
+    //               getWireName(getPipDstWire(pip)).str(this));
+    // }
+    // TODO: 以上代码只会走下面的判断条件，访问pip_data在windows上导致运行时崩溃
+    return id(getWireName(getPipSrcWire(pip)).str(this) + "->" + getWireName(getPipDstWire(pip)).str(this));
 }
 
 void Arch::setup_pip_blacklist()

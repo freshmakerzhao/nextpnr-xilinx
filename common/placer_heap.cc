@@ -149,8 +149,13 @@ class HeAPPlacer
         seed_placement();
         update_all_chains();
         wirelen_t hpwl = total_hpwl();
-        log_info("Creating initial analytic placement for %d cells, random placement wirelen = %d.\n",
+#ifdef HYBRDLINK
+        log_info("Creating initial placement for %d cells, random placement wirelen = %d.\n",
                  int(place_cells.size()), int(hpwl));
+#else
+        log_info("Creating initial analytic placement for %d cells, random placement wirelen = %d.\n",
+                 int(place_cells.size()), int(hpwl));   
+#endif
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
             auto solve_startt = std::chrono::high_resolution_clock::now();
@@ -199,7 +204,11 @@ class HeAPPlacer
 
         heap_runs.push_back(all_celltypes);
         // The main HeAP placer loop
-        log_info("Running main analytical placer.\n");
+#ifdef HYBRDLINK
+        log_info("Running main placer.\n");
+#else
+        log_info("Running main analytical placer.\n");     
+#endif
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
             // Alternate between particular Bel types and all bels
             for (auto &run : heap_runs) {
@@ -288,8 +297,13 @@ class HeAPPlacer
                 log_error("Found unbound cell %s\n", cell.first.c_str(ctx));
             if (ctx->getBoundBelCell(cell.second->bel) != cell.second)
                 log_error("Found cell %s with mismatched binding\n", cell.first.c_str(ctx));
-            if (ctx->debug)
-                log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));
+            if (ctx->debug){
+#ifdef HYBRDLINK
+                log_info("Placer2 soln: %s -> %s\n", cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));
+#else
+                log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));     
+#endif
+            }
         }
 
         ctx->unlock();

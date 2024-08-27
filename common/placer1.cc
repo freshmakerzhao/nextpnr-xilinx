@@ -255,7 +255,7 @@ class SAPlacer
             diameter = 3;
             
 #ifdef HYBRDLINK
-            log_info("Running simulated placer1 for refinement.\n");
+            log_info("Running placer1 for refinement.\n");
 #else
             log_info("Running simulated annealing placer for refinement.\n");
 #endif

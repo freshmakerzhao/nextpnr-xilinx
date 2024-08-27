@@ -21,9 +21,7 @@ if (HYBRDLINK)
     add_definitions(-DHYBRDLINK)
 endif()
 
-
-
-
+message(STATUS "HYBRDLINK option is ${HYBRDLINK}")
 # ================ hybrdlink ===============
 
 set(link_param "")

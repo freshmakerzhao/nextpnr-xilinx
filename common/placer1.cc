@@ -228,7 +228,11 @@ class SAPlacer
             auto iplace_end = std::chrono::high_resolution_clock::now();
             log_info("Initial placement time %.02fs\n",
                      std::chrono::duration<float>(iplace_end - iplace_start).count());
+#ifdef HYBRDLINK
+            log_info("Running placer1.\n");
+#else
             log_info("Running simulated annealing placer.\n");
+#endif
         } else {
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
@@ -249,7 +253,12 @@ class SAPlacer
             }
             require_legal = false;
             diameter = 3;
+            
+#ifdef HYBRDLINK
+            log_info("Running simulated placer1 for refinement.\n");
+#else
             log_info("Running simulated annealing placer for refinement.\n");
+#endif
         }
         auto saplace_start = std::chrono::high_resolution_clock::now();
 
@@ -410,7 +419,11 @@ class SAPlacer
         }
 
         auto saplace_end = std::chrono::high_resolution_clock::now();
-        log_info("SA placement time %.02fs\n", std::chrono::duration<float>(saplace_end - saplace_start).count());
+#ifdef HYBRDLINK
+        log_info("Placer1 time %.02fs\n", std::chrono::duration<float>(saplace_end - saplace_start).count());
+#else
+        log_info("SA placement time %.02fs\n", std::chrono::duration<float>(saplace_end - saplace_start).count());  
+#endif
 
         // Final post-pacement validitiy check
         ctx->yield();

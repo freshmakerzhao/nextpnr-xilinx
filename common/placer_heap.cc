@@ -294,7 +294,11 @@ class HeAPPlacer
 
         ctx->unlock();
         auto endtt = std::chrono::high_resolution_clock::now();
+#ifdef HYBRDLINK
+        log_info("Placer2 Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
+#else
         log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
+#endif
         log_info("  of which solving equations: %.02fs\n", solve_time);
         log_info("  of which spreading cells: %.02fs\n", cl_time);
         log_info("  of which strict legalisation: %.02fs\n", sl_time);
@@ -1755,7 +1759,11 @@ NEXTPNR_NAMESPACE_END
 NEXTPNR_NAMESPACE_BEGIN
 bool placer_heap(Context *ctx, PlacerHeapCfg cfg)
 {
+#ifdef HYBRDLINK
+    log_error("Implementation was built without the placer\n");
+#else
     log_error("nextpnr was built without the HeAP placer\n");
+#endif
     return false;
 }
 

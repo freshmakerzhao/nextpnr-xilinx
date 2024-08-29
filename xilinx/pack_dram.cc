@@ -431,6 +431,46 @@ void XilinxPacker::pack_dram()
 
                 packed_cells.insert(ci->name);
             }
+        } else if (cs.memtype == ctx->id("RAM32X1S")) {
+            int z = (height - 1);
+            CellInfo *base = nullptr;
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == ctx->id("RAM32X1S"));
+
+                auto init_property=get_or_default(cell->params, ctx->id("INIT"), Property(0));
+                // 只用了高位的LUT5，str是倒序的，先在后面补零补齐32位，再在前面插入32个0，相当于左移32位
+                init_property.str.append(32-init_property.str.size(), '0');
+                init_property.str.insert(0, 32, '0');
+                init_property.update_intval();
+
+                
+                NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                if (z <0)
+                    z = (height - 1);
+                if (z == (height - 1)){
+                    // base
+                    // Topmost cell is the write address input
+                    std::vector<NetInfo *> address(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 5));
+                    address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    base = create_dram_lut(cell->name.str(ctx), nullptr, cs, address, di, dout, z);
+                    if (cell->params.count(ctx->id("INIT")))
+                        base->params[ctx->id("INIT")] = init_property;
+                    z--;
+                }else{
+                    std::vector<NetInfo *> address(cs.wa.begin(),
+                                                       cs.wa.begin() + std::min<size_t>(cs.wa.size(), 5));
+                    address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    CellInfo *ram_lut = create_dram_lut(cell->name.str(ctx), base, cs, address, di, dout, z);
+                    if (cell->params.count(ctx->id("INIT")))
+                        ram_lut->params[ctx->id("INIT")] = init_property;
+                    z--;
+                }
+                packed_cells.insert(cell->name);
+            } 
         }
     }
     // Whole-SLICE DRAM

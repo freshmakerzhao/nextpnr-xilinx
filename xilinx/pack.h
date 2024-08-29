@@ -60,7 +60,7 @@ struct XilinxPacker
         {
             return wa == other.wa && wclk == other.wclk && we == other.we && wclk_inv == other.wclk_inv &&
                    memtype == other.memtype;
-        }
+        } 
         bool operator!=(const DRAMControlSet &other) const
         {
             return wa != other.wa || wclk != other.wclk || we != other.we || wclk_inv != other.wclk_inv ||
@@ -134,7 +134,6 @@ struct XilinxPacker
     void split_carry4s();
 
     // DistRAM
-    std::unordered_map<IdString, XFormRule> sp_dram_rules, sp_dram32_6_rules, sp_dram32_5_rules;// [lgl] add rules for RAMS32 and RAMS64
     std::unordered_map<IdString, XFormRule> dram_rules, dram32_6_rules, dram32_5_rules;
     CellInfo *create_dram_lut(const std::string &name, CellInfo *base, const DRAMControlSet &ctrlset,
                               std::vector<NetInfo *> address, NetInfo *di, NetInfo *dout, int z);

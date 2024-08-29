@@ -406,13 +406,26 @@ struct FasmBackend
     {
         std::vector<bool> bits(64, false);
 
-        std::vector<IdString> phys_inputs;
-        for (int i = 1; i <= 6; i++)
-            phys_inputs.push_back(ctx->id("A" + std::to_string(i)));
+        if (lut6 != nullptr){
+            auto otir = lut6->attrs.find(ctx->id("X_ORIG_TYPE"));
+            if(otir != lut6->attrs.end()){
+                auto origin_type = otir->second.str;
+                if(origin_type == "SRLC32E" || origin_type == "CFGLUT5"|| origin_type =="RAMD32"|| origin_type =="RAMD64E"){ //  
+                    auto init_it = lut6->params.find(ctx->id("INIT"));
+                    if(init_it != lut6->params.end()){
+                        // 填充到lut
+                        for(int i=0; i<64; i++){
+                            bits[i] = (init_it->second.str.at(i) == Property::S1);
+                        }
+                        return bits;
+                    }
+                }
+            }
+        }
 
         if (lut5 != nullptr){
+
             auto otir = lut5->attrs.find(ctx->id("X_ORIG_TYPE"));
-                    
             if(otir != lut5->attrs.end()){
                 auto origin_type = otir->second.str;
                 if(origin_type == "SRL16E"){
@@ -427,24 +440,11 @@ struct FasmBackend
                 }
             }
         }
-        if (lut6 != nullptr){
-            auto otir = lut6->attrs.find(ctx->id("X_ORIG_TYPE"));
-                    
-            if(otir != lut6->attrs.end()){
-                auto origin_type = otir->second.str;
-                if(origin_type == "SRLC32E" || origin_type == "CFGLUT5"){
-                    auto init_it = lut6->params.find(ctx->id("INIT"));
-                    if(init_it != lut6->params.end()){
-                        // 填充到lut
-                        for(int i=0; i<64; i++){
-                            bits[i] = (init_it->second.str.at(i) == Property::S1);
-                        }
-                        return bits;
-                    }
-                }
-            }
-        }
-        
+
+        std::vector<IdString> phys_inputs;
+        for (int i = 1; i <= 6; i++)
+            phys_inputs.push_back(ctx->id("A" + std::to_string(i)));
+
         for (int i = 0; i < 2; i++) {
             CellInfo *lut = (i == 1) ? lut5 : lut6;
             if (lut == nullptr)

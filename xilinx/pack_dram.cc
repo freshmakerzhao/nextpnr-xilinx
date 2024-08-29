@@ -31,38 +31,22 @@
 #include "pins.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+
 CellInfo *XilinxPacker::create_dram_lut(const std::string &name, CellInfo *base, const DRAMControlSet &ctrlset,
                                         std::vector<NetInfo *> address, NetInfo *di, NetInfo *dout, int z)
 {
-    // [lgl] 判断是否是单端，单端的话使用RAMS64E，双端的话使用RAMD64E
-    bool is_single_port = (ctrlset.memtype == ctx->id("RAM64X1S"));
-    IdString cell_type = is_single_port ? ctx->id("RAMS64E") : ctx->id("RAMD64E");
-
-    std::unique_ptr<CellInfo> dram_lut = create_cell(ctx, cell_type, ctx->id(name));
-
-    // [lgl] 通用连接
+    std::unique_ptr<CellInfo> dram_lut = create_cell(ctx, ctx->id("RAMD64E"), ctx->id(name));
+    for (int i = 0; i < int(address.size()); i++)
+        connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
     connect_port(ctx, di, dram_lut.get(), ctx->id("I"));
     connect_port(ctx, dout, dram_lut.get(), ctx->id("O"));
     connect_port(ctx, ctrlset.wclk, dram_lut.get(), ctx->id("CLK"));
     connect_port(ctx, ctrlset.we, dram_lut.get(), ctx->id("WE"));
-
-    // [lgl] 地址线连接
-    for (int i = 0; i < int(ctrlset.wa.size()); i++) {
-        if (is_single_port) {
-            if (i < 6)
-                connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("ADR" + std::to_string(i)));
-            else
-                connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
-        } else {
-            connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
-            connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
-        }
-    }
-
+    for (int i = 0; i < int(ctrlset.wa.size()); i++)
+        connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
     dram_lut->params[ctx->id("IS_WCLK_INVERTED")] = ctrlset.wclk_inv ? 1 : 0;
 
-    // [lgl] Apply transformation rules
-    xform_cell(is_single_port ? sp_dram_rules : dram_rules, dram_lut.get());
+    xform_cell(dram_rules, dram_lut.get());
 
     dram_lut->constr_abs_z = true;
     dram_lut->constr_z = (z << 4) | BEL_6LUT;
@@ -82,37 +66,18 @@ CellInfo *XilinxPacker::create_dram_lut(const std::string &name, CellInfo *base,
 CellInfo *XilinxPacker::create_dram32_lut(const std::string &name, CellInfo *base, const DRAMControlSet &ctrlset,
                                           std::vector<NetInfo *> address, NetInfo *di, NetInfo *dout, bool o5, int z)
 {
-    // [lgl] 判断是否是单端，单端的话使用RAMS32，双端的话使用RAMD32
-    bool is_single_port = (ctrlset.memtype == ctx->id("RAM32X1S"));
-    IdString cell_type = is_single_port ? ctx->id("RAMS32") : ctx->id("RAMD32");
-
-    std::unique_ptr<CellInfo> dram_lut = create_cell(ctx, cell_type, ctx->id(name));
-
-    // [lgl] 通用连接
+    std::unique_ptr<CellInfo> dram_lut = create_cell(ctx, ctx->id("RAMD32"), ctx->id(name));
+    for (int i = 0; i < int(address.size()); i++)
+        connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
     connect_port(ctx, di, dram_lut.get(), ctx->id("I"));
     connect_port(ctx, dout, dram_lut.get(), ctx->id("O"));
     connect_port(ctx, ctrlset.wclk, dram_lut.get(), ctx->id("CLK"));
     connect_port(ctx, ctrlset.we, dram_lut.get(), ctx->id("WE"));
-
-    // [lgl] 地址线连接
-    for (int i = 0; i < int(ctrlset.wa.size()); i++) {
-        if (is_single_port) {
-            connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("ADR" + std::to_string(i)));
-        } else {
-            connect_port(ctx, address[i], dram_lut.get(), ctx->id("RADR" + std::to_string(i)));
-            connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
-        }
-    }
-
-
+    for (int i = 0; i < int(ctrlset.wa.size()); i++)
+        connect_port(ctx, ctrlset.wa[i], dram_lut.get(), ctx->id("WADR" + std::to_string(i)));
     dram_lut->params[ctx->id("IS_WCLK_INVERTED")] = ctrlset.wclk_inv ? 1 : 0;
 
-    // [lgl] Apply transformation rules
-    if (is_single_port) {
-        xform_cell(o5 ? sp_dram32_5_rules : sp_dram32_6_rules, dram_lut.get());
-    } else {
-        xform_cell(o5 ? dram32_5_rules : dram32_6_rules, dram_lut.get());
-    }
+    xform_cell(o5 ? dram32_5_rules : dram32_6_rules, dram_lut.get());
 
     dram_lut->constr_abs_z = true;
     dram_lut->constr_z = (z << 4) | (o5 ? BEL_5LUT : BEL_6LUT);
@@ -202,7 +167,8 @@ void XilinxPacker::pack_dram()
     // Transform from RAMD64E UNISIM to SLICE_LUTX bel
     dram_rules[ctx->id("RAMD64E")].new_type = id_SLICE_LUTX;
     dram_rules[ctx->id("RAMD64E")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
-    dram_rules[ctx->id("RAMD64E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property("1"));
+    dram_rules[ctx->id("RAMD64E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property(1));
+    dram_rules[ctx->id("RAMD64E")].set_attrs.emplace_back(ctx->id("X_IS_SLICEM"), Property(1));
     for (int i = 0; i < 6; i++)
         dram_rules[ctx->id("RAMD64E")].port_xform[ctx->id("RADR" + std::to_string(i))] =
                 ctx->id("A" + std::to_string(i + 1));
@@ -212,90 +178,65 @@ void XilinxPacker::pack_dram()
     dram_rules[ctx->id("RAMD64E")].port_xform[ctx->id("I")] = id_DI1;
     dram_rules[ctx->id("RAMD64E")].port_xform[ctx->id("O")] = id_O6;
 
-    // [lgl] 添加RAMS64E的转换规则
-    sp_dram_rules[ctx->id("RAMS64E")].new_type = id_SLICE_LUTX;
-    sp_dram_rules[ctx->id("RAMS64E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property("1"));
-    for (int i = 0; i < 6; i++)
-        sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("ADR" + std::to_string(i))] =
-                ctx->id("A" + std::to_string(i + 1));
-    for (int i = 6; i < 8; i++)
-        sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("WADR" + std::to_string(i))] =
-                ctx->id("WA" + std::to_string(i + 1));
-    sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("I")] = id_DI1;
-    sp_dram_rules[ctx->id("RAMS64E")].port_xform[ctx->id("O")] = id_O6;
-
     // Rules for upper and lower RAMD32E
     dram32_6_rules[ctx->id("RAMD32")].new_type = id_SLICE_LUTX;
     dram32_6_rules[ctx->id("RAMD32")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
-    dram32_6_rules[ctx->id("RAMD32")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property("1"));
+    dram32_6_rules[ctx->id("RAMD32")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property(1));
     for (int i = 0; i < 5; i++)
         dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("RADR" + std::to_string(i))] =
                 ctx->id("A" + std::to_string(i + 1));
     for (int i = 0; i < 5; i++)
         dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("WADR" + std::to_string(i))] =
                 ctx->id("WA" + std::to_string(i + 1));
-    dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("I")] = id_DI2;
+    dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("I")] = id_DI1;
     dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("O")] = id_O6;
 
     dram32_5_rules = dram32_6_rules;
     dram32_5_rules[ctx->id("RAMD32")].port_xform[ctx->id("I")] = id_DI1;
     dram32_5_rules[ctx->id("RAMD32")].port_xform[ctx->id("O")] = id_O5;
 
-    // [lgl] 添加RAMS32的转换规则LUT6
-    sp_dram32_6_rules[ctx->id("RAMS32")].new_type = id_SLICE_LUTX;
-    sp_dram32_6_rules[ctx->id("RAMS32")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property("1"));
-    for (int i = 0; i < 5; i++)
-        sp_dram32_6_rules[ctx->id("RAMS32")].port_xform[ctx->id("ADR" + std::to_string(i))] =
-                ctx->id("A" + std::to_string(i + 1));
-    sp_dram32_6_rules[ctx->id("RAMS32")].port_xform[ctx->id("I")] = id_DI2;
-    sp_dram32_6_rules[ctx->id("RAMS32")].port_xform[ctx->id("O")] = id_O6;
-
-    // [lgl] 添加RAMS32的转换规则LUT5
-    sp_dram32_5_rules = sp_dram32_6_rules;
-    sp_dram32_5_rules[ctx->id("RAMS32")].port_xform[ctx->id("I")] = id_DI1;
-    sp_dram32_5_rules[ctx->id("RAMS32")].port_xform[ctx->id("O")] = id_O5;
-
-    // Optimise DRAM with tied-low inputs, to more efficiently routeable tied-high inputs
-    int inverted_ports = 0;
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
-        auto dt_iter = dram_types.find(ci->type);
-        if (dt_iter == dram_types.end())
-            continue;
-        auto &dt = dt_iter->second;
-        for (int i = 0; i < std::min(dt.abits, 6); i++) {
-            IdString aport = ctx->id(dt.abits <= 6 ? ("A" + std::to_string(i)) : ("A[" + std::to_string(i) + "]"));
-            if (!ci->ports.count(aport))
-                continue;
-            NetInfo *anet = get_net_or_empty(ci, aport);
-            if (anet == nullptr || anet->name != ctx->id("$PACKER_GND_NET"))
-                continue;
-            IdString raport;
-            if (dt.rports >= 1) {
-                NPNR_ASSERT(dt.rports == 1); // FIXME
-                raport = ctx->id(dt.abits <= 6 ? ("DPRA" + std::to_string(i)) : ("DPRA[" + std::to_string(i) + "]"));
-                NetInfo *ranet = get_net_or_empty(ci, raport);
-                if (ranet == nullptr || ranet->name != ctx->id("$PACKER_GND_NET"))
-                    continue;
-            }
-            disconnect_port(ctx, ci, aport);
-            if (raport != IdString())
-                disconnect_port(ctx, ci, raport);
-            connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, aport);
-            if (raport != IdString())
-                connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, raport);
-            ++inverted_ports;
-            if (ci->params.count(ctx->id("INIT"))) {
-                Property &init = ci->params[ctx->id("INIT")];
-                for (int j = 0; j < int(init.str.size()); j++) {
-                    if (j & (1 << i))
-                        init.str[j] = init.str[j & ~(1 << i)];
-                }
-                init.update_intval();
-            }
-        }
-    }
-    log_info("   Transformed %d tied-low DRAM address inputs to be tied-high\n", inverted_ports);
+    // 不需要做这样的优化，暂时去掉
+    // // Optimise DRAM with tied-low inputs, to more efficiently routeable tied-high inputs
+    // int inverted_ports = 0;
+    // for (auto cell : sorted(ctx->cells)) {
+    //     CellInfo *ci = cell.second;
+    //     auto dt_iter = dram_types.find(ci->type);
+    //     if (dt_iter == dram_types.end())
+    //         continue;
+    //     auto &dt = dt_iter->second;
+    //     for (int i = 0; i < std::min(dt.abits, 6); i++) {
+    //         IdString aport = ctx->id(dt.abits <= 6 ? ("A" + std::to_string(i)) : ("A[" + std::to_string(i) + "]"));
+    //         if (!ci->ports.count(aport))
+    //             continue;
+    //         NetInfo *anet = get_net_or_empty(ci, aport);
+    //         if (anet == nullptr || anet->name != ctx->id("$PACKER_GND_NET"))
+    //             continue;
+    //         IdString raport;
+    //         if (dt.rports >= 1) {
+    //             NPNR_ASSERT(dt.rports == 1); // FIXME
+    //             raport = ctx->id(dt.abits <= 6 ? ("DPRA" + std::to_string(i)) : ("DPRA[" + std::to_string(i) + "]"));
+    //             NetInfo *ranet = get_net_or_empty(ci, raport);
+    //             if (ranet == nullptr || ranet->name != ctx->id("$PACKER_GND_NET"))
+    //                 continue;
+    //         }
+    //         disconnect_port(ctx, ci, aport);
+    //         if (raport != IdString())
+    //             disconnect_port(ctx, ci, raport);
+    //         connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, aport);
+    //         if (raport != IdString())
+    //             connect_port(ctx, ctx->nets[ctx->id("$PACKER_VCC_NET")].get(), ci, raport);
+    //         ++inverted_ports;
+    //         if (ci->params.count(ctx->id("INIT"))) {
+    //             Property &init = ci->params[ctx->id("INIT")];
+    //             for (int j = 0; j < int(init.str.size()); j++) {
+    //                 if (j & (1 << i))
+    //                     init.str[j] = init.str[j & ~(1 << i)];
+    //             }
+    //             init.update_intval();
+    //         }
+    //     }
+    // }
+    // log_info("   Transformed %d tied-low DRAM address inputs to be tied-high\n", inverted_ports);
 
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -373,42 +314,6 @@ void XilinxPacker::pack_dram()
 
                 packed_cells.insert(cell->name);
             }
-        // [lgl] RAM32X1S和RAM64X1S的处理逻辑
-        } else if (cs.memtype == ctx->id("RAM64X1S") || cs.memtype == ctx->id("RAM32X1S")) {
-            bool is_64 = (cs.memtype == ctx->id("RAM64X1S"));
-            int z = height - 1;
-            CellInfo *base = nullptr;
-            for (auto cell : group.second) {
-                NPNR_ASSERT(cell->type == cs.memtype);
-
-                NetInfo *spo = get_net_or_empty(cell, ctx->id("O"));
-                NPNR_ASSERT(spo != nullptr); // [lgl] SPO should never be null for these RAM types
-                disconnect_port(ctx, cell, ctx->id("O"));
-                
-                NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
-                std::vector<NetInfo *> address(cs.wa.begin(),
-                                            cs.wa.begin() + std::min<size_t>(cs.wa.size(), is_64 ? 6 : 5));
-                if (!is_64) {
-                    // [lgl] For RAM32X1S, we need to add a dummy address bit
-                    address.push_back(ctx->nets[ctx->id("$PACKER_GND_NET")].get());
-                }
-                
-                CellInfo *dpr;
-                if (is_64) {
-                    dpr = create_dram_lut(cell->name.str(ctx) + "/SP", base, cs, address, di, spo, z);
-                } else {
-                    dpr = create_dram32_lut(cell->name.str(ctx) + "/SP", base, cs, address, di, spo, false, z);
-                }
-                
-                if (cell->params.count(ctx->id("INIT")))
-                    dpr->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
-                
-                if (base == nullptr)
-                    base = dpr;
-      
-                z--;
-                packed_cells.insert(cell->name);
-            }        
         } else if (cs.memtype == ctx->id("RAM32X1D")) {
             int z = (height - 1);
             CellInfo *base = nullptr;
@@ -421,13 +326,21 @@ void XilinxPacker::pack_dram()
                 if (get_net_or_empty(cell, ctx->id("DPO")) != nullptr)
                     z_size++;
 
+                auto init_property=get_or_default(cell->params, ctx->id("INIT"), Property(0));
+                // 只用了高位的LUT5，str是倒序的，先在后面补零补齐32位，再在前面插入32个0，相当于左移32位
+                init_property.str.append(32-init_property.str.size(), '0');
+                init_property.str.insert(0, 32, '0');
+                init_property.update_intval();
+               
+                bool spo_is_base = false;
                 if (z == (height - 1) || (z - z_size + 1) < 0) {
                     z = (height - 1);
                     // Topmost cell is the write address input
                     std::vector<NetInfo *> address(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 5));
-                    address.push_back(ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                    address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                     base = create_dram_lut(cell->name.str(ctx) + "/ADDR", nullptr, cs, address, nullptr, nullptr, z);
                     z--;
+                    spo_is_base = true;
                 }
 
                 NetInfo *dpo = get_net_or_empty(cell, ctx->id("DPO"));
@@ -437,19 +350,19 @@ void XilinxPacker::pack_dram()
 
                 NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
                 if (spo != nullptr) {
-                    if (z == (height - 2)) {
+                    if (spo_is_base) {
                         // Can fold DPO into address buffer
                         connect_port(ctx, spo, base, ctx->id("O6"));
                         connect_port(ctx, di, base, ctx->id("DI1"));
                         if (cell->params.count(ctx->id("INIT")))
-                            base->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
+                            base->params[ctx->id("INIT")] = init_property;
                     } else {
                         std::vector<NetInfo *> address(cs.wa.begin(),
                                                        cs.wa.begin() + std::min<size_t>(cs.wa.size(), 5));
-                        address.push_back(ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                        address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
                         CellInfo *dpr = create_dram_lut(cell->name.str(ctx) + "/SP", base, cs, address, di, spo, z);
                         if (cell->params.count(ctx->id("INIT")))
-                            dpr->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
+                            dpr->params[ctx->id("INIT")] = init_property;
                         z--;
                     }
                 }
@@ -458,15 +371,15 @@ void XilinxPacker::pack_dram()
                     std::vector<NetInfo *> address;
                     for (int i = 0; i < 5; i++)
                         address.push_back(get_net_or_empty(cell, ctx->id("DPRA" + std::to_string(i))));
-                    address.push_back(ctx->nets[ctx->id("$PACKER_GND_NET")].get());
+                    address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());                   
                     CellInfo *dpr = create_dram_lut(cell->name.str(ctx) + "/DP", base, cs, address, di, dpo, z);
                     if (cell->params.count(ctx->id("INIT")))
-                        dpr->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
+                        dpr->params[ctx->id("INIT")] = init_property;
                     z--;
                 }
 
                 packed_cells.insert(cell->name);
-            }        
+            } 
         } else if (cs.memtype == ctx->id("RAM128X1D") || cs.memtype == ctx->id("RAM256X1D")) {
             // Split these cells into write and read ports and associated mux tree
             bool m256 = cs.memtype == ctx->id("RAM256X1D");
@@ -549,8 +462,8 @@ void XilinxPacker::pack_dram()
                                                      dout, zoffset + i);
                     if (base == nullptr)
                         base = dram;
-                    if (ci->params.count(ctx->id(stringf("INIT%c", 'A' + i))))
-                        dram->params[ctx->id("INIT")] = ci->params[ctx->id(stringf("INIT%c", 'A' + i))];
+                    if (ci->params.count(ctx->id(stringf("INIT_%c", 'A' + i))))
+                        dram->params[ctx->id("INIT")] = ci->params[ctx->id(stringf("INIT_%c", 'A' + i))];
                 } else {
                     for (int j = 0; j < dbits; j++) {
                         NetInfo *di = get_net_or_empty(ci, ctx->id(stringf("DI%c[%d]", 'A' + i, j)));
@@ -561,12 +474,12 @@ void XilinxPacker::pack_dram()
                                                            address, di, dout, (j == 0), zoffset + i);
                         if (base == nullptr)
                             base = dram;
-                        if (ci->params.count(ctx->id(stringf("INIT%c", 'A' + i)))) {
+                        if (ci->params.count(ctx->id(stringf("INIT_%c", 'A' + i)))) {
                             auto orig_init =
-                                    ci->params.at(ctx->id(stringf("INIT%c", 'A' + i))).extract(0, 64).as_bits();
+                                    ci->params.at(ctx->id(stringf("INIT_%c", 'A' + i))).extract(0, 64).as_bits();
                             std::string init;
-                            for (int k = 0; k < 32; k++) {
-                                init.push_back(orig_init.at(k * 2 + j));
+                            for (int k = 31; k >= 0; k--) {
+                                init.push_back(orig_init.at(k * 2 + j) ? Property::State::S1 : Property::State::S0);
                             }
                             dram->params[ctx->id("INIT")] = Property::from_string(init);
                         }

@@ -681,7 +681,11 @@ bool Arch::place()
         if (!placer1(getCtx(), Placer1Cfg(getCtx())))
             return false;
     } else {
+#ifdef HYBRDLINK
+        log_error("Uknown architecture, not support by placer\n");
+#else
         log_error("US+ architecture does not support placer '%s'\n", placer.c_str());
+#endif
     }
     fixupPlacement();
     getCtx()->attrs[getCtx()->id("step")] = std::string("place");

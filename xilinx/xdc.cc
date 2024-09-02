@@ -214,11 +214,20 @@ void Arch::parseXdc(std::istream &in)
                 n->clkconstr->low.delay = n->clkconstr->period.delay / 2;
             }
         } else {
-            log_info("ignoring unsupported XDC command '%s' (on line %d)\n", cmd.c_str(), lineno);
+#ifdef HYBRDLINK
+            log_info("ignoring unsupported HDC command '%s' (on line %d)\n", cmd.c_str(), lineno);
+#else
+            log_info("ignoring unsupported XDC command '%s' (on line %d)\n", cmd.c_str(), lineno);    
+#endif
         }
     }
-    if (!isempty(linebuf))
+    if (!isempty(linebuf)){
+#ifdef HYBRDLINK
+        log_error("unexpected end of HDC file\n");
+#else
         log_error("unexpected end of XDC file\n");
+#endif
+    }
 }
 
 NEXTPNR_NAMESPACE_END

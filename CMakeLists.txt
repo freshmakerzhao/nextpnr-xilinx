@@ -13,6 +13,17 @@ option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory us
 
 set(Boost_NO_BOOST_CMAKE ON)
 
+
+# ================ hybrdlink ===============
+
+option(HYBRDLINK "Encrption Option" OFF)
+if (HYBRDLINK)
+    add_definitions(-DHYBRDLINK)
+endif()
+
+message(STATUS "HYBRDLINK option is ${HYBRDLINK}")
+# ================ hybrdlink ===============
+
 set(link_param "")
 if (STATIC_BUILD)
     set(Boost_USE_STATIC_LIBS   ON)

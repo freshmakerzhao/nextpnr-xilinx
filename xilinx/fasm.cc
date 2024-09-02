@@ -2329,12 +2329,26 @@ struct FasmBackend
             push("IBUFDS_GTE2_Y" + std::to_string(siteLoc.y));
             write_bit("IN_USE");
             auto clkcm_cfg = bool_or_default(ci->params, ctx->id("CLKCM_CFG"), true);
-            if (!clkcm_cfg) log_warning("%s/%s: According to ug482, CLKCM_CFG should always be on\n",
+            if (!clkcm_cfg){
+#ifdef HYBRDLINK
+                log_warning("%s/%s: According to ug482_hybrdchip, CLKCM_CFG_hybrdchip should always be on\n",
                                         ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
+#else
+                log_warning("%s/%s: According to ug482, CLKCM_CFG should always be on\n",
+                                        ci->hierpath.c_str(ctx), ci->name.c_str(ctx));       
+#endif
+            } 
             write_bit("CLKCM_CFG", clkcm_cfg);
             auto clkrcv_trst = bool_or_default(ci->params, ctx->id("CLKRCV_TRST"), true);
-            if (!clkrcv_trst) log_warning("%s/%s: According to ug482, CLKRCV_TRST should always be on\n",
+            if (!clkrcv_trst){
+#ifdef HYBRDLINK
+                log_warning("%s/%s: According to ug482_hybrdchip, CLKRCV_TRST_hybrdchip should always be on\n",
                                            ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
+#else
+                log_warning("%s/%s: According to ug482, CLKRCV_TRST should always be on\n",
+                                           ci->hierpath.c_str(ctx), ci->name.c_str(ctx));     
+#endif
+            }
             write_bit("CLKRCV_TRST", clkrcv_trst);
             pop();
         } else {
@@ -2346,8 +2360,15 @@ struct FasmBackend
             write_bit("GTREFCLK1_USED", bool_or_default(ci->params, ctx->id("_GTREFCLK1_USED"), false));
             write_bit("GTGREFCLK0_USED", bool_or_default(ci->params, ctx->id("_GTGREFCLK0_USED"), false));
             auto clkswing_cfg = int_or_default(ci->params, ctx->id("CLKSWING_CFG"), 3);
-            if (clkswing_cfg != 3) log_warning("%s/%s: According to ug482, CLK should always be 0b11\n",
+            if (clkswing_cfg != 3){
+#ifdef HYBRDLINK
+                log_warning("%s/%s: According to ug482_hybrdchip, CLK_hybrdchip should always be 0b11\n",
                                                ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
+#else
+                log_warning("%s/%s: According to ug482, CLK should always be 0b11\n",
+                                               ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
+#endif    
+            } 
             write_int_vector("IBUFDS_GTE2.CLKSWING_CFG[1:0]", clkswing_cfg, 2);
             write_bit("INV_DRPCLK", bool_or_default(ci->params, ctx->id("IS_DRPCLK_INVERTED")));
             write_bit("INV_PLL0LOCKDETCLK", bool_or_default(ci->params, ctx->id("IS_PLL0LOCKDETCLK_INVERTED")));

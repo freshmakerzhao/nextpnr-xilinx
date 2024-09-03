@@ -484,15 +484,12 @@ void XilinxPacker::pack_dram()
                 if (z <0)
                     z = (height - 1);
                 if (z == (height - 1)){
-                    std::vector<NetInfo *> address(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
-                    base = create_dram_lut(cell->name.str(ctx), nullptr, cs, address, di, dout, z);
+                    base = create_dram_lut(cell->name.str(ctx), nullptr, cs, cs.wa, di, dout, z);
                     if (cell->params.count(ctx->id("INIT")))
                         base->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
                     z--;                    
              }else{
-                    std::vector<NetInfo *> address(cs.wa.begin(),
-                                                       cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
-                    CellInfo *ram_lut = create_dram_lut(cell->name.str(ctx), base, cs, address, di, dout, z);
+                    CellInfo *ram_lut = create_dram_lut(cell->name.str(ctx), base, cs, cs.wa, di, dout, z);
                     if (cell->params.count(ctx->id("INIT")))
                         ram_lut->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
                     z--;                    

@@ -496,6 +496,46 @@ void XilinxPacker::pack_dram()
                 }
                 packed_cells.insert(cell->name);
              }
+        } else if (cs.memtype == ctx->id("RAM128X1S")) {
+            for (auto cell : group.second) {
+                int z = (height - 1);
+                CellInfo *base = nullptr;
+                // 创建一个vector来存储两个64位LUT的输出
+                std::vector<NetInfo *> dout_interm;     
+
+                NPNR_ASSERT(cell->type == ctx->id("RAM128X1S"));
+                NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                // 将地址分为低6位（用于64位LUT）和高1位（用于MUXF7选择）
+                std::vector<NetInfo *> addressw_low(cs.wa.begin(), cs.wa.begin() + 6);
+                std::vector<NetInfo *> addressw_high(cs.wa.begin() + 6, cs.wa.end());   
+                
+                // 创建第一个64位LUT（低64位）
+                NetInfo *dout_low = create_internal_net(cell->name, "O_LOW", false);
+                CellInfo *dram_low = create_dram_lut(cell->name.str(ctx) + "/LOW", base, cs, addressw_low, di, dout_low, z);
+                z--;
+                dout_interm.push_back(dout_low);
+
+                // 创建第二个64位LUT（高64位）
+                NetInfo *dout_high = create_internal_net(cell->name, "O_HIGH", false);
+                CellInfo *dram_high = create_dram_lut(cell->name.str(ctx) + "/HIGH", base, cs, 
+                                                    addressw_low, di, dout_high, z);
+                z--;
+                dout_interm.push_back(dout_high);
+
+                // 如果原始RAM128X1S有INIT参数，将其分为两半，每半64位，分别设置给两个64位LUT
+                if (cell->params.count(ctx->id("INIT"))) {
+                    Property init = cell->params.at(ctx->id("INIT"));
+                    dram_low->params[ctx->id("INIT")] = init.extract(0, 64);
+                    dram_high->params[ctx->id("INIT")] = init.extract(64, 64);
+                }
+
+                // 使用create_muxf_tree函数创建MUXF7，选择两个64位LUT的输出
+                create_muxf_tree(dram_low, "O", dout_interm, addressw_high, dout, 2);
+                packed_cells.insert(cell->name);         
+            }
         }
     }
     // Whole-SLICE DRAM

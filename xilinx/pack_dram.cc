@@ -536,6 +536,61 @@ void XilinxPacker::pack_dram()
                 create_muxf_tree(dram_low, "O", dout_interm, addressw_high, dout, 2);
                 packed_cells.insert(cell->name);         
             }
+        } else if (cs.memtype == ctx->id("RAM256X1S")) {
+            for (auto cell : group.second) {
+                int z = (height - 1);
+                std::vector<NetInfo *> dout_interm;
+                NPNR_ASSERT(cell->type == ctx->id("RAM256X1S"));
+
+                // 获取输入和输出端口
+                NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+                // 断开原始输出连接，因为我们将使用新的输出网络
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                // 分割地址线：低6位用于DRAM LUT，高2位用于MUX选择
+                std::vector<NetInfo *> addressw_low(cs.wa.begin(), cs.wa.begin() + 6);
+                std::vector<NetInfo *> addressw_high(cs.wa.begin() + 6, cs.wa.end());   
+
+                // 创建RAMS64E_D
+                NetInfo *dout_d = create_internal_net(cell->name, "O_RAMS64E_D", false);
+                CellInfo *lut_d = create_dram_lut(cell->name.str(ctx) + "/RAMS64E_D", 
+                                                nullptr, cs, addressw_low, di, dout_d, z);
+                z--;
+                dout_interm.push_back(dout_d);
+
+                // 创建RAMS64E_C
+                NetInfo *dout_c = create_internal_net(cell->name, "O_RAMS64E_C", false);
+                CellInfo *lut_c = create_dram_lut(cell->name.str(ctx) + "/RAMS64E_C", 
+                                                lut_d, cs, addressw_low, di, dout_c, z);
+                z--;
+                dout_interm.push_back(dout_c);
+
+                // 创建RAMS64E_B
+                NetInfo *dout_b = create_internal_net(cell->name, "O_RAMS64E_B", false);
+                CellInfo *lut_b = create_dram_lut(cell->name.str(ctx) + "/RAMS64E_B", 
+                                                lut_d, cs, addressw_low, di, dout_b, z);
+                z--;
+                dout_interm.push_back(dout_b);
+
+                // 创建RAMS64E_A
+                NetInfo *dout_a = create_internal_net(cell->name, "O_RAMS64E_A", false);
+                CellInfo *lut_a = create_dram_lut(cell->name.str(ctx) + "/RAMS64E_A", 
+                                                lut_d, cs, addressw_low, di, dout_a, z);
+                dout_interm.push_back(dout_a);
+
+                // 设置INIT参数
+                if (cell->params.count(ctx->id("INIT"))) {
+                    Property init = cell->params.at(ctx->id("INIT"));
+                    lut_d->params[ctx->id("INIT")] = init.extract(192, 64);
+                    lut_c->params[ctx->id("INIT")] = init.extract(128, 64);
+                    lut_b->params[ctx->id("INIT")] = init.extract(64, 64);
+                    lut_a->params[ctx->id("INIT")] = init.extract(0, 64);
+                }
+                // 创建MUXF7和MUXF8树来选择正确的DRAM LUT输出
+                create_muxf_tree(lut_d, "O", dout_interm, addressw_high, dout, 0);
+                packed_cells.insert(cell->name);         
+            }
         }
     }
     // Whole-SLICE DRAM

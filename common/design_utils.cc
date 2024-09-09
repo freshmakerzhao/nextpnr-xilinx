@@ -20,10 +20,12 @@
 
 #include "design_utils.h"
 #include <algorithm>
+#include <fstream>
 #include <map>
 #include <boost/regex.hpp>
 #include "log.h"
 #include "util.h"
+#include "json11.hpp"
 NEXTPNR_NAMESPACE_BEGIN
 
 void replace_port(CellInfo *old_cell, IdString old_name, CellInfo *rep_cell, IdString rep_name)
@@ -71,13 +73,23 @@ void print_utilisation(const Context *ctx)
     }
     log_break();
     log_info("Device utilisation:\n");
+    std::ofstream file("place_stat.json");
+    json11::Json::object stat_data;
     for (auto type : available_types) {
         IdString type_id = type.first;
         int used_bels = get_or_default(used_types, type.first, 0);
         boost::regex expr {"^([A-Z0-9_]*)_\\1$"};
         std::string type_str = boost::regex_replace(type_id.str(ctx), expr, "\\1");
         log_info("\t%20s: %5d/%5d %5d%%\n", type_str.c_str(), used_bels, type.second, 100 * used_bels / type.second);
+        stat_data[type_str] = used_bels;
     }
+
+    json11::Json jsObj = json11::Json(stat_data);
+    std::string outstring;
+    jsObj.dump(outstring);
+    file << outstring;
+    file.flush();
+    file.close();
     log_break();
 }
 

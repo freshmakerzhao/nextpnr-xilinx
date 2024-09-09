@@ -154,6 +154,7 @@ void XilinxPacker::pack_dram()
     std::unordered_map<IdString, DRAMType> dram_types;
 
     dram_types[ctx->id("RAM32X1S")] = {5, 1, 0};
+    dram_types[ctx->id("RAM32X2S")] = {5, 2, 0};
     dram_types[ctx->id("RAM32X1D")] = {5, 1, 1};
     dram_types[ctx->id("RAM64X1S")] = {6, 1, 0};
     dram_types[ctx->id("RAM64X1D")] = {6, 1, 1};
@@ -248,6 +249,9 @@ void XilinxPacker::pack_dram()
         for (int i = 0; i < dt.abits; i++)
             dcs.wa.push_back(get_net_or_empty(
                     ci, ctx->id(dt.abits <= 6 ? ("A" + std::to_string(i)) : ("A[" + std::to_string(i) + "]"))));
+        if (dt.abits == 5) {
+            dcs.wa.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+        }
         dcs.wclk = get_net_or_empty(ci, ctx->id("WCLK"));
         dcs.we = get_net_or_empty(ci, ctx->id("WE"));
         dcs.wclk_inv = bool_or_default(ci->params, ctx->id("IS_WCLK_INVERTED"));
@@ -470,6 +474,46 @@ void XilinxPacker::pack_dram()
                     z--;
                 }
                 packed_cells.insert(cell->name);
+            }
+        } else if (cs.memtype == ctx->id("RAM32X2S")) {
+            int z = (height - 1);
+            CellInfo *base = nullptr;
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == ctx->id("RAM32X2S"));
+                // 最多处理两个RAM32X2S
+                if (z < 1) {
+                    z = (height - 1);
+                    base = nullptr;
+                } 
+                // 读地址线(单端读写一套地址线)
+                std::vector<NetInfo *> address;
+                for (int i = 0; i < 5; i++)
+                    address.push_back(get_net_or_empty(cell, ctx->id("A" + std::to_string(i))));
+                address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());//读高位LUT5，第6根读地址线置为高电平
+
+                for (int i = 0; i < 2; i++) {
+                    NetInfo *di = get_net_or_empty(cell, ctx->id("D" + std::to_string(i)));
+                    NetInfo *dout = get_net_or_empty(cell, ctx->id("O" + std::to_string(i)));
+                    disconnect_port(ctx, cell, ctx->id("O" + std::to_string(i)));
+
+                    // 创建DRAM LUT
+                    CellInfo *ram_lut = create_dram_lut(
+                        cell->name.str(ctx) + "/RAM32X1S" + std::to_string(i) + "/SP",
+                        base, cs, address, di, dout, z);
+
+                    // 处理INIT值
+                    IdString init_param = ctx->id("INIT_0" + std::to_string(i));
+                    if (cell->params.count(init_param)) {
+                        auto init_property = cell->params.at(init_param);
+                        init_property.str.append(32 - init_property.str.size(), '0');
+                        init_property.str.insert(0, 32, '0');
+                        init_property.update_intval();
+                        ram_lut->params[ctx->id("INIT")] = init_property;
+                    }
+                    if (base == nullptr) base = ram_lut;
+                    z--;                    
+                }
+                packed_cells.insert(cell->name);               
             }
         } else if (cs.memtype == ctx->id("RAM64X1S")) {
              int z = (height - 1);

@@ -158,6 +158,7 @@ void XilinxPacker::pack_dram()
     dram_types[ctx->id("RAM32X1S_1")] = {5, 1, 0};
     dram_types[ctx->id("RAM32X1D")] = {5, 1, 1};
     dram_types[ctx->id("RAM64X1S")] = {6, 1, 0};
+    dram_types[ctx->id("RAM64X1S_1")] = {6, 1, 0};    
     dram_types[ctx->id("RAM64X1D")] = {6, 1, 1};
     dram_types[ctx->id("RAM128X1S")] = {7, 1, 0};
     dram_types[ctx->id("RAM128X1D")] = {7, 1, 1};
@@ -256,7 +257,7 @@ void XilinxPacker::pack_dram()
         dcs.wclk = get_net_or_empty(ci, ctx->id("WCLK"));
         dcs.we = get_net_or_empty(ci, ctx->id("WE"));
         dcs.wclk_inv = bool_or_default(ci->params, ctx->id("IS_WCLK_INVERTED"));
-        if(ci->type == ctx->id("RAM32X1S_1")){
+        if(ci->type == ctx->id("RAM32X1S_1") || ci->type == ctx->id("RAM64X1S_1")){
             dcs.wclk_inv = true;
         }
         dcs.memtype = ci->type;
@@ -585,6 +586,33 @@ void XilinxPacker::pack_dram()
                 packed_cells.insert(cell->name);
 
              }
+        } else if (cs.memtype == ctx->id("RAM64X1S_1")) {
+            int z = (height - 1);
+            CellInfo *base = nullptr;
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == ctx->id("RAM64X1S_1"));
+                NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                if (z <0)
+                    z = (height - 1);
+                if (z == (height - 1)){
+                    base = create_dram_lut(cell->name.str(ctx), nullptr, cs, cs.wa, di, dout, z);
+                    if (cell->params.count(ctx->id("INIT")))
+                        base->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
+                    base->attrs[ctx->id("CLK_STATUS")] = Property("CLKINV");
+                    z--;                    
+                }else{
+                        CellInfo *ram_lut = create_dram_lut(cell->name.str(ctx), base, cs, cs.wa, di, dout, z);
+                        if (cell->params.count(ctx->id("INIT")))
+                            ram_lut->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
+                        ram_lut->attrs[ctx->id("CLK_STATUS")] = Property("CLKINV");
+                        z--;                    
+                    }
+                packed_cells.insert(cell->name);
+            }            
         } else if (cs.memtype == ctx->id("RAM128X1S")) {
             for (auto cell : group.second) {
                 int z = (height - 1);

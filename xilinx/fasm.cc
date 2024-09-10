@@ -643,9 +643,11 @@ struct FasmBackend
         }
         if (found_ff){
             if (is_clkinv) {
-                NPNR_ASSERT(ctx->tileStatus[tile].clk_status == ClkStatus::CLK_STATUS_CLKINV);
+                NPNR_ASSERT(ctx->tileStatus[tile].clk_status != ClkStatus::CLK_STATUS_NOCLKINV);
+                ctx->tileStatus[tile].clk_status = ClkStatus::CLK_STATUS_CLKINV;
             } else {
                 NPNR_ASSERT(ctx->tileStatus[tile].clk_status != ClkStatus::CLK_STATUS_CLKINV);
+                ctx->tileStatus[tile].clk_status = ClkStatus::CLK_STATUS_NOCLKINV;
             }
         }
         

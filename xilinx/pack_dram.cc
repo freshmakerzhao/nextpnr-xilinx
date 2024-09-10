@@ -607,6 +607,8 @@ void XilinxPacker::pack_dram()
                 z--;
                 dout_interm.push_back(dout_low);
 
+                if (base == nullptr) base = dram_low;
+                
                 // 创建第二个64位LUT（高64位）
                 NetInfo *dout_high = create_internal_net(cell->name, "O_HIGH", false);
                 CellInfo *dram_high = create_dram_lut(cell->name.str(ctx) + "/HIGH", base, cs, 

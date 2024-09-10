@@ -76,7 +76,7 @@ template <typename T> struct EquationSystem
         std::fill(rhs.begin(), rhs.end(), T());
     }
 
-    void add_coeff(int row, int col, T val)
+    void add_coeff(int row, int col, T val) // 在A[col]里二分查找,已有就+val，没有就插入
     {
         auto &Ac = A.at(col);
         // Binary search
@@ -110,7 +110,7 @@ template <typename T> struct EquationSystem
         std::vector<int> colnnz;
         for (auto &Ac : A)
             colnnz.push_back(int(Ac.size()));
-        mat.reserve(colnnz);
+        mat.reserve(colnnz); // 预分配内存
         for (int col = 0; col < int(A.size()); col++) {
             auto &Ac = A.at(col);
             for (auto &el : Ac)
@@ -224,7 +224,7 @@ class HeAPPlacer
                 update_all_chains();
                 solved_hpwl = total_hpwl();
 
-                update_all_chains();
+                update_all_chains(); // ??? 为什么做两次？
 
                 for (const auto &group : cfg.cellGroups)
                     CutSpreader(this, group).run();
@@ -301,11 +301,12 @@ class HeAPPlacer
 
         ctx->check();
 
-        auto placer1_cfg = Placer1Cfg(ctx);
-        placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
-        placer1_cfg.hpwl_scale_y = cfg.hpwl_scale_y;
-        placer1_cfg.netShareWeight = cfg.netShareWeight;
-        placer1_refine(ctx, placer1_cfg);
+        // TODO: 微调不可控，暂时关闭
+        // auto placer1_cfg = Placer1Cfg(ctx);
+        // placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
+        // placer1_cfg.hpwl_scale_y = cfg.hpwl_scale_y;
+        // placer1_cfg.netShareWeight = cfg.netShareWeight;
+        // placer1_refine(ctx, placer1_cfg);
 
         return true;
     }
@@ -410,7 +411,7 @@ class HeAPPlacer
     // Construct the fast_bels, nearest_row_with_bel and nearest_col_with_bel
     void build_fast_bels()
     {
-
+        // 整理bel_type，统计每种type的bel数量
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
             IdString type = ctx->getBelType(bel);
@@ -573,7 +574,7 @@ class HeAPPlacer
     {
         int row = 0;
         solve_cells.clear();
-        // First clear the udata of all cells
+        // First clear the udata of all cells TODO: 这里可以考虑优化成place_cells
         for (auto cell : sorted(ctx->cells))
             cell.second->udata = dont_solve;
         // Then update cells to be placed, which excludes cell children
@@ -652,7 +653,7 @@ class HeAPPlacer
             // Find the bounds of the net in this axis, and the ports that correspond to these bounds
             PortRef *lbport = nullptr, *ubport = nullptr;
             int lbpos = std::numeric_limits<int>::max(), ubpos = std::numeric_limits<int>::min();
-            foreach_port(ni, [&](PortRef &port, int user_idx) {
+            foreach_port(ni, [&](PortRef &port, int user_idx) { //找到这个net最low的port和最up的port
                 int pos = cell_pos(port.cell);
                 if (pos < lbpos) {
                     lbpos = pos;
@@ -851,7 +852,7 @@ class HeAPPlacer
                                                   1);
                 }
 
-                int nx = ctx->rng(2 * rx + 1) + std::max(cell_locs.at(ci->name).x - rx, 0);
+                int nx = ctx->rng(2 * rx + 1) + std::max(cell_locs.at(ci->name).x - rx, 0);//在x方向可移动范围随机找一个位置
                 int ny = ctx->rng(2 * ry + 1) + std::max(cell_locs.at(ci->name).y - ry, 0);
 
                 iter++;
@@ -912,6 +913,8 @@ class HeAPPlacer
                     for (auto sz : fb.at(nx).at(ny)) {
                         if (ci->region != nullptr && ci->region->constr_bels && !ci->region->bels.count(sz))
                             continue;
+                        if (!ctx->isValidBelForCell(ci, sz))
+                            continue;
                         if (ctx->checkBelAvail(sz) || (radius > ripup_radius || ctx->rng(20000) < 10)) {
                             CellInfo *bound = ctx->getBoundBelCell(sz);
                             if (bound != nullptr) {
@@ -963,6 +966,8 @@ class HeAPPlacer
                     for (auto sz : fb.at(nx).at(ny)) {
                         Loc loc = ctx->getBelLocation(sz);
                         if (ci->constr_abs_z && loc.z != ci->constr_z)
+                            continue;
+                        if (!ctx->isValidBelForCell(ci, sz))
                             continue;
                         std::vector<std::pair<CellInfo *, BelId>> targets;
                         std::vector<std::pair<BelId, CellInfo *>> swaps_made;
@@ -1103,8 +1108,9 @@ class HeAPPlacer
                 if (merged_regions.count(r.id))
                     continue;
 #if 0
-                log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", beltype.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells,
-                         r.bels);
+                for (auto t : sorted(beltype)) {
+                    log_info("%s (%d, %d) |_> (%d, %d) %d/%d\n", t.c_str(ctx), r.x0, r.y0, r.x1, r.y1, r.cells.at(type_index.at(t)), r.bels.at(type_index.at(t)));
+                }
 #endif
             }
             expand_regions();
@@ -1153,7 +1159,7 @@ class HeAPPlacer
                 std::ofstream sp("spread" + std::to_string(seq) + ".csv");
                 for (size_t i = 0; i < p->solve_cells.size(); i++) {
                     auto &c = p->solve_cells.at(i);
-                    if (c->type != beltype)
+                    if (!beltype.count(c->type))
                         continue;
                     sp << orig.at(i).first << "," << orig.at(i).second << "," << p->cell_locs[c->name].rawx << "," << p->cell_locs[c->name].rawy << std::endl;
                 }

@@ -641,10 +641,23 @@ struct FasmBackend
                 found_ff = true;
             }
         }
+        if (found_ff){
+            if (is_clkinv) {
+                NPNR_ASSERT(ctx->tileStatus[tile].clk_status == ClkStatus::CLK_STATUS_CLKINV);
+            } else {
+                NPNR_ASSERT(ctx->tileStatus[tile].clk_status != ClkStatus::CLK_STATUS_CLKINV);
+            }
+        }
+        
+        if (ctx->tileStatus[tile].clk_status != ClkStatus::CLK_STATUS_CLKINV) {
+            write_bit("NOCLKINV", true);
+        } else {
+            write_bit("CLKINV", true);
+        }
         write_bit("LATCH", is_latch);
         write_bit("FFSYNC", is_sync);
-        write_bit("CLKINV",    is_clkinv);
-        write_bit("NOCLKINV", !is_clkinv);
+        // write_bit("CLKINV",    is_clkinv);
+        // write_bit("NOCLKINV", !is_clkinv);
         write_bit("SRUSEDMUX", is_srused);
         write_bit("CEUSEDMUX", is_ceused);
         pop(2);
@@ -686,7 +699,10 @@ struct FasmBackend
 
         BelId bel_in_half =
                 ctx->getBelByLocation(Loc(tile % ctx->chip_info->width, tile / ctx->chip_info->width, half << 6));
-
+        if (half ==0){
+            ctx->tileStatus[tile].clk_status = ClkStatus::CLK_STATUS_NONE;
+        }
+        ClkStatus tile_clk_status = ctx->tileStatus[tile].clk_status;
         for (int i = 0; i < 4; i++) {
             CellInfo *lut6 = lts->cells[(half << 6) | (i << 4) | BEL_6LUT];
             CellInfo *lut5 = lts->cells[(half << 6) | (i << 4) | BEL_5LUT];
@@ -723,6 +739,23 @@ struct FasmBackend
                     write_routing_bel(
                             get_site_wire(bel_in_half, std::string("") + ("ABCD"[i]) + std::string("DI1MUX_OUT")));
                 }
+
+                // 填充tile的clk状态，目前只用了lut6
+                if (is_ram || is_srl){
+                    std::string lut6_clk_status = str_or_default(lut6->attrs, id_CLK_STATUS, "NONE");
+                    if (lut6_clk_status == "CLKINV"){
+                        if (tile_clk_status == ClkStatus::CLK_STATUS_NONE)
+                            tile_clk_status = ClkStatus::CLK_STATUS_CLKINV;
+                        else
+                            NPNR_ASSERT(tile_clk_status == ClkStatus::CLK_STATUS_CLKINV);
+                    } else if (lut6_clk_status == "NOCLKINV"){
+                        if (tile_clk_status == ClkStatus::CLK_STATUS_NONE)
+                            tile_clk_status = ClkStatus::CLK_STATUS_NOCLKINV;
+                        else
+                            NPNR_ASSERT(tile_clk_status == ClkStatus::CLK_STATUS_NOCLKINV);
+                    }
+                }
+                
                 write_bit("SMALL", is_small);
                 write_bit("RAM", is_ram);
                 write_bit("SRL", is_srl);
@@ -730,11 +763,15 @@ struct FasmBackend
             }
             write_routing_bel(get_site_wire(bel_in_half, std::string("") + ("ABCD"[i]) + std::string("MUX")));
         }
+        
+        ctx->tileStatus[tile].clk_status = tile_clk_status;
+
         write_bit("WA7USED", wa7_used);
         write_bit("WA8USED", wa8_used);
-        if (is_slicem)
+        if (is_slicem){
             write_routing_bel(get_site_wire(bel_in_half, "WEMUX_OUT"));
-
+        }
+            
         pop(2);
     }
 

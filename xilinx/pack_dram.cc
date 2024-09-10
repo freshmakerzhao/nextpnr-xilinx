@@ -389,57 +389,6 @@ void XilinxPacker::pack_dram()
 
                 packed_cells.insert(cell->name);
             } 
-        } else if (cs.memtype == ctx->id("RAM128X1D") || cs.memtype == ctx->id("RAM256X1D")) {
-            // Split these cells into write and read ports and associated mux tree
-            bool m256 = cs.memtype == ctx->id("RAM256X1D");
-            for (CellInfo *ci : group.second) {
-                auto init = get_or_default(ci->params, ctx->id("INIT"), Property(0, m256 ? 256 : 128));
-                std::vector<NetInfo *> spo_pre, dpo_pre;
-                int z = (height - 1);
-
-                NetInfo *dpo = get_net_or_empty(ci, ctx->id("DPO"));
-                NetInfo *spo = get_net_or_empty(ci, ctx->id("SPO"));
-                disconnect_port(ctx, ci, ctx->id("DPO"));
-                disconnect_port(ctx, ci, ctx->id("SPO"));
-
-                // Low 6 bits of address - connect directly to RAM cells
-                std::vector<NetInfo *> addressw_64(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
-                // Upper bits of address - feed decode muxes
-                std::vector<NetInfo *> addressw_high(cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6), cs.wa.end());
-                CellInfo *base = nullptr;
-                // Combined write address/SPO read cells
-                for (int i = 0; i < (m256 ? 4 : 2); i++) {
-                    NetInfo *spo_i = create_internal_net(ci->name, "SPO_" + std::to_string(i), false);
-                    CellInfo *spr = create_dram_lut(ci->name.str(ctx) + "/ADDR" + std::to_string(i), base, cs,
-                                                    addressw_64, get_net_or_empty(ci, ctx->id("D")), spo_i, z);
-                    if (base == nullptr)
-                        base = spr;
-                    spo_pre.push_back(spo_i);
-                    spr->params[ctx->id("INIT")] = init.extract(i * 64, 64);
-                    z--;
-                }
-                // Decode mux tree using MUXF[78]
-                create_muxf_tree(base, "SPO", spo_pre, addressw_high, spo, m256 ? 4 : (ctx->xc7 ? 2 : 6));
-
-                std::vector<NetInfo *> addressr_64, addressr_high;
-                for (int i = 0; i < (m256 ? 8 : 7); i++) {
-                    (i >= 6 ? addressr_high : addressr_64)
-                            .push_back(get_net_or_empty(ci, ctx->id("DPRA[" + std::to_string(i) + "]")));
-                }
-                // Read-only port cells
-                for (int i = 0; i < (m256 ? 4 : 2); i++) {
-                    NetInfo *dpo_i = create_internal_net(ci->name, "DPO_" + std::to_string(i), false);
-                    CellInfo *dpr = create_dram_lut(ci->name.str(ctx) + "/DPR" + std::to_string(i), base, cs,
-                                                    addressr_64, get_net_or_empty(ci, ctx->id("D")), dpo_i, z);
-                    dpo_pre.push_back(dpo_i);
-                    dpr->params[ctx->id("INIT")] = init.extract(i * 64, 64);
-                    z--;
-                }
-                // Decode mux tree using MUXF[78]
-                create_muxf_tree(base, "DPO", dpo_pre, addressr_high, dpo, m256 ? 0 : (ctx->xc7 ? 0 : 4));
-
-                packed_cells.insert(ci->name);
-            }
         } else if (cs.memtype == ctx->id("RAM32X1S")) {
             int z = (height - 1);
             CellInfo *base = nullptr;
@@ -711,6 +660,75 @@ void XilinxPacker::pack_dram()
                 packed_cells.insert(cell->name);  
 
             } 
+        } else if (cs.memtype == ctx->id("RAM128X1D")) {
+            
+            for (auto cell : group.second) {
+                CellInfo *base = nullptr;
+                int z = (height - 1);
+                NPNR_ASSERT(cell->type == ctx->id("RAM128X1D"));
+
+                // 获取INIT参数
+                auto init = get_or_default(cell->params, ctx->id("INIT"), Property(0, 128));
+                
+                // 获取输出端口
+                NetInfo *dpo = get_net_or_empty(cell, ctx->id("DPO"));
+                NetInfo *spo = get_net_or_empty(cell, ctx->id("SPO"));
+                
+                // 断开原始输出连接
+                disconnect_port(ctx, cell, ctx->id("DPO"));
+                disconnect_port(ctx, cell, ctx->id("SPO"));
+
+                // 准备地址线
+                std::vector<NetInfo *> addressw_64(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6));
+                std::vector<NetInfo *> addressw_high(cs.wa.begin() + std::min<size_t>(cs.wa.size(), 6), cs.wa.end());
+
+                std::vector<NetInfo *> spo_pre, dpo_pre;
+
+                // 创建SP部分
+                NetInfo *spo_low = create_internal_net(cell->name, "SPO_LOW", false);
+                CellInfo *sp_low = create_dram_lut(cell->name.str(ctx) + "/SP.LOW", base, cs,
+                                                addressw_64, get_net_or_empty(cell, ctx->id("D")), spo_low, z);
+                if (base == nullptr)
+                    base = sp_low;
+                spo_pre.push_back(spo_low);
+                sp_low->params[ctx->id("INIT")] = init.extract(0, 64);
+                z--;
+
+                NetInfo *spo_high = create_internal_net(cell->name, "SPO_HIGH", false);
+                CellInfo *sp_high = create_dram_lut(cell->name.str(ctx) + "/SP.HIGH", base, cs,
+                                                    addressw_64, get_net_or_empty(cell, ctx->id("D")), spo_high, z);
+                spo_pre.push_back(spo_high);
+                sp_high->params[ctx->id("INIT")] = init.extract(64, 64);
+                z--;
+
+                // 准备DP地址线
+                std::vector<NetInfo *> addressr_64, addressr_high;
+                for (int i = 0; i < 7; i++) {
+                    (i >= 6 ? addressr_high : addressr_64)
+                            .push_back(get_net_or_empty(cell, ctx->id("DPRA[" + std::to_string(i) + "]")));
+                }
+
+                // 创建DP部分
+                NetInfo *dpo_low = create_internal_net(cell->name, "DPO_LOW", false);
+                CellInfo *dp_low = create_dram_lut(cell->name.str(ctx) + "/DP.LOW", base, cs,
+                                                addressr_64, get_net_or_empty(cell, ctx->id("D")), dpo_low, z);
+                dpo_pre.push_back(dpo_low);
+                dp_low->params[ctx->id("INIT")] = init.extract(0, 64);
+                z--;
+
+                NetInfo *dpo_high = create_internal_net(cell->name, "DPO_HIGH", false);
+                CellInfo *dp_high = create_dram_lut(cell->name.str(ctx) + "/DP.HIGH", base, cs,
+                                                    addressr_64, get_net_or_empty(cell, ctx->id("D")), dpo_high, z);
+                dpo_pre.push_back(dpo_high);
+                dp_high->params[ctx->id("INIT")] = init.extract(64, 64);
+                z--;
+
+                // 创建MUXF7树
+                create_muxf_tree(base, "SPO", spo_pre, addressw_high, spo, 2);
+                create_muxf_tree(base, "DPO", dpo_pre, addressr_high, dpo, 0);
+
+                packed_cells.insert(cell->name);
+            }
         }
     }
     // Whole-SLICE DRAM

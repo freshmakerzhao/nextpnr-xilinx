@@ -202,36 +202,44 @@ void XilinxPacker::pack_ffs()
     ff_rules[ctx->id("FDCE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDCE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDCE")].port_xform[ctx->id("CLR")] = id_SR;
+    ff_rules[ctx->id("FDCE")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("NOCLKINV"));
     // ff_rules[ctx->id("FDCE")].param_xform[ctx->id("IS_CLR_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDPE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDPE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDPE")].port_xform[ctx->id("PRE")] = id_SR;
+    ff_rules[ctx->id("FDPE")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("NOCLKINV"));
     // ff_rules[ctx->id("FDPE")].param_xform[ctx->id("IS_PRE_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDRE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDRE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDRE")].port_xform[ctx->id("R")] = id_SR;
     ff_rules[ctx->id("FDRE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), Property(1));
+    ff_rules[ctx->id("FDRE")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("NOCLKINV"));
     // ff_rules[ctx->id("FDRE")].param_xform[ctx->id("IS_R_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDSE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("FDSE")].port_xform[ctx->id("C")] = ctx->xc7 ? id_CK : id_CLK;
     ff_rules[ctx->id("FDSE")].port_xform[ctx->id("S")] = id_SR;
     ff_rules[ctx->id("FDSE")].set_attrs.emplace_back(ctx->id("X_FFSYNC"), Property(1));
+    ff_rules[ctx->id("FDSE")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("NOCLKINV"));
     // ff_rules[ctx->id("FDSE")].param_xform[ctx->id("IS_S_INVERTED")] = ctx->id("IS_SR_INVERTED");
 
     ff_rules[ctx->id("FDCE_1")] = ff_rules[ctx->id("FDCE")];
     ff_rules[ctx->id("FDCE_1")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+    ff_rules[ctx->id("FDCE_1")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("CLKINV"));
 
     ff_rules[ctx->id("FDPE_1")] = ff_rules[ctx->id("FDPE")];
     ff_rules[ctx->id("FDPE_1")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+    ff_rules[ctx->id("FDPE_1")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("CLKINV"));
 
     ff_rules[ctx->id("FDRE_1")] = ff_rules[ctx->id("FDRE")];
     ff_rules[ctx->id("FDRE_1")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+    ff_rules[ctx->id("FDRE_1")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("CLKINV"));
 
     ff_rules[ctx->id("FDSE_1")] = ff_rules[ctx->id("FDSE")];
     ff_rules[ctx->id("FDSE_1")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+    ff_rules[ctx->id("FDSE_1")].set_attrs.emplace_back(ctx->id("CLK_STATUS"), Property("CLKINV"));
 
     // 添加LATCH映射
     ff_rules[ctx->id("LDCE")].new_type = id_SLICE_FFX;
@@ -240,6 +248,7 @@ void XilinxPacker::pack_ffs()
     ff_rules[ctx->id("LDCE")].port_xform[ctx->id("GE")] = id_CE;
     ff_rules[ctx->id("LDCE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), Property(1));
     ff_rules[ctx->id("LDCE")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+    ff_rules[ctx->id("LDCE")].set_params.emplace_back(ctx->id("CLK_STATUS"), Property("CLKINV"));
 
     ff_rules[ctx->id("LDPE")].new_type = id_SLICE_FFX;
     ff_rules[ctx->id("LDPE")].port_xform[ctx->id("G")] = ctx->xc7 ? id_CK : id_CLK;
@@ -247,6 +256,7 @@ void XilinxPacker::pack_ffs()
     ff_rules[ctx->id("LDPE")].port_xform[ctx->id("GE")] = id_CE;
     ff_rules[ctx->id("LDPE")].set_attrs.emplace_back(ctx->id("X_FF_AS_LATCH"), Property(1));
     ff_rules[ctx->id("LDPE")].set_params.emplace_back(ctx->id("IS_CLK_INVERTED"), 1);
+    ff_rules[ctx->id("LDPE")].set_params.emplace_back(ctx->id("CLK_STATUS"), Property("CLKINV"));
 
     generic_xform(ff_rules, true);
 }
@@ -266,6 +276,14 @@ void XilinxPacker::pack_lutffs()
         CellInfo *lut = d->driver.cell;
         if (lut->constr_parent != nullptr || !lut->constr_children.empty())
             continue;
+        
+        std::string ff_clk_status = str_or_default(ci->attrs, ctx->id("CLK_STATUS"), "NOCLKINV");
+        std::string lut_clk_status = str_or_default(lut->attrs, ctx->id("CLK_STATUS"), "NONE");
+        if (lut_clk_status != "NONE" && ff_clk_status != lut_clk_status){
+            // 如果时钟信号反向不一致，无法作为chain
+            continue;
+        }
+                
         lut->constr_children.push_back(ci);
         ci->constr_parent = lut;
         ci->constr_x = 0;
@@ -279,6 +297,33 @@ void XilinxPacker::pack_lutffs()
         ++pairs;
     }
     log_info("Constrained %d LUTFF pairs.\n", pairs);
+}
+
+// pack阶段最后合法性检查
+void XilinxPacker::check(){
+    log_info("Packing Check\n");
+    // 检查chain中所有cell的clk状态是否一致
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (!ci->constr_children.empty() && (ci->type == id_CARRY4 || ci->type == id_SLICE_LUTX || ci->type == id_SLICE_FFX )) {
+            std::string fix_clk_status = str_or_default(ci->attrs, id_CLK_STATUS, "NONE");
+            // 遍历所有children，如果clk status不一致提示error
+            for (auto child : ci->constr_children){
+                auto child_clk_status = str_or_default(child->attrs, id_CLK_STATUS, "NONE");
+                if (child_clk_status == "NONE")
+                    continue;
+                if (child_clk_status != fix_clk_status){
+                    if (fix_clk_status == "NONE")
+                        fix_clk_status = child_clk_status;
+                    else 
+                        log_error("chain clk status error");
+                }
+            }
+            if (fix_clk_status != "NONE"){
+                ci->attrs[id_CLK_STATUS] = Property(fix_clk_status);
+            }
+        }
+    }
 }
 
 bool XilinxPacker::is_constrained(const CellInfo *cell)
@@ -1106,6 +1151,7 @@ bool Arch::pack()
         packer.pack_ffs();
         packer.finalise_muxfs();
         packer.pack_lutffs();
+        packer.check();
     } else {
         USPacker packer;
         packer.ctx = getCtx();

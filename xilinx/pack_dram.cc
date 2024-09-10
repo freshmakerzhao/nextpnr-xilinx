@@ -155,6 +155,7 @@ void XilinxPacker::pack_dram()
 
     dram_types[ctx->id("RAM32X1S")] = {5, 1, 0};
     dram_types[ctx->id("RAM32X2S")] = {5, 2, 0};
+    dram_types[ctx->id("RAM32X1S_1")] = {5, 1, 0};
     dram_types[ctx->id("RAM32X1D")] = {5, 1, 1};
     dram_types[ctx->id("RAM64X1S")] = {6, 1, 0};
     dram_types[ctx->id("RAM64X1D")] = {6, 1, 1};
@@ -167,7 +168,7 @@ void XilinxPacker::pack_dram()
 
     // Transform from RAMD64E UNISIM to SLICE_LUTX bel
     dram_rules[ctx->id("RAMD64E")].new_type = id_SLICE_LUTX;
-    dram_rules[ctx->id("RAMD64E")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
+    // dram_rules[ctx->id("RAMD64E")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
     dram_rules[ctx->id("RAMD64E")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property(1));
     dram_rules[ctx->id("RAMD64E")].set_attrs.emplace_back(ctx->id("X_IS_SLICEM"), Property(1));
     for (int i = 0; i < 6; i++)
@@ -181,7 +182,7 @@ void XilinxPacker::pack_dram()
 
     // Rules for upper and lower RAMD32E
     dram32_6_rules[ctx->id("RAMD32")].new_type = id_SLICE_LUTX;
-    dram32_6_rules[ctx->id("RAMD32")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
+    // dram32_6_rules[ctx->id("RAMD32")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
     dram32_6_rules[ctx->id("RAMD32")].set_attrs.emplace_back(ctx->id("X_LUT_AS_DRAM"), Property(1));
     for (int i = 0; i < 5; i++)
         dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("RADR" + std::to_string(i))] =
@@ -255,6 +256,9 @@ void XilinxPacker::pack_dram()
         dcs.wclk = get_net_or_empty(ci, ctx->id("WCLK"));
         dcs.we = get_net_or_empty(ci, ctx->id("WE"));
         dcs.wclk_inv = bool_or_default(ci->params, ctx->id("IS_WCLK_INVERTED"));
+        if(ci->type == ctx->id("RAM32X1S_1")){
+            dcs.wclk_inv = true;
+        }
         dcs.memtype = ci->type;
         dram_groups[dcs].push_back(ci);
     }
@@ -475,7 +479,8 @@ void XilinxPacker::pack_dram()
                 }
                 packed_cells.insert(cell->name);
             }
-        } else if (cs.memtype == ctx->id("RAM32X2S")) {
+        } 
+        else if (cs.memtype == ctx->id("RAM32X2S")) {
             int z = (height - 1);
             CellInfo *base = nullptr;
             for (auto cell : group.second) {
@@ -539,6 +544,46 @@ void XilinxPacker::pack_dram()
                     z--;                    
                 }
                 packed_cells.insert(cell->name);
+             }
+        } else if (cs.memtype == ctx->id("RAM32X1S_1")) {
+            int z = (height - 1);
+            CellInfo *base = nullptr;
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == ctx->id("RAM32X1S_1"));
+
+                auto init_property=get_or_default(cell->params, ctx->id("INIT"), Property(0));
+                // 只用了高位的LUT5，str是倒序的，先在后面补零补齐32位，再在前面插入32个0，相当于左移32位
+                init_property.str.append(32-init_property.str.size(), '0');
+                init_property.str.insert(0, 32, '0');
+                init_property.update_intval();
+
+                NetInfo *di = get_net_or_empty(cell, ctx->id("D"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                if (z <0)
+                    z = (height - 1);
+                if (z == (height - 1)){
+                    std::vector<NetInfo *> address(cs.wa.begin(), cs.wa.begin() + std::min<size_t>(cs.wa.size(), 5));
+                    address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    base = create_dram_lut(cell->name.str(ctx), nullptr, cs, address, di, dout, z);
+                    if (cell->params.count(ctx->id("INIT")))
+                        base->params[ctx->id("INIT")] = init_property;
+                    base->attrs[ctx->id("CLK_STATUS")] = Property("CLKINV");
+                    z--;
+                }else{
+                    std::vector<NetInfo *> address(cs.wa.begin(),
+                                                       cs.wa.begin() + std::min<size_t>(cs.wa.size(), 5));
+                    address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+                    CellInfo *ram_lut = create_dram_lut(cell->name.str(ctx), base, cs, address, di, dout, z);
+                    if (cell->params.count(ctx->id("INIT")))
+                        ram_lut->params[ctx->id("INIT")] = init_property;
+                    ram_lut->attrs[ctx->id("CLK_STATUS")] = Property("CLKINV");
+                    z--;
+                }
+                packed_cells.insert(cell->name);
+
              }
         } else if (cs.memtype == ctx->id("RAM128X1S")) {
             for (auto cell : group.second) {
@@ -633,8 +678,9 @@ void XilinxPacker::pack_dram()
                 }
                 // 创建MUXF7和MUXF8树来选择正确的DRAM LUT输出
                 create_muxf_tree(lut_d, "O", dout_interm, addressw_high, dout, 0);
-                packed_cells.insert(cell->name);         
-            }
+                packed_cells.insert(cell->name);  
+
+            } 
         }
     }
     // Whole-SLICE DRAM

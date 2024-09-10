@@ -713,6 +713,7 @@ struct Arch : BaseCtx
         BRAMTileStatus *bts = nullptr;
         std::vector<CellInfo *> boundcells;
         std::vector<int> sitevariant;
+        ClkStatus clk_status = ClkStatus::CLK_STATUS_NONE;
 
         ~TileStatus()
         {
@@ -840,25 +841,7 @@ struct Arch : BaseCtx
         tts.bts->cells[z] = cell;
     }
 
-    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
-    {
-        NPNR_ASSERT(bel != BelId());
-        NPNR_ASSERT(tileStatus[bel.tile].boundcells[bel.index] == nullptr);
-
-        tileStatus[bel.tile].boundcells[bel.index] = cell;
-        auto &bd = locInfo(bel).bel_data[bel.index];
-        int site = bd.site;
-        if (site >= 0 && site < int(tileStatus[bel.tile].sitevariant.size()))
-            tileStatus[bel.tile].sitevariant.at(site) = bd.site_variant;
-        cell->bel = bel;
-        cell->belStrength = strength;
-        refreshUiBel(bel);
-
-        if (isLogicTile(bel))
-            updateLogicBel(bel, cell);
-        else if (isBRAMTile(bel))
-            updateBramBel(bel, cell);
-    }
+    void bindBel(BelId bel, CellInfo *cell, PlaceStrength strength);
 
     void unbindBel(BelId bel)
     {
@@ -868,6 +851,8 @@ struct Arch : BaseCtx
         tileStatus[bel.tile].boundcells[bel.index]->belStrength = STRENGTH_NONE;
         tileStatus[bel.tile].boundcells[bel.index] = nullptr;
         refreshUiBel(bel);
+
+        updateTileClkStatus(bel.tile);
 
         if (isLogicTile(bel))
             updateLogicBel(bel, nullptr);
@@ -1553,6 +1538,10 @@ struct Arch : BaseCtx
         IdString belTileType = getBelTileType(bel);
         return belTileType == id_BRAM || belTileType == id_BRAM_L || belTileType == id_BRAM_R;
     }
+
+    // 根据cell的clk status调整tile的clk status
+    void updateTileClkStatus(int32_t tile_id);
+
     bool isLogicTile(WireId wire) const
     {
         if (wire.tile == -1)

@@ -299,6 +299,13 @@ enum PlaceStrength
     STRENGTH_USER = 5
 };
 
+enum ClkStatus
+{
+    CLK_STATUS_NONE = 0,
+    CLK_STATUS_NOCLKINV = 1,
+    CLK_STATUS_CLKINV = 2
+};
+
 struct PortRef
 {
     CellInfo *cell = nullptr;
@@ -589,7 +596,7 @@ struct DeterministicRNG
 
     DeterministicRNG() : rngstate(0x3141592653589793) {}
 
-    uint64_t rng64()
+    uint64_t rng64()//生成一个64位无符号伪随机数
     {
         // xorshift64star
         // https://arxiv.org/abs/1402.6246
@@ -603,9 +610,9 @@ struct DeterministicRNG
         return retval;
     }
 
-    int rng() { return rng64() & 0x3fffffff; }
+    int rng() { return rng64() & 0x3fffffff; }//生成32位随机数，>0?
 
-    int rng(int n)
+    int rng(int n)//生成在0-n之间均匀分布的一个随机数
     {
         assert(n > 0);
 

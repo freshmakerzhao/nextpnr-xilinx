@@ -1204,7 +1204,7 @@ struct FasmBackend
                           !bool_or_default(ci->params, ctx->id("SRVAL_Q" + std::to_string(i)), false));
             }
             write_bit("IFF.ZINV_C", !bool_or_default(ci->params, ctx->id("IS_CLK_INVERTED"), false));
-            //write_bit("IFF.ZINV_OCLK", !bool_or_default(ci->params, ctx->id("IS_OCLK_INVERTED"), false));
+            write_bit("IFF.ZINV_OCLK", !bool_or_default(ci->params, ctx->id("IS_OCLK_INVERTED"), true));
 
             std::string iobdelay = str_or_default(ci->params, ctx->id("IOBDELAY"), "NONE");
             write_bit("IFFDELMUXE3.P0", (iobdelay == "IFD"));

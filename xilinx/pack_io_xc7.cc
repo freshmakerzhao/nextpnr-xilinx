@@ -1100,7 +1100,7 @@ void XC7Packer::pack_iologic()
                     if (it_net && (it_net->name == ctx->id("$PACKER_VCC_NET") || it_net->name == ctx->id("$PACKER_GND_NET"))) 
                     {
                         disconnect_port(ctx, ci, ctx->id(it));
-                        log_info("ISERDESE2 '%s':'%s' port connected to constant. Leaving it unconnected.\n", ci->name.c_str(ctx),it.c_str());
+                        log_warning("ISERDESE2 '%s':'%s' port connected to constant. Leaving it unconnected.\n", ci->name.c_str(ctx),it.c_str());
                     }
             }
 

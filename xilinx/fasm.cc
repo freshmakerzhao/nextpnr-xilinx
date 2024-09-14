@@ -148,6 +148,12 @@ struct FasmBackend
                                 ctx->id(s + "IOI_OLOGIC" + i + "_TQ"), ctx->id("IOI_OLOGIC" + i + "_T1")}] = {
                                     "OLOGIC_Y" + i + ".ZINV_T1"
                                 };
+                    pp_config[{ ctx->id(s + "IOI3" + s2),
+                                ctx->id(s + "IOI_OLOGIC" + i + "_OFB"), ctx->id("IOI_OLOGIC" + i + "_D1") }] = {
+                                "OLOGIC_Y" + i + ".OMUX.D1",
+                                "OLOGIC_Y" + i + ".OQUSED",
+                                "OLOGIC_Y" + i + ".OSERDES.DATA_RATE_TQ.BUF"
+                            };
                     if (i == "0") {
                         pp_config[{ctx->id(s + "IOB33" + s2), ctx->id("IOB_O_IN1"),     ctx->id("IOB_O_OUT0")}]  = {};
                         pp_config[{ctx->id(s + "IOB33" + s2), ctx->id("IOB_O_OUT0"),    ctx->id("IOB_O0")}]      = {};
@@ -1185,9 +1191,10 @@ struct FasmBackend
             write_bit("TSRTYPE.SYNC");
             pop();
         } else if (ci->type == ctx->id("ISERDESE2_ISERDESE2")) {
-            std::string data_rate = str_or_default(ci->params, ctx->id("DATA_RATE"));
+            //std::string data_rate = str_or_default(ci->params, ctx->id("DATA_RATE"));
             write_bit("IDDR_OR_ISERDES.IN_USE");
-            if (data_rate == "DDR") write_bit("IDDR.IN_USE");
+            //if (data_rate == "DDR") 
+            write_bit("IDDR.IN_USE");
             write_bit("IFF.DDR_CLK_EDGE.OPPOSITE_EDGE");
             write_bit("IFF.SRTYPE.SYNC");
             for (int i = 1; i <= 4; i++) {
@@ -1197,7 +1204,7 @@ struct FasmBackend
                           !bool_or_default(ci->params, ctx->id("SRVAL_Q" + std::to_string(i)), false));
             }
             write_bit("IFF.ZINV_C", !bool_or_default(ci->params, ctx->id("IS_CLK_INVERTED"), false));
-            write_bit("IFF.ZINV_OCLK", !bool_or_default(ci->params, ctx->id("IS_OCLK_INVERTED"), false));
+            write_bit("IFF.ZINV_OCLK", !bool_or_default(ci->params, ctx->id("IS_OCLK_INVERTED"), true));
 
             std::string iobdelay = str_or_default(ci->params, ctx->id("IOBDELAY"), "NONE");
             write_bit("IFFDELMUXE3.P0", (iobdelay == "IFD"));

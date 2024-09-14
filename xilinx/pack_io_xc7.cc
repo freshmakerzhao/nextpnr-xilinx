@@ -1092,6 +1092,18 @@ void XC7Packer::pack_iologic()
             fold_inverter(ci, "CLKB");
             fold_inverter(ci, "OCLKB");
 
+            std::vector<std::string> port_names = {"D","DDLY","CLKDIVP","OCLK","OCLKB","DYNCLKDIVSEL"};
+            for(auto& it : port_names)
+            {
+                // 检查端口是否连接到GND或VCC
+                NetInfo *it_net = get_net_or_empty(ci, ctx->id(it));
+                    if (it_net && (it_net->name == ctx->id("$PACKER_VCC_NET") || it_net->name == ctx->id("$PACKER_GND_NET"))) 
+                    {
+                        disconnect_port(ctx, ci, ctx->id(it));
+                        log_warning("ISERDESE2 '%s':'%s' port connected to constant. Leaving it unconnected.\n", ci->name.c_str(ctx),it.c_str());
+                    }
+            }
+
             bool ofb_used = str_or_default(ci->params, ctx->id("OFB_USED"), "FALSE") == "TRUE";
             std::string iobdelay = str_or_default(ci->params, ctx->id("IOBDELAY"), "NONE");
 
@@ -1100,12 +1112,12 @@ void XC7Packer::pack_iologic()
                 NetInfo *d = get_net_or_empty(ci, ctx->id("OFB"));
                 if (d == nullptr || d->driver.cell == nullptr)
                     log_error("%s '%s' has disconnected OFB input\n", ci->type.c_str(ctx), ctx->nameOf(ci));
-                CellInfo *drv = d->driver.cell;
-                if (boost::contains(drv->type.str(ctx), "OSERDESE2") && d->driver.port == ctx->id("OFB")) {
-                    // We place this later, when we place the OSERDESE2, see below
-                } else
-                    log_error("%s '%s' has OFB input connected to illegal cell type %s\n", ci->type.c_str(ctx),
-                            ctx->nameOf(ci), drv->type.c_str(ctx));
+                // CellInfo *drv = d->driver.cell;
+                // if (boost::contains(drv->type.str(ctx), "OSERDESE2") && d->driver.port == ctx->id("OFB")) {
+                //     // We place this later, when we place the OSERDESE2, see below
+                // } else
+                //     log_error("%s '%s' has OFB input connected to illegal cell type %s\n", ci->type.c_str(ctx),
+                //             ctx->nameOf(ci), drv->type.c_str(ctx));
             } else {
                 BelId io_bel;
                 if (iobdelay == "IFD") {

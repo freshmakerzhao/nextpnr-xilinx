@@ -362,6 +362,7 @@ void XilinxPacker::legalise_muxf_tree(CellInfo *curr, std::vector<CellInfo *> &m
                 pr.cell = curr;
                 pr.port = p;
                 auto i_feed = feed_through_muxf(pn, next_type, {pr});
+                legalise_muxf_tree(i_feed.get(), mux_roots);
                 new_cells.push_back(std::move(i_feed));
                 continue;
             }

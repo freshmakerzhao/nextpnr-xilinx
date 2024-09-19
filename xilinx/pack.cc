@@ -668,12 +668,12 @@ void XilinxPacker::pack_constants()
             disconnect_port(ctx, ci, pname);
         }
 
-        if (!cval && invertible_pins.count(ci->type) && invertible_pins.at(ci->type).count(pname)) {
-            // Invertible pins connected to zero are optimised to a connection to Vcc (which is easier to route)
-            // and an inversion
-            ci->params[ctx->id("IS_" + pname.str(ctx) + "_INVERTED")] = Property(1);
-            cval = true;
-        }
+        // if (!cval && invertible_pins.count(ci->type) && invertible_pins.at(ci->type).count(pname)) {
+        //     // Invertible pins connected to zero are optimised to a connection to Vcc (which is easier to route)
+        //     // and an inversion
+        //     ci->params[ctx->id("IS_" + pname.str(ctx) + "_INVERTED")] = Property(1);
+        //     cval = true;
+        // }
 
         connect_port(ctx, cval ? vcc : gnd, ci, pname);
     }

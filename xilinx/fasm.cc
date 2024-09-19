@@ -742,27 +742,29 @@ struct FasmBackend
                     }
                     wa7_used |= (get_net_or_empty(lut, ctx->id("WA7")) != nullptr);
                     wa8_used |= (get_net_or_empty(lut, ctx->id("WA8")) != nullptr);
+
+                    // 填充tile的clk状态，目前只用了lut6
+                    if (is_ram || is_srl){
+                        std::string lut_clk_status = str_or_default(lut->attrs, id_CLK_STATUS, "NONE");
+                        if (lut_clk_status == "CLKINV"){
+                            if (tile_clk_status == ClkStatus::CLK_STATUS_NONE)
+                                tile_clk_status = ClkStatus::CLK_STATUS_CLKINV;
+                            else
+                                NPNR_ASSERT(tile_clk_status == ClkStatus::CLK_STATUS_CLKINV);
+                        } else if (lut_clk_status == "NOCLKINV"){
+                            if (tile_clk_status == ClkStatus::CLK_STATUS_NONE)
+                                tile_clk_status = ClkStatus::CLK_STATUS_NOCLKINV;
+                            else
+                                NPNR_ASSERT(tile_clk_status == ClkStatus::CLK_STATUS_NOCLKINV);
+                        }
+                    }
+
                 }
                 if (is_slicem && i != 3) {
                     write_routing_bel(
                             get_site_wire(bel_in_half, std::string("") + ("ABCD"[i]) + std::string("DI1MUX_OUT")));
                 }
 
-                // 填充tile的clk状态，目前只用了lut6
-                if (is_ram || is_srl){
-                    std::string lut6_clk_status = str_or_default(lut6->attrs, id_CLK_STATUS, "NONE");
-                    if (lut6_clk_status == "CLKINV"){
-                        if (tile_clk_status == ClkStatus::CLK_STATUS_NONE)
-                            tile_clk_status = ClkStatus::CLK_STATUS_CLKINV;
-                        else
-                            NPNR_ASSERT(tile_clk_status == ClkStatus::CLK_STATUS_CLKINV);
-                    } else if (lut6_clk_status == "NOCLKINV"){
-                        if (tile_clk_status == ClkStatus::CLK_STATUS_NONE)
-                            tile_clk_status = ClkStatus::CLK_STATUS_NOCLKINV;
-                        else
-                            NPNR_ASSERT(tile_clk_status == ClkStatus::CLK_STATUS_NOCLKINV);
-                    }
-                }
                 
                 write_bit("SMALL", is_small);
                 write_bit("RAM", is_ram);

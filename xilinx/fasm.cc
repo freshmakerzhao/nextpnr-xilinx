@@ -3088,7 +3088,7 @@ struct FasmBackend
             log_error("AREG=0: ACASCREG must be 0.");
         } else if(areg == 1 && acascreg != 1) {
             log_error("AREG=1: ACASCREG must be 1.");
-        } else if(areg == 2 && acascreg > 2 || acascreg == 0) {
+        } else if(areg == 2 && (acascreg > 2 || acascreg == 0)) {
             log_error("AREG=2: ACASCREG must be 1 or 2 .");
         } else {
             log_error("Invalid AREG or ACASCREG value.");
@@ -3110,12 +3110,11 @@ struct FasmBackend
             log_error("BREG=0: BCASCREG must be 0.");
         } else if(breg == 1 && bcascreg != 1) {
             log_error("BREG=1: BCASCREG must be 1.");
-        } else if(breg == 2 && bcascreg > 2 || bcascreg == 0) {
+        } else if(breg == 2 && (bcascreg > 2 || bcascreg == 0)) {
             log_error("BREG=2: BCASCREG must be 1 or 2 .");
         } else {
             log_error("Invalid BREG or BCASCREG value.");
         }
-        auto ainput = str_or_default(ci->params, ctx->id("A_INPUT"), "DIRECT");
         auto binput = str_or_default(ci->params, ctx->id("B_INPUT"), "DIRECT");
         if (binput == "CASCADE") write_bit("B_INPUT[0]");
 

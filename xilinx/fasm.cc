@@ -3011,18 +3011,60 @@ struct FasmBackend
         // value 1 is equivalent to 2, according to UG479
         // but in real life, Vivado sets AREG_0 is 0,
         // no bit is 1, and AREG_2 is 2
+        // 与AREG一起，选择B级联路径上A输入寄存器的数量，ACOUT。该属性必须等于或小于AREG值:
+        // AREG=0: ACASCREG必须为0    AREG=1: ACASCREG必须为1     AREG=2: ACASCREG可为1或2。
         auto areg = int_or_default(ci->params, ctx->id("AREG"), 1);
         if (areg == 0 || areg == 2) write_bit("AREG_" + std::to_string(areg));
-
+        auto acascreg =  int_or_default(ci->params, ctx->id("ACASCREG"), 1);
+        switch (areg) {
+            case 0:
+                if (acascreg != 0) {
+                    throw std::invalid_argument("AREG=0: ACASCREG must be 0.");
+                }
+                break;
+            case 1:
+                if (acascreg != 1) {
+                    throw std::invalid_argument("AREG=1: ACASCREG must be 1.");
+                }
+                break;
+            case 2:
+                if (acascreg != 1 && acascreg != 2) {
+                    throw std::invalid_argument("AREG=2: ACASCREG must be 1 or 2.");
+                }
+                break;
+            default:
+                throw std::invalid_argument("Invalid AREG value.");
+        }
         auto ainput = str_or_default(ci->params, ctx->id("A_INPUT"), "DIRECT");
         if (ainput == "CASCADE") write_bit("A_INPUT[0]");
 
         // value 1 is equivalent to 2, according to UG479
         // but in real life, Vivado sets AREG_0 is 0,
         // no bit is 1, and AREG_2 is 2
+        // 与BREG一起，选择B级联路径上B输入寄存器的数量，BCOUT。该属性必须等于或小于BREG值:
+        // BREG=0: BCASCREG必须为0    BREG=1: BCASCREG必须为1     BREG=2: BCASCREG可为1或2。
         auto breg = int_or_default(ci->params, ctx->id("BREG"), 1);
         if (breg == 0 || breg == 2) write_bit("BREG_" + std::to_string(breg));
-
+        auto bcascreg =  int_or_default(ci->params, ctx->id("BCASCREG"), 1);
+        switch (breg) {
+            case 0:
+                if (bcascreg != 0) {
+                    throw std::invalid_argument("AREG=0: ACASCREG must be 0.");
+                }
+                break;
+            case 1:
+                if (bcascreg != 1) {
+                    throw std::invalid_argument("AREG=1: ACASCREG must be 1.");
+                }
+                break;
+            case 2:
+                if (bcascreg != 1 && acascreg != 2) {
+                    throw std::invalid_argument("AREG=2: ACASCREG must be 1 or 2.");
+                }
+                break;
+            default:
+                throw std::invalid_argument("Invalid AREG value.");
+        }
         auto binput = str_or_default(ci->params, ctx->id("B_INPUT"), "DIRECT");
         if (binput == "CASCADE") write_bit("B_INPUT[0]");
 
@@ -3034,7 +3076,9 @@ struct FasmBackend
         if (use_simd == "FOUR12") write_bit("USE_SIMD_FOUR12");
 
         // PATTERN
-        auto pattern_str = str_or_default(ci->params, ctx->id("PATTERN"), "");
+        Property pattern_str_temp= get_or_default(ci->params, ctx->id("PATTERN"), Property(0,48));
+        auto pattern_str = pattern_str_temp.str;
+        // auto pattern_str = str_or_default(ci->params, ctx->id("PATTERN"), "000000000000000000000000000000000000000000000000");
         if (!boost::empty(pattern_str)) {
             const size_t pattern_size = 48;
             std::vector<bool> pattern_vector(pattern_size, true);
@@ -3050,7 +3094,8 @@ struct FasmBackend
         if (autoreset_patdet == "RESET_NOT_MATCH") write_bit("AUTORESET_PATDET_RESET_NOT_MATCH");
 
         // MASK
-        auto mask_str = str_or_default(ci->params, ctx->id("MASK"), "001111111111111111111111111111111111111111111111");
+        auto mask_str_temp = get_or_default(ci->params, ctx->id("MASK"), Property(1,48));
+        auto mask_str = mask_str_temp.str;
         // Yosys gives us 48 bit, but prjxray only recognizes 46 bits
         // The most significant two bits seem to be zero, so let us just truncate them
         const size_t mask_size = 46;
@@ -3081,7 +3126,6 @@ struct FasmBackend
         write_bit("ZMREG[0]", !bool_or_default(ci->params, ctx->id("MREG")));
         write_bit("ZOPMODEREG[0]", !bool_or_default(ci->params, ctx->id("OPMODEREG")));
         write_bit("ZPREG[0]", !bool_or_default(ci->params, ctx->id("PREG")));
-        write_bit("USE_DPORT[0]", str_or_default(ci->params, ctx->id("USE_DPORT"), "FALSE") == "TRUE");
         write_bit("ZIS_CLK_INVERTED", !bool_or_default(ci->params, ctx->id("IS_CLK_INVERTED")));
         write_bit("ZIS_CARRYIN_INVERTED", !bool_or_default(ci->params, ctx->id("IS_CARRYIN_INVERTED")));
         pop(2);

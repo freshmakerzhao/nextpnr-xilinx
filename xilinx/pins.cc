@@ -243,7 +243,7 @@ void get_invertible_pins(Context *ctx, std::unordered_map<IdString, std::unorder
     invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("ALUMODE[2]"));
     invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("ALUMODE[3]"));
     invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("CARRYIN"));
-    // invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("CLK"));
+    invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("CLK"));
     invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("INMODE[0]"));
     invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("INMODE[1]"));
     invertible_pins[ctx->id("DSP48E1")].insert(ctx->id("INMODE[2]"));

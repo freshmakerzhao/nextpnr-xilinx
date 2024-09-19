@@ -256,7 +256,7 @@ struct XC7Packer : public XilinxPacker
     void pack_gt();
 
 private:
-    void walk_dsp(CellInfo *root, CellInfo *ci, int constr_z);
+    void walk_dsp(CellInfo *root, CellInfo *ci, int constr_z,int index);
     void check_valid_pad(CellInfo *ci, std::string type);
 };
 

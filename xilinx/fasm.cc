@@ -1835,7 +1835,7 @@ struct FasmBackend
 
         std::string comp = str_or_default(ci->params, ctx->id("COMPENSATION"), "INTERNAL");
         push("COMPENSATION");
-        if (comp == "INTERNAL") {
+        if (comp == "INTERNAL" || comp == "ZHOLD") {
             // write_bit("INTERNAL");
             write_bit("Z_ZHOLD_OR_CLKIN_BUF");
         } else {

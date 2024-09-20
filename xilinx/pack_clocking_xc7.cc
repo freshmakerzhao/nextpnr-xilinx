@@ -79,8 +79,10 @@ void XC7Packer::prepare_clocking()
             tie_port(ci, "IGNORE0", true, true);
             tie_port(ci, "IGNORE1", false, true);
         } else if (ci->type == id_BUFH || ci->type == id_BUFHCE) {
+            if (ci->type == id_BUFH) {
+                tie_port(ci, "CE", true, true);
+            }
             ci->type = id_BUFHCE_BUFHCE;
-            tie_port(ci, "CE", true, true);
         } else if (ci->type == ctx->id("BUFGMUX") || ci->type == ctx->id("BUFGMUX_1")) {
             
             //吸收端口前的反相器

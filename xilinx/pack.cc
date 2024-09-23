@@ -178,6 +178,27 @@ NetInfo *XilinxPacker::create_internal_net(IdString base, const std::string &pos
     return ctx->nets.at(name).get();
 }
 
+void XilinxPacker::pack_rom()
+{
+    log_info("Packing ROM..\n");
+
+    std::unordered_map<IdString, XFormRule> rom_rules;
+    rom_rules[ctx->id("ROM64X1")].new_type = id_SLICE_LUTX;
+    rom_rules[ctx->id("ROM64X1")].port_xform[ctx->id("O")] = ctx->id("O6");
+
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (ci->type == ctx->id("ROM64X1")) {
+            for (int i=5;i>=0;i--){
+                IdString old_name = ctx->id("A"+ std::to_string(i));
+                IdString new_name = ctx->id("A"+ std::to_string(i + 1));
+                rename_port(ctx, ci, old_name, new_name);
+            }
+            xform_cell(rom_rules,ci);
+        }
+    }
+}
+
 void XilinxPacker::pack_luts()
 {
     log_info("Packing LUTs..\n");
@@ -1146,6 +1167,7 @@ bool Arch::pack()
         packer.pack_carries();
         packer.pack_srls();
         packer.pack_dram();
+        packer.pack_rom();
         packer.pack_bram();
         packer.pack_luts();
         packer.pack_dsps();

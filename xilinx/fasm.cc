@@ -387,6 +387,8 @@ struct FasmBackend
             return {ctx->id("I0"), ctx->id("I1"), ctx->id("I2"), ctx->id("I3"), ctx->id("I4"), ctx->id("I5")};
         else if (type == ctx->id("LUT6_2"))
             return {ctx->id("I0"), ctx->id("I1"), ctx->id("I2"), ctx->id("I3"), ctx->id("I4"), ctx->id("I5")};
+        else if (type == ctx->id("ROM64X1"))
+            return {ctx->id("A0"), ctx->id("A1"), ctx->id("A2"), ctx->id("A3"), ctx->id("A4"), ctx->id("A5")};
         else if (type == ctx->id("RAMD64E"))
             return {ctx->id("RADR0"), ctx->id("RADR1"), ctx->id("RADR2"),
                     ctx->id("RADR3"), ctx->id("RADR4"), ctx->id("RADR5")};
@@ -416,7 +418,7 @@ struct FasmBackend
             auto otir = lut6->attrs.find(ctx->id("X_ORIG_TYPE"));
             if(otir != lut6->attrs.end()){
                 auto origin_type = otir->second.str;
-                if(origin_type == "SRLC32E" || origin_type == "CFGLUT5"|| origin_type =="RAMD32"|| origin_type =="RAMD64E"){ //  
+                if(origin_type == "SRLC32E" || origin_type == "CFGLUT5"|| origin_type =="RAMD32"|| origin_type =="RAMD64E" || origin_type =="ROM64X1"){ //  
                     auto init_it = lut6->params.find(ctx->id("INIT"));
                     if(init_it != lut6->params.end()){
                         // 填充到lut

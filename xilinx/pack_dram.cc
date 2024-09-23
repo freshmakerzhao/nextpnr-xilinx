@@ -248,9 +248,17 @@ void XilinxPacker::pack_dram()
             continue;
         auto &dt = dt_iter->second;
         DRAMControlSet dcs;
-        for (int i = 0; i < dt.abits; i++)
-            dcs.wa.push_back(get_net_or_empty(
+        if (ci->type == ctx->id("RAM128X1S")) {
+            // 针对 RAM128X1S 的特殊处理
+            for (int i = 0; i < dt.abits; i++) {
+                dcs.wa.push_back(get_net_or_empty(ci, ctx->id("A" + std::to_string(i))));
+            }
+        } else {
+            // 原有的地址端口处理逻辑
+            for (int i = 0; i < dt.abits; i++)
+                dcs.wa.push_back(get_net_or_empty(
                     ci, ctx->id(dt.abits <= 6 ? ("A" + std::to_string(i)) : ("A[" + std::to_string(i) + "]"))));
+        }
         if (dt.abits == 5) {
             dcs.wa.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
         }

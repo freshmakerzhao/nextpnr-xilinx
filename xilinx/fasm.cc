@@ -3090,10 +3090,12 @@ struct FasmBackend
             log_error("AREG=1: ACASCREG must be 1.");
         } else if(areg == 2 && (acascreg > 2 || acascreg == 0)) {
             log_error("AREG=2: ACASCREG must be 1 or 2 .");
-        } else {
-            log_error("Invalid AREG or ACASCREG value.");
+        } else if(areg > 2 || acascreg > 2){
+            log_error("AREG and ACASCREG range must be (0,1,2)");
+        } else{
+            if (areg == 0 || areg == 2) write_bit("AREG_" + std::to_string(areg));
         }
-        if (areg == 0 || areg == 2) write_bit("AREG_" + std::to_string(areg));
+
 
         auto ainput = str_or_default(ci->params, ctx->id("A_INPUT"), "DIRECT");
         if (ainput == "CASCADE") write_bit("A_INPUT[0]");
@@ -3104,7 +3106,6 @@ struct FasmBackend
         // 与BREG一起，选择B级联路径上B输入寄存器的数量，BCOUT。该属性必须等于或小于BREG值:
         // BREG=0: BCASCREG必须为0    BREG=1: BCASCREG必须为1     BREG=2: BCASCREG可为1或2。
         auto breg = int_or_default(ci->params, ctx->id("BREG"), 1);
-        if (breg == 0 || breg == 2) write_bit("BREG_" + std::to_string(breg));
         auto bcascreg =  int_or_default(ci->params, ctx->id("BCASCREG"), 1);
         if (breg == 0 && bcascreg != 0) {
             log_error("BREG=0: BCASCREG must be 0.");
@@ -3112,8 +3113,10 @@ struct FasmBackend
             log_error("BREG=1: BCASCREG must be 1.");
         } else if(breg == 2 && (bcascreg > 2 || bcascreg == 0)) {
             log_error("BREG=2: BCASCREG must be 1 or 2 .");
-        } else {
-            log_error("Invalid BREG or BCASCREG value.");
+        } else if(breg > 2 || bcascreg > 2){
+            log_error("BREG and BCASCREG range must be (0,1,2)");
+        } else{
+            if (breg == 0 || breg == 2) write_bit("BREG_" + std::to_string(breg));
         }
         auto binput = str_or_default(ci->params, ctx->id("B_INPUT"), "DIRECT");
         if (binput == "CASCADE") write_bit("B_INPUT[0]");

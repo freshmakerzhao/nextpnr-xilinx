@@ -186,6 +186,9 @@ void XilinxPacker::pack_rom()
     rom_rules[ctx->id("ROM64X1")].new_type = id_SLICE_LUTX;
     rom_rules[ctx->id("ROM64X1")].port_xform[ctx->id("O")] = ctx->id("O6");
 
+    rom_rules[ctx->id("ROM32X1")].new_type = id_SLICE_LUTX;
+    rom_rules[ctx->id("ROM32X1")].port_xform[ctx->id("O")] = ctx->id("O6");
+
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (ci->type == ctx->id("ROM64X1")) {
@@ -194,6 +197,25 @@ void XilinxPacker::pack_rom()
                 IdString new_name = ctx->id("A"+ std::to_string(i + 1));
                 rename_port(ctx, ci, old_name, new_name);
             }
+            xform_cell(rom_rules,ci);
+        }
+    }
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (ci->type == ctx->id("ROM32X1")) {
+            for (int i = 4; i >= 0; i--) {
+                IdString old_name = ctx->id("A" + std::to_string(i));
+                IdString new_name = ctx->id("A" + std::to_string(i + 1));
+                rename_port(ctx, ci, old_name, new_name);
+            }
+            // 对INIT值进行低32位补零操作
+            auto init_property = get_or_default(ci->params, ctx->id("INIT"), Property(0));
+            init_property.str.append(32 - init_property.str.size(), '0');
+            init_property.str.insert(0, 32, '0');
+            init_property.update_intval();
+            ci->params[ctx->id("INIT")] = init_property;
+            // 使用tie_port函数添加A6端口并连接到高电平
+            tie_port(ci, "A6", true, false);
             xform_cell(rom_rules,ci);
         }
     }

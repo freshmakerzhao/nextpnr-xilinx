@@ -62,6 +62,7 @@ The architecture must guanrantee that the following invariants hold.
 **Invariant 1:**
 
 ```
+    // If wire not available, get conflicting wire, then unbind
     if (!ctx->checkWireAvail(wire)) {
         WireId w = getConflictingWireWire(wire);
         if (w != WireId()) {
@@ -74,6 +75,7 @@ The architecture must guanrantee that the following invariants hold.
 **Invariant 2:**
 
 ```
+    // If wire not available, get conflicting net, unbind all wires 
     if (!ctx->checkWireAvail(wire)) {
         NetInfo *n = getConflictingWireNet(wire);
         if (n != nullptr) {
@@ -87,6 +89,7 @@ The architecture must guanrantee that the following invariants hold.
 **Invariant 3:**
 
 ```
+    // If Pip not available, get conflicting wire, unbine wire
     if (!ctx->checkPipAvail(pip)) {
         WireId w = getConflictingPipWire(pip);
         if (w != WireId()) {
@@ -99,6 +102,7 @@ The architecture must guanrantee that the following invariants hold.
 **Invariant 4:**
 
 ```
+    // If Pip not available, get conflicting net, unbind all wires 
     if (!ctx->checkPipAvail(pip)) {
         NetInfo *n = getConflictingPipNet(pip);
         if (n != nullptr) {
@@ -112,6 +116,7 @@ The architecture must guanrantee that the following invariants hold.
 **Invariant 5:**
 
 ```
+    // If wire available
     if (ctx->checkWireAvail(wire)) {
         // bind is guaranteed to succeed
         ctx->bindWire(wire, net, strength);
@@ -121,6 +126,7 @@ The architecture must guanrantee that the following invariants hold.
 **Invariant 6:**
 
 ```
+    // If pip available
     if (ctx->checkPipAvail(pip) && ctx->checkWireAvail(ctx->getPipDstWire(pip))) {
         // bind is guaranteed to succeed
         ctx->bindPip(pip, net, strength);

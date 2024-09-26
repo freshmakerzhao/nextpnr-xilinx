@@ -665,6 +665,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
 bool Arch::isBelLocationValid(BelId bel) const
 {
+    // Collect cells in the same tile, then check if they can be put into the same tile
     std::vector<const CellInfo *> cells;
     Loc loc = getBelLocation(bel);
     for (auto tbel : getBelsByTile(loc.x, loc.y)) {

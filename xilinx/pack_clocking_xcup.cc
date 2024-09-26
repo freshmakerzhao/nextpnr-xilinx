@@ -73,7 +73,7 @@ void XilinxPacker::try_preplace(CellInfo *cell, IdString port)
     WireId drv_wire = ctx->getBelPinWire(drv_bel, n->driver.port);
     if (drv_wire == WireId())
         return;
-    BelId tgt = find_bel_with_short_route(drv_wire, cell->type, port);
+    BelId tgt = find_bel_with_short_route(drv_wire, cell->type, port);  // tgt => target bel
     if (tgt != BelId()) {
         used_bels.insert(tgt);
         cell->attrs[ctx->id("BEL")] = std::string(ctx->nameOfBel(tgt));

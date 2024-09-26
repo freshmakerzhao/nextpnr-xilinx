@@ -702,6 +702,7 @@ void BaseCtx::disconnectPort(IdString cell, IdString port)
     disconnect_port(getCtx(), cell_info, port);
 }
 
+// Remove all routing from a net (but keep netlist connections intact)
 void BaseCtx::ripupNet(IdString name)
 {
     NetInfo *net_info = getNetByAlias(name);

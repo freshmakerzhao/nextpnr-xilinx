@@ -34,6 +34,7 @@ def main():
 	d = import_device(args.device, xraydb_root, metadata_root)
 	# Import tile types
 	seen_tiletypes = set()
+	seen_clockregion = {}
 	tile_types = []
 	tile_type_index = {}
 	timing = NextpnrTimingData()
@@ -53,8 +54,15 @@ def main():
 	for y in range(d.height):
 		for x in range(d.width):
 			t = d.tiles_by_xy[x, y]
+			
+			# convert clock region string to constId
+			if t.clock_region not in seen_clockregion:
+				clock_region_id = constid.make(t.clock_region)
+				seen_clockregion[t.clock_region] = clock_region_id
+			
 			nti = NextpnrTileInst(index=len(tile_insts), name=t.name,
-				tile_type=tile_type_index[t.tile_type()])
+				tile_type=tile_type_index[t.tile_type()], 
+				clock_region=seen_clockregion[t.clock_region])
 			for s in t.sites():
 				nsi = NextpnrSiteInst(name=s.name, package_pin="." if s.package_pin is None else s.package_pin,
 					site_xy=s.grid_xy, rel_xy=s.rel_xy(), inter_xy=t.interconn_xy)
@@ -71,14 +79,17 @@ def main():
 		bba.push('chipdb_blob')
 		bba.offset32()
 		bba.ref('chip_info', 'chip_info')
+
 		bba.label('extra_constid_strs')
 		for i in range(constid.num_base_ids, len(constid.constids)):
 			bba.str(constid.constids[i])
 		bba.align()
+
 		bba.label('extra_constids')
 		bba.u32(constid.num_base_ids)
 		bba.u32(len(constid.constids) - constid.num_base_ids)
 		bba.ref('extra_constid_strs')
+
 		print("Exporting tile and site type data...")
 		for tt in tile_types:
 			# List of wires on bels in tile
@@ -88,6 +99,7 @@ def main():
 					bba.u32(bw.name) # port name
 					bba.u32(bw.port_type) # port type
 					bba.u32(bw.wire) # index of connected tile wire
+
 			# List of uphill pips, downhill pips and bel ports on wires in tile
 			for w in tt.wires:
 				bba.label('t{}w{}_uh'.format(tt.index, w.index))
@@ -100,6 +112,7 @@ def main():
 				for bp in w.belpins:
 					bba.u32(bp.bel) # index of bel in tile
 					bba.u32(bp.port) # bel port constid
+
 			# Bel data for tiletype
 			bba.label('t{}_bels'.format(tt.index))
 			for b in tt.bels:
@@ -122,6 +135,7 @@ def main():
 				bba.u16(b.site) # bel site index in tile
 				bba.u16(b.site_variant) # bel site variant index
 				bba.u16(b.is_routing) # 1 if bel is a routing bel
+
 			# Wire data for tiletype
 			bba.label('t{}_wires'.format(tt.index))
 			for w in tt.wires:
@@ -136,6 +150,7 @@ def main():
 				bba.u16(w.site if w.is_site else -1) # wire site index in tile if a site wire, else -1 if a tile wire
 				bba.u16(0) # padding
 				bba.u32(w.intent) # wire intent constid
+
 			# Pip data for tiletype
 			bba.label('t{}_pips'.format(tt.index))
 			for p in tt.pips:
@@ -148,6 +163,7 @@ def main():
 				bba.u32(p.extra_data) # misc extra data for pseudo-pips (e.g lut permutation info)
 				bba.u16(p.site) # site index in tile for site pips
 				bba.u16(p.site_variant) # site variant index for site pips
+
 		# Per-tile-type data including references to the above lists of objects
 		bba.label("tiletype_data")
 		for tt in tile_types:
@@ -159,12 +175,14 @@ def main():
 			bba.u32(len(tt.pips)) # number of pips
 			bba.ref("t{}_pips".format(tt.index)) # ref to list of pips
 			bba.u32(timing.tile_type_to_tile_index[tt.type] if tt.type in timing.tile_type_to_tile_index else -1) # tile cell timing data index
+		
 		print("Exporting nodes...")
 		seen_nodes = set()
 		curr = 0
 		total = len(d.tiles)
 		node_wire_count = []
 		node_intent = []
+		# Fill contrainers
 		for row in range(d.height):
 			gnd_nodes = []
 			vcc_nodes = []
@@ -226,6 +244,7 @@ def main():
 					wire_count += 1
 				node_wire_count.append(wire_count)
 				node_intent.append(constid.make("PSEUDO_VCC" if i == 1 else "PSEUDO_GND"))
+
 		# Create the global Vcc and Ground nodes
 		for i in range(2):
 			wire_count = 0
@@ -240,6 +259,7 @@ def main():
 				wire_count += 1
 			node_wire_count.append(wire_count)
 			node_intent.append(constid.make("PSEUDO_VCC" if i == 1 else "PSEUDO_GND"))
+
 		print("Exporting tile and site instances...")
 		for ti in tile_insts:
 			# Mapping from tile wire to node index
@@ -257,6 +277,7 @@ def main():
 				bba.u32(si.rel_xy[1]) # in-tile relative Y grid coord
 				bba.u32(si.inter_xy[0]) # associated interconn tile X
 				bba.u32(si.inter_xy[1]) # associated interconn tile Y
+
 		# List of tile instances and associated metadata
 		bba.label("tile_insts")
 		for ti in tile_insts:
@@ -266,17 +287,21 @@ def main():
 			bba.ref("ti{}_wire_to_node".format(ti.index)) # reference to tilewire-to-node list
 			bba.u32(len(ti.sites)) # number of sites in tile
 			bba.ref("ti{}_sites".format(ti.index)) # reference to list of site data
+			bba.u32(ti.clock_region) # clock region, string
+
 		# List of nodes
 		bba.label("nodes")
 		for i in range(len(node_wire_count)):
 			bba.u32(node_wire_count[i]) # number of tile wires in node
 			bba.u32(node_intent[i]) # intent code constid of node
 			bba.ref("n{}_tw".format(i)) # reference to list of tile wires in node, created earlier
+
 		# Wire timing classes
 		bba.label("wire_timing_classes")
 		for wc, i in sorted(timing.wire_classes.items(), key=lambda e: e[1]):
 			bba.u32(wc.r) # resistance
 			bba.u32(wc.c) # capacitance
+
 		# Pip timing classes
 		bba.label("pip_timing_classes")
 		for pc, i in sorted(timing.pip_classes.items(), key=lambda e: e[1]):
@@ -318,12 +343,14 @@ def main():
 				bba.u32(it.inst_name) # instance name constid
 				bba.u32(len(it.variants)) # number of instance variants
 				bba.ref("tmgt_i{}_v{}".format(i, j)) # ref to list of inst variants
+				
 		# Cell timing tile types
 		bba.label("tile_cell_timing")
 		for i, tmgt in enumerate(timing.tiles):
 			bba.u32(tmgt.tile_type) # tile type name constid
 			bba.u32(len(tmgt.instances)) # number of instances in tile
 			bba.ref("tmgt_i{}".format(i)) # ref to list of instances
+			
 		# Overall timing data
 		bba.label("timing")
 		bba.u32(len(timing.tiles)) # number of tile types with cell timing info
@@ -332,6 +359,17 @@ def main():
 		bba.ref("tile_cell_timing") # ref to list of cell timing tile types
 		bba.ref("wire_timing_classes") # ref to wire class data list
 		bba.ref("pip_timing_classes") # ref to pip class data list
+
+		# Prepare clock region data
+		print("Exporting clock region data...")
+		bba.label("clock_regions")
+		for clock_region in d.clock_regions:
+			bba.u32(seen_clockregion[clock_region.name]) # clock region name, constid
+			bba.u32(clock_region.x0) # lower bound of x
+			bba.u32(clock_region.y0) # lower bound of y
+			bba.u32(clock_region.x1) # upper bound of x
+			bba.u32(clock_region.y1) # upper bound of y
+
 		# Main chip info structure
 		bba.label("chip_info")
 		bba.str(d.name) # device name char*
@@ -339,9 +377,11 @@ def main():
 		bba.u32(1) # version
 		bba.u32(d.width) # tile grid width
 		bba.u32(d.height) # tile grid height
+		bba.u32(len(d.clock_regions)) # number of clock regions
 		bba.u32(len(tile_insts)) # number of tiles
 		bba.u32(len(tile_types)) # number of tiletypes
 		bba.u32(len(node_wire_count)) # number of nodes
+		bba.ref("clock_regions") # clock region data
 		bba.ref("tiletype_data") # reference to tiletype data list
 		bba.ref("tile_insts") # reference to list of tile instances
 		bba.ref("nodes") # reference to list of nodes

@@ -144,18 +144,27 @@ class HeAPPlacer
         auto startt = std::chrono::high_resolution_clock::now();
 
         ctx->lock();
+        
         place_constraints();
-        build_fast_bels();
-        seed_placement();
+        // prepare_BUFR_dependants();  // setup clock region for BUFR dependants
+        build_fast_bels();  // Build maps for quick access of bels based on bel_type_id and coordinates
+        seed_placement();   // Initial ramdom placement
         update_all_chains();
         wirelen_t hpwl = total_hpwl();
+
 #ifdef HYBRDLINK
         log_info("Creating initial placement for %d cells, random placement wirelen = %d.\n",
                  int(place_cells.size()), int(hpwl));
+
 #else
         log_info("Creating initial analytic placement for %d cells, random placement wirelen = %d.\n",
                  int(place_cells.size()), int(hpwl));   
 #endif
+
+        /**********************************************************/
+        /** Setup & Selving Equations, Initial Analitical Placer **/
+        /**********************************************************/
+
         for (int i = 0; i < 4; i++) {
             setup_solve_cells();
             auto solve_startt = std::chrono::high_resolution_clock::now();
@@ -171,14 +180,18 @@ class HeAPPlacer
             log_info("    at initial placer iter %d, wirelen = %d\n", i, int(hpwl));
         }
 
+        /****************************************************************/
+        /** Chosing HeAP Run Type (All at once, rotate, or all+rotate) **/
+        /****************************************************************/
+
         wirelen_t solved_hpwl = 0, spread_hpwl = 0, legal_hpwl = 0, best_hpwl = std::numeric_limits<wirelen_t>::max();
         int iter = 0, stalled = 0;
 
         std::vector<std::tuple<CellInfo *, BelId, PlaceStrength>> solution;
 
-        std::vector<std::unordered_set<IdString>> heap_runs;
+        std::vector<std::unordered_set<IdString>> heap_runs;  // one run per unordered_set. Each set may contain more than one cell type.
         std::unordered_set<IdString> all_celltypes;
-        std::unordered_map<IdString, int> ct_count;
+        std::unordered_map<IdString, int> ct_count; // cell type count
 
         for (auto cell : place_cells) {
             if (!all_celltypes.count(cell->type)) {
@@ -202,13 +215,22 @@ class HeAPPlacer
             heap_runs.clear();
         }
 
-        heap_runs.push_back(all_celltypes);
+
+        heap_runs.push_back(all_celltypes); // One run for all cell types.
+
         // The main HeAP placer loop
 #ifdef HYBRDLINK
         log_info("Running main placer.\n");
 #else
         log_info("Running main analytical placer.\n");     
 #endif
+
+        /*******************************/
+        /** The main HeAP placer loop **/
+        /*******************************/
+
+        log_info("Running main analytical placer.\n");
+        // If stall 5 times consecutively, break.
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
             // Alternate between particular Bel types and all bels
             for (auto &run : heap_runs) {
@@ -239,6 +261,7 @@ class HeAPPlacer
                     CutSpreader(this, group).run();
 
                 for (auto type : sorted(run))
+                    // Skip if processed as groups
                     if (std::all_of(cfg.cellGroups.begin(), cfg.cellGroups.end(),
                                     [type](const std::unordered_set<IdString> &grp) { return !grp.count(type); }))
                         CutSpreader(this, {type}).run();
@@ -261,7 +284,7 @@ class HeAPPlacer
 
             if (legal_hpwl < best_hpwl) {
                 best_hpwl = legal_hpwl;
-                stalled = 0;
+                stalled = 0; // if success, reset stall
                 // Save solution
                 solution.clear();
                 for (auto cell : sorted(ctx->cells)) {
@@ -282,7 +305,7 @@ class HeAPPlacer
         for (auto &sc : solution) {
             CellInfo *cell = std::get<0>(sc);
             if (cell->bel != BelId())
-                ctx->unbindBel(cell->bel);
+                ctx->unbindBel(cell->bel);  // unbine, if bel already occuppied
         }
         for (auto &sc : solution) {
             CellInfo *cell;
@@ -319,6 +342,10 @@ class HeAPPlacer
 
         ctx->check();
 
+        /************************************/
+        /** Zero Degree Refine (Quenching) **/
+        /************************************/
+
         // TODO: 微调不可控，暂时关闭
         // auto placer1_cfg = Placer1Cfg(ctx);
         // placer1_cfg.hpwl_scale_x = cfg.hpwl_scale_x;
@@ -334,14 +361,14 @@ class HeAPPlacer
     PlacerHeapCfg cfg;
 
     int max_x = 0, max_y = 0;
-    std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
-    std::unordered_map<IdString, std::tuple<int, int>> bel_types;
+    std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;  // [type_index][x][y][BelId]
+    std::unordered_map<IdString, std::tuple<int, int>> bel_types;  // {bel_type_id, (type_index,num_of_bels)}
 
     // For fast handling of heterogeneosity during initial placement without full legalisation,
     // for each Bel type this goes from x or y to the nearest x or y where a Bel of a given type exists
     // This is particularly important for the iCE40 architecture, where multipliers and BRAM only exist at the
     // edges and corners respectively
-    std::vector<std::vector<int>> nearest_row_with_bel;
+    std::vector<std::vector<int>> nearest_row_with_bel; // [bel_type_index][x or y coordinate]
     std::vector<std::vector<int>> nearest_col_with_bel;
 
     struct BoundingBox
@@ -390,10 +417,10 @@ class HeAPPlacer
         // Initial constraints placer
         for (auto &cell_entry : ctx->cells) {
             CellInfo *cell = cell_entry.second.get();
-            auto loc = cell->attrs.find(ctx->id("BEL"));
+            auto loc = cell->attrs.find(ctx->id("BEL"));  // If "BEL" is defined (through contraint file), it stores bel's name, site name, and physical tile name as on-chip location info.
             if (loc != cell->attrs.end()) {
                 std::string loc_name = loc->second.as_string();
-                BelId bel = ctx->getBelByName(ctx->id(loc_name));
+                BelId bel = ctx->getBelByName(ctx->id(loc_name));  // Take the bell at this location
                 if (bel == BelId()) {
                     log_error("No Bel named \'%s\' located for "
                               "this chip (processing BEL attribute on \'%s\')\n",
@@ -418,7 +445,7 @@ class HeAPPlacer
                               cell->name.c_str(ctx), loc_name.c_str(), bound_cell->name.c_str(ctx));
                 }
 
-                ctx->bindBel(bel, cell, STRENGTH_USER);
+                ctx->bindBel(bel, cell, STRENGTH_USER);  // Bind the physical bel with the cell.
                 placed_cells++;
             }
         }
@@ -430,33 +457,41 @@ class HeAPPlacer
     void build_fast_bels()
     {
         // 整理bel_type，统计每种type的bel数量
+        // Prepare bel_types used in the next two for-loops
         int num_bel_types = 0;
         for (auto bel : ctx->getBels()) {
-            IdString type = ctx->getBelType(bel);
-            if (bel_types.find(type) == bel_types.end()) {
-                bel_types[type] = std::tuple<int, int>(num_bel_types++, 1);
+            IdString bel_type = ctx->getBelType(bel);  // bel type from arch info
+            if (bel_types.find(bel_type) == bel_types.end()) {
+                bel_types[bel_type] = std::tuple<int, int>(num_bel_types++, 1);
             } else {
-                std::get<1>(bel_types.at(type))++;
+                std::get<1>(bel_types.at(bel_type))++;
             }
         }
+
+        // To build fast_bels variable
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
                 continue;
             Loc loc = ctx->getBelLocation(bel);
-            IdString type = ctx->getBelType(bel);
-            int type_idx = std::get<0>(bel_types.at(type));
-            if (int(fast_bels.size()) < type_idx + 1)
-                fast_bels.resize(type_idx + 1);
-            if (int(fast_bels.at(type_idx).size()) < (loc.x + 1))
-                fast_bels.at(type_idx).resize(loc.x + 1);
-            if (int(fast_bels.at(type_idx).at(loc.x).size()) < (loc.y + 1))
-                fast_bels.at(type_idx).at(loc.x).resize(loc.y + 1);
+            IdString bel_type = ctx->getBelType(bel);  // bel type from arch info
+            int bel_type_idx = std::get<0>(bel_types.at(bel_type));
+
+            // Expend container to fit bel coordinates
+            if (int(fast_bels.size()) < bel_type_idx + 1)
+                fast_bels.resize(bel_type_idx + 1);
+            if (int(fast_bels.at(bel_type_idx).size()) < (loc.x + 1))
+                fast_bels.at(bel_type_idx).resize(loc.x + 1);
+            if (int(fast_bels.at(bel_type_idx).at(loc.x).size()) < (loc.y + 1))
+                fast_bels.at(bel_type_idx).at(loc.x).resize(loc.y + 1);
             max_x = std::max(max_x, loc.x);
             max_y = std::max(max_y, loc.y);
-            fast_bels.at(type_idx).at(loc.x).at(loc.y).push_back(bel);
+            
+            fast_bels.at(bel_type_idx).at(loc.x).at(loc.y).push_back(bel);
         }
 
-        nearest_row_with_bel.resize(num_bel_types, std::vector<int>(max_y + 1, -1));
+        // Setup nearest_row_with_bel and nearest_col_with_bel.
+        // Return a coordinate for a specific resource type. x(colum) y(row)
+        nearest_row_with_bel.resize(num_bel_types, std::vector<int>(max_y + 1, -1)); // [bel_type_index][x or y coordinate]
         nearest_col_with_bel.resize(num_bel_types, std::vector<int>(max_x + 1, -1));
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
@@ -466,21 +501,25 @@ class HeAPPlacer
             auto &nr = nearest_row_with_bel.at(type_idx), &nc = nearest_col_with_bel.at(type_idx);
             // Traverse outwards through nearest_row_with_bel and nearest_col_with_bel, stopping once
             // another row/col is already recorded as being nearer
+            // To fill nc from loc.x all the way to the max_x
             for (int x = loc.x; x <= max_x; x++) {
                 if (nc.at(x) != -1 && std::abs(loc.x - nc.at(x)) <= (x - loc.x))
                     break;
                 nc.at(x) = loc.x;
             }
+            // To fill nc from loc.x all the way to 0
             for (int x = loc.x - 1; x >= 0; x--) {
                 if (nc.at(x) != -1 && std::abs(loc.x - nc.at(x)) <= (loc.x - x))
                     break;
                 nc.at(x) = loc.x;
             }
+            // To fill nc from loc.y all the way to the max_y
             for (int y = loc.y; y <= max_y; y++) {
                 if (nr.at(y) != -1 && std::abs(loc.y - nr.at(y)) <= (y - loc.y))
                     break;
                 nr.at(y) = loc.y;
             }
+            // To fill nc from loc.y all the way to 0
             for (int y = loc.y - 1; y >= 0; y--) {
                 if (nr.at(y) != -1 && std::abs(loc.y - nr.at(y)) <= (loc.y - y))
                     break;
@@ -539,7 +578,7 @@ class HeAPPlacer
     // FIXME: Are there better approaches to the initial placement (e.g. greedy?)
     void seed_placement()
     {
-        std::unordered_map<IdString, std::deque<BelId>> available_bels;
+        std::unordered_map<IdString, std::deque<BelId>> available_bels;  // Physical available bels to be filled
         for (auto bel : ctx->getBels()) {
             if (!ctx->checkBelAvail(bel))
                 continue;
@@ -554,7 +593,7 @@ class HeAPPlacer
                 Loc loc = ctx->getBelLocation(ci->bel);
                 cell_locs[cell.first].x = loc.x;
                 cell_locs[cell.first].y = loc.y;
-                cell_locs[cell.first].locked = true;
+                cell_locs[cell.first].locked = true;  // why true?
                 cell_locs[cell.first].global = ctx->getBelGlobalBuf(ci->bel);
             } else if (ci->constr_parent == nullptr) {
                 bool placed = false;
@@ -562,12 +601,12 @@ class HeAPPlacer
                     if (!available_bels.count(ci->type) || available_bels.at(ci->type).empty())
                         log_error("Unable to place cell '%s', no Bels remaining of type '%s'\n", ci->name.c_str(ctx),
                                   ci->type.c_str(ctx));
-                    BelId bel = available_bels.at(ci->type).back();
-                    available_bels.at(ci->type).pop_back();
+                    BelId bel = available_bels.at(ci->type).back();  // Try to fit cell to available bels one by one
+                    available_bels.at(ci->type).pop_back();  // Physical bel now occupied, not available anymore
                     Loc loc = ctx->getBelLocation(bel);
                     cell_locs[cell.first].x = loc.x;
                     cell_locs[cell.first].y = loc.y;
-                    cell_locs[cell.first].locked = false;
+                    cell_locs[cell.first].locked = false;  // why false?
                     cell_locs[cell.first].global = ctx->getBelGlobalBuf(bel);
                     // FIXME
                     if (has_connectivity(cell.second) && !cfg.ioBufTypes.count(ci->type)) {
@@ -579,7 +618,7 @@ class HeAPPlacer
                             cell_locs[cell.first].locked = true;
                             placed = true;
                         } else {
-                            available_bels.at(ci->type).push_front(bel);
+                            available_bels.at(ci->type).push_front(bel);  // If cell placement not valid, push bel back to available_bels
                         }
                     }
                 }
@@ -668,9 +707,10 @@ class HeAPPlacer
                 continue;
             if (cell_locs.at(ni->driver.cell->name).global)
                 continue;
+            
             // Find the bounds of the net in this axis, and the ports that correspond to these bounds
-            PortRef *lbport = nullptr, *ubport = nullptr;
-            int lbpos = std::numeric_limits<int>::max(), ubpos = std::numeric_limits<int>::min();
+            PortRef *lbport = nullptr, *ubport = nullptr;  // lower bound port, upper bound port
+            int lbpos = std::numeric_limits<int>::max(), ubpos = std::numeric_limits<int>::min(); // lower bound position, upper bound position
             foreach_port(ni, [&](PortRef &port, int user_idx) { //找到这个net最low的port和最up的port
                 int pos = cell_pos(port.cell);
                 if (pos < lbpos) {
@@ -755,19 +795,21 @@ class HeAPPlacer
         std::vector<double> vals;
         std::transform(solve_cells.begin(), solve_cells.end(), std::back_inserter(vals), cell_pos);
         es.solve(vals, cfg.solverTolerance);
+
+        // Apply region limits to solved solution
         for (size_t i = 0; i < vals.size(); i++)
             if (yaxis) {
                 cell_locs.at(solve_cells.at(i)->name).rawy = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).y = std::min(max_y, std::max(0, int(vals.at(i))));
                 if (solve_cells.at(i)->region != nullptr)
                     cell_locs.at(solve_cells.at(i)->name).y =
-                            limit_to_reg(solve_cells.at(i)->region, cell_locs.at(solve_cells.at(i)->name).y, true);
+                            limit_to_reg(solve_cells.at(i)->region, cell_locs.at(solve_cells.at(i)->name).y, true);  // Apply region constaints
             } else {
                 cell_locs.at(solve_cells.at(i)->name).rawx = vals.at(i);
                 cell_locs.at(solve_cells.at(i)->name).x = std::min(max_x, std::max(0, int(vals.at(i))));
                 if (solve_cells.at(i)->region != nullptr)
                     cell_locs.at(solve_cells.at(i)->name).x =
-                            limit_to_reg(solve_cells.at(i)->region, cell_locs.at(solve_cells.at(i)->name).x, false);
+                            limit_to_reg(solve_cells.at(i)->region, cell_locs.at(solve_cells.at(i)->name).x, false);  // Apply region constaints
             }
     }
 
@@ -795,16 +837,17 @@ class HeAPPlacer
         return hpwl;
     }
 
-    // Strict placement legalisation, performed after the initial HeAP spreading
+    // Strict placement legalisation, performed after HeAP spreading
     void legalise_placement_strict(bool require_validity = false)
     {
-        const bool debug_this = false;
+        const bool debug_this = false;  // default is false
 
         auto startt = std::chrono::high_resolution_clock::now();
 
         // Unbind all cells placed in this solution
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
+            // Check if a cell has placed by HeAP
             if (ci->bel != BelId() && (ci->udata != dont_solve ||
                                        (chain_root.count(ci->name) && chain_root.at(ci->name)->udata != dont_solve)))
                 ctx->unbindBel(ci->bel);
@@ -814,17 +857,17 @@ class HeAPPlacer
         // the simple greedy largest-macro-first approach.
         std::priority_queue<std::pair<int, IdString>> remaining;
         for (auto cell : solve_cells) {
-            remaining.emplace(chain_size[cell->name], cell->name);
+            remaining.emplace(chain_size[cell->name], cell->name);  // Descending order based on size
         }
-        int ripup_radius = 2;
-        int total_iters = 0;
+        int ripup_radius = 2;   // rip up radius
+        int total_iters = 0;    // ?? what's the total_iters used for?
         int total_iters_noreset = 0;
         while (!remaining.empty()) {
-            auto top = remaining.top();
+            auto top = remaining.top(); // std::pair<int, IdString> top
             remaining.pop();
 
             CellInfo *ci = ctx->cells.at(top.second).get();
-            // Was now placed, ignore
+            // If already placed, continue
             if (ci->bel != BelId())
                 continue;
             // log_info("   Legalising %s (%s)\n", top.second.c_str(ctx), ci->type.c_str(ctx));
@@ -835,7 +878,7 @@ class HeAPPlacer
             int iter_at_radius = 0;
             bool placed = false;
             BelId bestBel;
-            int best_inp_len = std::numeric_limits<int>::max();
+            int best_inp_len = std::numeric_limits<int>::max();  // best input pin's next length
 
             if (debug_this) std::cerr << "==> placing cell " << ci->name.str(ctx) << std::endl;
 
@@ -846,17 +889,21 @@ class HeAPPlacer
                 ripup_radius = std::max(std::max(max_x, max_y), ripup_radius * 2);
             }
 
-            if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {
+            if (total_iters_noreset > std::max(5000, 8 * int(ctx->cells.size()))) {  // ?? why 5000? why 8 * num of cells?
                 log_error("Unable to find legal placement for all cells, design is probably at utilisation limit.\n");
             }
 
             while (!placed) {
+                
+                // std::cout << count << "time try to legalizing cell: " << ci->name.str(ctx) << std::endl; // for testing only
 
                 // Set a conservative timeout
-                if (iter > std::max(10000, 3 * int(ctx->cells.size())))
+                if (iter > std::max(10000, 3 * int(ctx->cells.size()))) // ?? why 3 *  num of cells?
                     log_error("Unable to find legal placement for cell '%s', check constraints and utilisation.\n",
                               ctx->nameOf(ci));
 
+
+                /******* Generate New x Based on Radius *******/
                 int rx = radius, ry = radius;
 
                 if (ci->region != nullptr) {
@@ -870,16 +917,17 @@ class HeAPPlacer
                                                   1);
                 }
 
-                int nx = ctx->rng(2 * rx + 1) + std::max(cell_locs.at(ci->name).x - rx, 0);//在x方向可移动范围随机找一个位置
-                int ny = ctx->rng(2 * ry + 1) + std::max(cell_locs.at(ci->name).y - ry, 0);
+                //在x方向可移动范围随机找一个位置
+                int nx = ctx->rng(2 * rx + 1) + std::max(cell_locs.at(ci->name).x - rx, 0);  // new x, a random number in range (2 * rx + 1)
+                int ny = ctx->rng(2 * ry + 1) + std::max(cell_locs.at(ci->name).y - ry, 0);  // new y, a random number in range (2 * rx + 1)
 
+                /******* Update Radius *******/
                 iter++;
                 iter_at_radius++;
                 if (iter >= (10 * (radius + 1))) {
                     radius = std::min(std::max(max_x, max_y), radius + 1);
                     while (radius < std::max(max_x, max_y)) {
-                        for (int x = std::max(0, cell_locs.at(ci->name).x - radius);
-                             x <= std::min(max_x, cell_locs.at(ci->name).x + radius); x++) {
+                        for (int x = std::max(0, cell_locs.at(ci->name).x - radius); x <= std::min(max_x, cell_locs.at(ci->name).x + radius); x++) {
                             if (x >= int(fb.size()))
                                 break;
                             for (int y = std::max(0, cell_locs.at(ci->name).y - radius);
@@ -913,6 +961,7 @@ class HeAPPlacer
 
                 int need_to_explore = 2 * radius;
 
+                // If find a proper bel which is bounded, unbind the old cell, then bind with the current.
                 if (iter_at_radius >= need_to_explore && bestBel != BelId()) {
                     CellInfo *bound = ctx->getBoundBelCell(bestBel);
                     if (bound != nullptr) {
@@ -928,7 +977,7 @@ class HeAPPlacer
                 }
 
                 if (ci->constr_children.empty() && !ci->constr_abs_z) {
-                    for (auto sz : fb.at(nx).at(ny)) {
+                    for (auto sz : fb.at(nx).at(ny)) { // sz is a bel
                         if (ci->region != nullptr && ci->region->constr_bels && !ci->region->bels.count(sz))
                             continue;
                         if (!ctx->isValidBelForCell(ci, sz))
@@ -942,18 +991,18 @@ class HeAPPlacer
                                 ctx->unbindBel(bound->bel);
                             }
                             ctx->bindBel(sz, ci, STRENGTH_WEAK);
-                            if (require_validity && !ctx->isBelLocationValid(sz)) {
+                            if (require_validity && !ctx->isBelLocationValid(sz)) { // if not valid
                                 ctx->unbindBel(sz);
                                 if (bound != nullptr)
-                                    ctx->bindBel(sz, bound, STRENGTH_WEAK);
-                            } else if (iter_at_radius < need_to_explore) {
+                                    ctx->bindBel(sz, bound, STRENGTH_WEAK);  // bound the original cell to this bel(sz)
+                            } else if (iter_at_radius < need_to_explore) {  // if need to exploare more, then save the current bel to bestBel if sum of input length is smaller
                                 ctx->unbindBel(sz);
                                 if (bound != nullptr)
                                     ctx->bindBel(sz, bound, STRENGTH_WEAK);
                                 int input_len = 0;
                                 for (auto &port : ci->ports) {
                                     auto &p = port.second;
-                                    if (p.type != PORT_IN || p.net == nullptr || p.net->driver.cell == nullptr)
+                                    if (p.type != PORT_IN || p.net == nullptr || p.net->driver.cell == nullptr) // skip non-input port
                                         continue;
                                     CellInfo *drv = p.net->driver.cell;
                                     auto drv_loc = cell_locs.find(drv->name);
@@ -983,7 +1032,7 @@ class HeAPPlacer
                 } else {
                     for (auto sz : fb.at(nx).at(ny)) {
                         Loc loc = ctx->getBelLocation(sz);
-                        if (ci->constr_abs_z && loc.z != ci->constr_z)
+                        if (ci->constr_abs_z && loc.z != ci->constr_z) // skip if child from other chain
                             continue;
                         if (!ctx->isValidBelForCell(ci, sz))
                             continue;
@@ -994,7 +1043,7 @@ class HeAPPlacer
                         while (!visit.empty()) {
                             CellInfo *vc = visit.front().first;
                             NPNR_ASSERT(vc->bel == BelId());
-                            Loc ploc = visit.front().second;
+                            Loc ploc = visit.front().second;  // location of bel
                             visit.pop();
                             BelId target = ctx->getBelByLocation(ploc);
                             if (vc->region != nullptr && vc->region->constr_bels && !vc->region->bels.count(target))
@@ -1091,11 +1140,11 @@ class HeAPPlacer
         bool overused(float beta) const
         {
             for (size_t t = 0; t < cells.size(); t++) {
-                if (bels.at(t) < 4) {
-                    if (cells.at(t) > bels.at(t))
+                if (bels.at(t) < 4) {   // if number of corresponding bels are less then 4
+                    if (cells.at(t) > bels.at(t))   // if cell number is greater then bel number
                         return true;
                 } else {
-                    if (cells.at(t) > beta * bels.at(t))
+                    if (cells.at(t) > beta * bels.at(t)) // beta is a coefficient, 0.4 as default.
                         return true;
                 }
             }
@@ -1121,7 +1170,7 @@ class HeAPPlacer
         {
             auto startt = std::chrono::high_resolution_clock::now();
             init();
-            find_overused_regions();
+            find_overused_regions(); // find overused regions and merge neighbouring overused regions
             for (auto &r : regions) {
                 if (merged_regions.count(r.id))
                     continue;
@@ -1132,7 +1181,7 @@ class HeAPPlacer
 #endif
             }
             expand_regions();
-            std::queue<std::pair<int, bool>> workqueue;
+            std::queue<std::pair<int, bool>> workqueue; // <region_id, is_y_direction>
 #if 0
             std::vector<std::pair<double, double>> orig;
             if (ctx->debug)
@@ -1156,7 +1205,7 @@ class HeAPPlacer
                 auto front = workqueue.front();
                 workqueue.pop();
                 auto &r = regions.at(front.first);
-                if (std::all_of(r.cells.begin(), r.cells.end(), [](int x) { return x == 0; }))
+                if (std::all_of(r.cells.begin(), r.cells.end(), [](int x) { return x == 0; }))  // x value is occupency, so when x == 0, meaning not occupied.
                     continue;
                 auto res = cut_region(r, front.second);
                 if (res) {
@@ -1198,14 +1247,14 @@ class HeAPPlacer
       private:
         HeAPPlacer *p;
         Context *ctx;
-        std::unordered_set<IdString> beltype;
+        std::unordered_set<IdString> beltype;  // cfg.cellGroups
         std::unordered_map<IdString, int> type_index;
-        std::vector<std::vector<std::vector<int>>> occupancy;
+        std::vector<std::vector<std::vector<int>>> occupancy;  // [x][y][cell_type_index] => stores occupancy for all regions. "0" means not occupied.
         std::vector<std::vector<int>> groups;
         std::vector<std::vector<ChainExtent>> chaines;
         std::map<IdString, ChainExtent> cell_extents;
 
-        std::vector<std::vector<std::vector<std::vector<BelId>>> *> fb;
+        std::vector<std::vector<std::vector<std::vector<BelId>>> *> fb;  // fast bels
 
         std::vector<SpreaderRegion> regions;
         std::unordered_set<int> merged_regions;
@@ -1249,9 +1298,9 @@ class HeAPPlacer
             };
 
             for (auto &cell : p->cell_locs) {
-                if (!beltype.count(ctx->cells.at(cell.first)->type))
+                if (!beltype.count(ctx->cells.at(cell.first)->type))  // check if cantains this beltype
                     continue;
-                if (ctx->cells.at(cell.first)->belStrength > STRENGTH_STRONG)
+                if (ctx->cells.at(cell.first)->belStrength > STRENGTH_STRONG) // continue if fixed, locked, or user defined
                     continue;
                 occupancy.at(cell.second.x).at(cell.second.y).at(type_index.at(ctx->cells.at(cell.first)->type))++;
                 // Compute ultimate extent of each chain root
@@ -1314,13 +1363,13 @@ class HeAPPlacer
 
             auto process_location = [&](int x, int y) {
                 // Merge with any overlapping regions
-                if (groups.at(x).at(y) == -1) {
+                if (groups.at(x).at(y) == -1) {  // If no region/group set up at this x y 
                     for (int t = 0; t < int(beltype.size()); t++) {
                         r.bels.at(t) += bels_at(x, y, t);
                         r.cells.at(t) += occ_at(x, y, t);
                     }
                 }
-                if (groups.at(x).at(y) != -1 && groups.at(x).at(y) != r.id)
+                if (groups.at(x).at(y) != -1 && groups.at(x).at(y) != r.id)  // If region/group exists at this x y 
                     merge_regions(r, regions.at(groups.at(x).at(y)));
                 groups.at(x).at(y) = r.id;
                 // Grow to cover any chains
@@ -1330,17 +1379,18 @@ class HeAPPlacer
             for (int x = r.x0; x < old_x0; x++)
                 for (int y = r.y0; y <= r.y1; y++)
                     process_location(x, y);
-            for (int x = old_x1 + 1; x <= x1; x++)
+            for (int x = old_x1 + 1; x <= x1; x++)  // Skip old_x1
                 for (int y = r.y0; y <= r.y1; y++)
                     process_location(x, y);
             for (int y = r.y0; y < old_y0; y++)
                 for (int x = r.x0; x <= r.x1; x++)
                     process_location(x, y);
-            for (int y = old_y1 + 1; y <= r.y1; y++)
+            for (int y = old_y1 + 1; y <= r.y1; y++)  // Skip old_y1
                 for (int x = r.x0; x <= r.x1; x++)
                     process_location(x, y);
         }
 
+        // Find overused regions and merge neighbouring overused regions
         void find_overused_regions()
         {
             for (int x = 0; x <= p->max_x; x++)
@@ -1364,13 +1414,14 @@ class HeAPPlacer
                     reg.id = id;
                     reg.x0 = reg.x1 = x;
                     reg.y0 = reg.y1 = y;
-                    for (size_t t = 0; t < beltype.size(); t++) {
+                    for (size_t t = 0; t < beltype.size(); t++) { // using t as type index
                         reg.bels.push_back(bels_at(x, y, t));
                         reg.cells.push_back(occ_at(x, y, t));
                     }
                     // Make sure we cover carries, etc
                     grow_region(reg, reg.x0, reg.y0, reg.x1, reg.y1, true);
 
+                    // Grow neighbouring overused regions
                     bool expanded = true;
                     while (expanded) {
                         expanded = false;
@@ -1382,7 +1433,7 @@ class HeAPPlacer
                             bool over_occ_x = false;
                             for (int y1 = reg.y0; y1 <= reg.y1; y1++) {
                                 for (size_t t = 0; t < beltype.size(); t++) {
-                                    if (occ_at(reg.x1 + 1, y1, t) > bels_at(reg.x1 + 1, y1, t)) {
+                                    if (occ_at(reg.x1 + 1, y1, t) > bels_at(reg.x1 + 1, y1, t)) { // if near by location also over occupied, grow the region to include this location
                                         // log_info("(%d, %d) occ %d bels %d\n", reg.x1+ 1, y1, occ_at(reg.x1 + 1, y1),
                                         // bels_at(reg.x1 + 1, y1));
                                         over_occ_x = true;
@@ -1390,7 +1441,7 @@ class HeAPPlacer
                                     }
                                 }
                             }
-                            if (over_occ_x) {
+                            if (over_occ_x) {  // if x + 1 still overused, expand
                                 expanded = true;
                                 grow_region(reg, reg.x0, reg.y0, reg.x1 + 1, reg.y1);
                             }
@@ -1427,11 +1478,11 @@ class HeAPPlacer
                     overu_regions.push(r.id);
             }
             while (!overu_regions.empty()) {
-                int rid = overu_regions.front();
+                int rid = overu_regions.front(); // region id
                 overu_regions.pop();
                 if (merged_regions.count(rid))
                     continue;
-                auto &reg = regions.at(rid);
+                auto &reg = regions.at(rid);  // overused region
                 while (reg.overused(beta)) {
                     bool changed = false;
                     for (int j = 0; j < p->cfg.spread_scale_x; j++) {
@@ -1479,6 +1530,8 @@ class HeAPPlacer
 
         std::vector<CellInfo *> cut_cells;
 
+        // when dir = false, x direction
+        // when dir = true, y direction
         boost::optional<std::pair<int, int>> cut_region(SpreaderRegion &r, bool dir)
         {
             cut_cells.clear();

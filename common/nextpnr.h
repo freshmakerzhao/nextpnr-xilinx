@@ -268,6 +268,7 @@ struct DecalXY
     bool operator==(const DecalXY &other) const { return (decal == other.decal && x == other.x && y == other.y); }
 };
 
+// Bel info stored in WireInfo (physical wire info)
 struct BelPin
 {
     BelId bel;
@@ -276,6 +277,8 @@ struct BelPin
 
 struct CellInfo;
 
+// Region used in cell placement correction and HeAPPlacer::CutSpreader class
+// BaseCtx also uses it to define floorplanning 
 struct Region
 {
     IdString name;
@@ -306,6 +309,9 @@ enum ClkStatus
     CLK_STATUS_CLKINV = 2
 };
 
+// Port info store in NetInfo
+// used to reference the source/sink ports of a net; 
+// refers back to a cell and a port name
 struct PortRef
 {
     CellInfo *cell = nullptr;
@@ -422,8 +428,8 @@ struct NetInfo : ArchNetInfo
     IdString name, hierpath;
     int32_t udata = 0;
 
-    PortRef driver;
-    std::vector<PortRef> users;
+    PortRef driver;  // source of net
+    std::vector<PortRef> users; // sinks of net
     std::unordered_map<IdString, Property> attrs;
 
     // wire -> uphill_pip
@@ -456,12 +462,12 @@ struct PortInfo
 struct CellInfo : ArchCellInfo
 {
     IdString name, type, hierpath;
-    int32_t udata;
+    int32_t udata;  // Universal data. Placers and routers may use this for any purpose, but it should not be used to exchange data between passes.
 
     std::unordered_map<IdString, PortInfo> ports;
     std::unordered_map<IdString, Property> attrs, params;
 
-    BelId bel;
+    BelId bel;  // Gussing: bel that cell is placed at
     PlaceStrength belStrength = STRENGTH_NONE;
 
     // cell_port -> bel_pin
@@ -471,10 +477,10 @@ struct CellInfo : ArchCellInfo
     CellInfo *constr_parent = nullptr;
     std::vector<CellInfo *> constr_children;
     const int UNCONSTR = INT_MIN;
-    int constr_x = UNCONSTR;   // this.x - parent.x
-    int constr_y = UNCONSTR;   // this.y - parent.y
-    int constr_z = UNCONSTR;   // this.z - parent.z
-    bool constr_abs_z = false; // parent.z := 0
+    int constr_x = UNCONSTR;   // this.x - parent.x, relative x to parent
+    int constr_y = UNCONSTR;   // this.y - parent.y, relative y to parent
+    int constr_z = UNCONSTR;   // this.z - parent.z, absolute or relative z to parent
+    bool constr_abs_z = false; // if = true, then parent.z is absolut coordinate, else then relative coordinate
     // parent.[xyz] := 0 when (constr_parent == nullptr)
 
     Region *region = nullptr;
@@ -611,7 +617,7 @@ struct DeterministicRNG
     }
 
     int rng() { return rng64() & 0x3fffffff; }//生成32位随机数，>0?
-
+    
     int rng(int n)//生成在0-n之间均匀分布的一个随机数
     {
         assert(n > 0);
@@ -835,7 +841,7 @@ struct BaseCtx
     NetInfo *createNet(IdString name);
     void connectPort(IdString net, IdString cell, IdString port);
     void disconnectPort(IdString cell, IdString port);
-    void ripupNet(IdString name);
+    void ripupNet(IdString name);  // Remove all routing from a net (but keep netlist connections intact)
     void lockNetRouting(IdString name);
 
     CellInfo *createCell(IdString name, IdString type);

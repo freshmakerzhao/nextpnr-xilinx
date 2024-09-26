@@ -69,12 +69,13 @@ class NextpnrSiteInst:
 		self.inter_xy = inter_xy
 
 class NextpnrTileInst:
-	def __init__(self, index, name, tile_type):
+	def __init__(self, index, name, tile_type, clock_region):
 		self.index = index
 		self.name = name
 		self.tile_type = tile_type
 		self.tilewire_to_node = []
 		self.sites = []
+		self.clock_region = clock_region
 
 def lookup_port_type(t):
 	if t == "INPUT":
@@ -503,3 +504,11 @@ class NextpnrTileType:
 		nb.belports.append(NextpnrBelWire(name=constid.make(pinname), port_type=1, wire=wire_idx))
 		self.wires[wire_idx].belpins.append(NextpnrBelPin(bel=nb.index, port=pinname))
 		self.bels.append(nb)
+
+# class NextpnrLockRegion:
+# 	def __init__(self, name, x0, y0, x1, y1):
+# 		self.name = name
+# 		self.x0 = x0  # lower bound of x
+# 		self.y0 = y0  # lower bound of y
+# 		self.x1 = x1  # upper bound of x
+# 		self.y1 = y1  # upper bound of y

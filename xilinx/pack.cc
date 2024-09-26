@@ -1196,7 +1196,9 @@ bool Arch::pack()
         packer.pack_ffs();
         packer.finalise_muxfs();
         packer.pack_lutffs();
+        packer.prepare_clock_region_constraints();
         packer.check();
+
     } else {
         USPacker packer;
         packer.ctx = getCtx();

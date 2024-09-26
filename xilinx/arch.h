@@ -237,6 +237,7 @@ NPNR_PACKED_STRUCT(struct TileInstInfoPOD {
     // at least for now, due to differing coordinate systems
     int32_t num_sites;
     RelPtr<SiteInstInfoPOD> site_insts;
+    int32_t clock_region;
 });
 
 NPNR_PACKED_STRUCT(struct ConstIDDataPOD {
@@ -310,13 +311,21 @@ NPNR_PACKED_STRUCT(struct TimingDataPOD {
     RelPtr<PipTimingPOD> pip_timing_classes;
 });
 
+NPNR_PACKED_STRUCT(struct ClockRegionDataPOD {
+    int32_t name;
+    int32_t x0, y0;  // lower bounds for bounding box
+    int32_t x1, y1;  // upper bounds 
+});
+
 NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<char> name;
     RelPtr<char> generator;
 
     int32_t version;
     int32_t width, height;
+    int32_t num_of_clock_regions;
     int32_t num_tiles, num_tiletypes, num_nodes;
+    RelPtr<ClockRegionDataPOD> clock_regions;
     RelPtr<TileTypeInfoPOD> tile_types;
     RelPtr<TileInstInfoPOD> tile_insts;
     RelPtr<NodeInfoPOD> nodes;
@@ -860,6 +869,7 @@ struct Arch : BaseCtx
             updateBramBel(bel, nullptr);
     }
 
+    // Check if Unified Synthesis Primitives(USP) availability
     bool usp_bel_hard_unavail(BelId bel) const
     {
         // if (chip_info->height > 600 && (bel.tile / chip_info->width) < 752) // constrain to SLR0
@@ -925,6 +935,7 @@ struct Arch : BaseCtx
 
     bool getBelHidden(BelId bel) const { return locInfo(bel).bel_data[bel.index].is_routing; }
 
+    // Returns the bel type from arch info
     IdString getBelType(BelId bel) const
     {
         NPNR_ASSERT(bel != BelId());
@@ -1518,6 +1529,7 @@ struct Arch : BaseCtx
     // This is not intended for Bel type checks, but finer-grained constraints
     // such as conflicting set/reset signals, etc
     bool isValidBelForCell(CellInfo *cell, BelId bel) const;
+    bool isBelAlignedWithCellRegion(CellInfo *cell, BelId bel) const;
 
     // Return true whether all Bels at a given location are valid
     bool isBelLocationValid(BelId bel) const;
@@ -1646,12 +1658,17 @@ struct Arch : BaseCtx
     static const std::vector<std::string> availableRouters;
 
     // -------------------------------------------------
+    // To return TileTypeInfoPOD (loaded from .bin file)
     template <typename Id> const TileTypeInfoPOD &locInfo(Id &id) const
     {
         return chip_info->tile_types[chip_info->tile_insts[id.tile].type];
     }
     // -------------------------------------------------
     void writeFasm(const std::string &filename);
+
+    //--------------------------------------------------
+    // Clock Region Functions
+    void clock_region_setup();
 };
 
 NEXTPNR_NAMESPACE_END

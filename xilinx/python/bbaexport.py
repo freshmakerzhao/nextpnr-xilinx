@@ -92,7 +92,6 @@ def main():
 
 		print("Exporting tile and site type data...")
 		for tt in tile_types:
-			
 			# List of wires on bels in tile
 			for bel in tt.bels:
 				bba.label('t{}b{}_wires'.format(tt.index, bel.index))

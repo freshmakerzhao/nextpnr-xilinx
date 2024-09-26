@@ -68,14 +68,6 @@ class NextpnrSiteInst:
 		self.rel_xy = rel_xy
 		self.inter_xy = inter_xy
 
-# class NextpnrTileInst:
-# 	def __init__(self, index, name, tile_type):
-# 		self.index = index
-# 		self.name = name
-# 		self.tile_type = tile_type
-# 		self.tilewire_to_node = []
-# 		self.sites = []
-
 class NextpnrTileInst:
 	def __init__(self, index, name, tile_type, clock_region):
 		self.index = index

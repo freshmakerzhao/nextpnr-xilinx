@@ -686,7 +686,6 @@ struct Arch : BaseCtx
 {
     boost::iostreams::mapped_file_source blob_file;
     const ChipInfoPOD *chip_info;
-    // const ChipInfoPOD_2 *chip_info_2;  // for debug
 
     mutable std::unordered_map<std::string, int> tile_by_name;
     mutable std::unordered_map<std::string, std::pair<int, int>> site_by_name;
@@ -737,7 +736,6 @@ struct Arch : BaseCtx
     Arch(ArchArgs args);
 
     bool xc7;
-    // std::string series;
 
     std::string getChipName() const;
 

@@ -473,7 +473,7 @@ struct CellInfo : ArchCellInfo
     int constr_x = UNCONSTR;   // this.x - parent.x, relative x to parent
     int constr_y = UNCONSTR;   // this.y - parent.y, relative y to parent
     int constr_z = UNCONSTR;   // this.z - parent.z, absolute or relative z to parent
-    bool constr_abs_z = false; // if = false, then parent.z is absolut coordinate, else then relative coordinate
+    bool constr_abs_z = false; // if = true, then parent.z is absolut coordinate, else then relative coordinate
     // parent.[xyz] := 0 when (constr_parent == nullptr)
 
     Region *region = nullptr;

@@ -525,7 +525,7 @@ def import_device(name, prjxray_root, metadata_root):
 
 	# Resolve interconnect tile coordinates
 	for t in d.tiles:
-		for delta in range(0, 30): # ???
+		for delta in range(0, 30): # why 30???
 			if t.interconn_xy != (-1, -1):
 				break # found, done
 			for direction in (-1, +1):

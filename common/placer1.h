@@ -30,7 +30,7 @@ struct Placer1Cfg
     float constraintWeight, netShareWeight;
     int minBelsForGridPick;
     bool budgetBased;
-    float startTemp;
+    float startTemp;    // 1 for SA, 1e-7 for refining
     int timingFanoutThresh;
     bool timing_driven;
     int slack_redist_iter;

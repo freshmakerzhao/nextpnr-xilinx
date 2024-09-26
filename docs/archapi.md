@@ -74,7 +74,7 @@ Return a string representation of the ArchArgs that was used to construct this o
 
 ### int getGridDimX() const
 
-Get grid X dimension. All bels and pips must have Y coordinates in the range `0 .. getGridDimX()-1` (inclusive).
+Get grid X dimension. All bels and pips must have X coordinates in the range `0 .. getGridDimX()-1` (inclusive).
 
 ### int getGridDimY() const
 

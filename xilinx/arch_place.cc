@@ -632,7 +632,17 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
     if (usp_bel_hard_unavail(bel))
         return false;
+    if (!isBelAlignedWithCellRegion(cell, bel))
+        return false;
     return true;
+}
+
+bool Arch::isBelAlignedWithCellRegion(CellInfo *cell, BelId bel) const
+{
+    IdString bel_clock_region_id = chip_info->tile_insts[bel.tile].clock_region;
+    if (cell->region == nullptr || cell->region->name == bel_clock_region_id)
+        return true;
+    return false;
 }
 
 void Arch::fixupPlacement()

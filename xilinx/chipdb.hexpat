@@ -150,6 +150,8 @@ struct TileInstInfoPOD {
     s32 num_sites;
     offset site_insts [[hidden]]; // SiteInstInfoPOD
     SiteInstInfoPOD SiteInsts[num_sites] @ RelPtr(addressof(site_insts));
+
+    s32 clock_region;
 };
 
 struct ConstIDDataPOD {
@@ -212,6 +214,12 @@ struct TimingDataPOD {
     offset pip_timing_classes; // PipTimingPOD
 };
 
+struct ClockRegionDataPOD {
+    s32 clock_region_name;
+    s32 x0, y0;  // lower bounds for bounding box
+    s32 x1, y1;  // upper bounds 
+};
+
 struct TileRow {
     TileInstInfoPOD TileColumns[parent.width];
 };
@@ -222,7 +230,9 @@ struct ChipInfoPOD {
 
     s32 version;
     s32 width, height;
+    s32 num_of_clock_regions;
     s32 num_tiles, num_tiletypes, num_nodes;
+    offset clock_regions [[hidden]];  // ClockRegionDataPOD
     offset tile_types [[hidden]]; // TileTypeInfoPOD
     offset tile_insts [[hidden]]; // TileInstInfoPOD
     offset nodes [[hidden]]; // NodeInfoPOD
@@ -235,6 +245,7 @@ struct ChipInfoPOD {
 
     String Name                              @ RelPtr(addressof(name));
     String Generator                         @ RelPtr(addressof(generator));
+    ClockRegionDataPOD ClockRegions[num_of_clock_regions] @ RelPtr(addressof(clock_regions));
     TileTypeInfoPOD TileTypes[num_tiletypes] @ RelPtr(addressof(tile_types));
     //TileInstInfoPOD TileInsts[num_tiles]     @ RelPtr(addressof(tile_insts));
     TileRow         TileRows[height]         @ RelPtr(addressof(tile_insts));

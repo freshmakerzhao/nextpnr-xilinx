@@ -529,8 +529,10 @@ int get_constraints_distance(const Context *ctx, const CellInfo *cell)
     return dist;
 }
 
+// check if the bel is in the constrained region associated to the cell
 bool check_cell_bel_region(const CellInfo *cell, BelId bel)
 {
+    // return false if the target bel not in this region.
     if (cell->region != nullptr && cell->region->constr_bels && !cell->region->bels.count(bel))
         return false;
     else

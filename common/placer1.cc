@@ -78,6 +78,7 @@ class SAPlacer
     SAPlacer(Context *ctx, Placer1Cfg cfg) : ctx(ctx), cfg(cfg)
     {
         int num_bel_types = 0;
+        // Count bels for each bel type
         for (auto bel : ctx->getBels()) {
             IdString type = ctx->getBelType(bel);
             if (bel_types.find(type) == bel_types.end()) {
@@ -86,13 +87,14 @@ class SAPlacer
                 std::get<1>(bel_types.at(type))++;
             }
         }
+        // Build fast_bels variable
         for (auto bel : ctx->getBels()) {
             Loc loc = ctx->getBelLocation(bel);
             IdString type = ctx->getBelType(bel);
             int type_idx = std::get<0>(bel_types.at(type));
             int type_cnt = std::get<1>(bel_types.at(type));
-            if (type_cnt < cfg.minBelsForGridPick)
-                loc.x = loc.y = 0;
+            if (type_cnt < cfg.minBelsForGridPick)  // Check if Low Frequency BEL Types
+                loc.x = loc.y = 0;                  // It consolidates all such BELs into a single location (0,0). This avoids sparse data in the grid and simplifies access.
             if (int(fast_bels.size()) < type_idx + 1)
                 fast_bels.resize(type_idx + 1);
             if (int(fast_bels.at(type_idx).size()) < (loc.x + 1))
@@ -105,6 +107,7 @@ class SAPlacer
         }
         diameter = std::max(max_x, max_y) + 1;
 
+        // Initialize varaibles
         net_bounds.resize(ctx->nets.size());
         net_arc_tcost.resize(ctx->nets.size());
         old_udata.reserve(ctx->nets.size());
@@ -116,6 +119,7 @@ class SAPlacer
             net.second->udata = n++;
             net_by_udata.push_back(net.second.get());
         }
+        // Determin bounding box
         for (auto &region : sorted(ctx->region)) {
             Region *r = region.second;
             BoundingBox bb;
@@ -229,14 +233,14 @@ class SAPlacer
             log_info("Initial placement time %.02fs\n",
                      std::chrono::duration<float>(iplace_end - iplace_start).count());
             log_info("Running simulated annealing placer.\n");
-        } else {
+        } else {    // Fill chain_basis and autoplaced
             for (auto &cell : ctx->cells) {
                 CellInfo *ci = cell.second.get();
-                if (ci->belStrength > STRENGTH_STRONG)
+                if (ci->belStrength > STRENGTH_STRONG) // skip fixed cells
                     continue;
-                else if (ci->constr_parent != nullptr)
+                else if (ci->constr_parent != nullptr) // skip chain children
                     continue;
-                else if (ci->name == IdString(ctx, "$PACKER_VCC_DRV") || ci->name == IdString(ctx, "$PACKER_GND_DRV") )
+                else if (ci->name == IdString(ctx, "$PACKER_VCC_DRV") || ci->name == IdString(ctx, "$PACKER_GND_DRV") )  // skip VCC GND drivers
                     continue;
                 else if (!ci->constr_children.empty() || ci->constr_z != ci->UNCONSTR)
                     chain_basis.push_back(ci);
@@ -267,12 +271,12 @@ class SAPlacer
         wirelen_t avg_wirelen = curr_wirelen_cost;
         wirelen_t min_wirelen = curr_wirelen_cost;
 
-        int n_no_progress = 0;
+        int n_no_progress = 0;  // number of no progress iteration
         temp = refine ? 1e-7 : cfg.startTemp;
 
         // Main simulated annealing loop
         for (int iter = 1;; iter++) {
-            n_move = n_accept = 0;
+            n_move = n_accept = 0;  // number of moves, number of accepts
             improved = false;
 
             if (iter % 5 == 0 || iter == 1)
@@ -349,6 +353,7 @@ class SAPlacer
             } else {
                 double diam_next = diameter * (1.0 - 0.44 + Raccept);
                 diameter = std::max<int>(1, std::min<int>(M, int(diam_next + 0.5)));
+                // Anealing strategy is same as VPR
                 if (Raccept > 0.96) {
                     temp *= 0.5;
                 } else if (Raccept > 0.8) {
@@ -1127,7 +1132,7 @@ class SAPlacer
     {
         for (auto net : sorted(ctx->nets)) {
             NetInfo *ni = net.second;
-            for (size_t i = 0; i < ni->users.size(); i++) {
+            for (size_t i = 0; i < ni->users.size(); i++) {  // i is arch_id, or say sink_id. Unique for each net
                 auto &usr = ni->users.at(i);
                 fast_port_to_user[&(usr.cell->ports.at(usr.port))] = i;
             }
@@ -1137,7 +1142,7 @@ class SAPlacer
     // Simple routeability driven placement
     const int large_cell_thresh = 50;
     int total_net_share = 0;
-    std::vector<std::vector<std::unordered_map<IdString, int>>> nets_by_tile;
+    std::vector<std::vector<std::unordered_map<IdString, int>>> nets_by_tile; // nets_by_tile[x][y][net_name] = shared times
     void setup_nets_by_tile()
     {
         total_net_share = 0;
@@ -1153,7 +1158,7 @@ class SAPlacer
                     continue;
                 if (port.second.net->driver.cell == nullptr || ctx->getBelGlobalBuf(port.second.net->driver.cell->bel))
                     continue;
-                int &s = nbt[port.second.net->name];
+                int &s = nbt[port.second.net->name]; // s is the shared times
                 if (s > 0)
                     ++total_net_share;
                 ++s;
@@ -1217,7 +1222,7 @@ class SAPlacer
     bool improved = false;
     int n_move, n_accept;
     int diameter = 35, max_x = 1, max_y = 1;
-    std::unordered_map<IdString, std::tuple<int, int>> bel_types;
+    std::unordered_map<IdString, std::tuple<int, int>> bel_types; // {type_ID, {type_index, type_count}}
     std::unordered_map<IdString, BoundingBox> region_bounds;
     std::vector<std::vector<std::vector<std::vector<BelId>>>> fast_bels;
     std::unordered_set<BelId> locked_bels;

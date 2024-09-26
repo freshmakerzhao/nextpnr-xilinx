@@ -207,11 +207,11 @@ class Site:
 		self.name = name
 		self.index = index
 		self.prefix = name[0:name.rfind('_')]
-		self.grid_xy = grid_xy
+		self.grid_xy = grid_xy # tuple, get x & y from site name
 		self.data = data
 		self.primary = primary if primary is not None else self
 		self.package_pin = None
-		self._rel_xy = None # filled later
+		self._rel_xy = None # relative xy for each type of site(bel), filled in func rel_xy(self)
 		self._variants = None #filled later
 	def get_bel_data(self, index):
 		return self.data.bels[index]
@@ -310,15 +310,25 @@ class Node:
 				return True
 		return False
 
+# To store clock region info
+class ClockRegion:
+	def __init__(self, name, x0, y0, x1, y1):
+		self.name = name
+		self.x0 = x0  # lower bound of x
+		self.y0 = y0  # lower bound of y
+		self.x1 = x1  # upper bound of x
+		self.y1 = y1  # upper bound of y
+	
 class Device:
 	def __init__(self, name):
 		self.name = name
+		self.width = 0
+		self.height = 0
 		self.tiles = []
 		self.tiles_by_name = {}
 		self.tiles_by_xy = {}
 		self.sites_by_name = {}
-		self.width = 0
-		self.height = 0
+		self.clock_regions = []
 	def tile(self, name):
 		return self.tiles_by_name[name]
 	def site(self, name):
@@ -328,7 +338,7 @@ def import_device(name, prjxray_root, metadata_root):
 	site_type_cache = {}
 	tile_type_cache = {}
 	tile_json_cache = {}
-	def parse_xy(xy):
+	def parse_xy(xy): # parse x & y from site name
 		xpos = xy.rfind("X")
 		ypos = xy.rfind("Y")
 		return int(xy[xpos+1:ypos]), int(xy[ypos+1:])
@@ -467,14 +477,28 @@ def import_device(name, prjxray_root, metadata_root):
 		ij = json.load(ijf)
 	with open(prjxray_root + "/" + fabricname + "/tilegrid.json") as gf:
 		tgj = json.load(gf)
+
+	# Initialize clock region bounding box
+	clock_region_bounding_boxes = {}
+
 	for tile, tiledata in sorted(tgj.items()):
 		x = int(tiledata["grid_x"])
 		y = int(tiledata["grid_y"])
 
+		# Read tile clock region info
 		if "clock_region" in tiledata.keys():
 			clock_region = str(tiledata["clock_region"])
 		else:
 			clock_region = "NULL"
+
+		# Update clock region bounding box
+		if clock_region != "NULL":
+			if clock_region not in clock_region_bounding_boxes:
+				clock_region_bounding_boxes.update({clock_region:{"x0":1e10, "y0":1e10, "x1":-1, "y1":-1}}) # x0: minimum x, x1: maxum x
+			clock_region_bounding_boxes[clock_region]["x0"] = min(clock_region_bounding_boxes[clock_region]["x0"], x)
+			clock_region_bounding_boxes[clock_region]["y0"] = min(clock_region_bounding_boxes[clock_region]["y0"], y)
+			clock_region_bounding_boxes[clock_region]["x1"] = max(clock_region_bounding_boxes[clock_region]["x1"], x)
+			clock_region_bounding_boxes[clock_region]["y1"] = max(clock_region_bounding_boxes[clock_region]["y1"], y)
 
 		# Update device size
 		d.width = max(d.width, x + 1)
@@ -489,6 +513,15 @@ def import_device(name, prjxray_root, metadata_root):
 		d.tiles_by_name[tile] = t
 		d.tiles_by_xy[x, y] = t
 		d.tiles.append(t)
+
+	# Append clock regions to device data
+	for clock_region_name in clock_region_bounding_boxes:
+		clk_region = ClockRegion(clock_region_name, 
+						clock_region_bounding_boxes[clock_region_name]["x0"], 
+						clock_region_bounding_boxes[clock_region_name]["y0"], 
+						clock_region_bounding_boxes[clock_region_name]["x1"],
+						clock_region_bounding_boxes[clock_region_name]["y1"])
+		d.clock_regions.append(clk_region)
 
 	# Resolve interconnect tile coordinates
 	for t in d.tiles:

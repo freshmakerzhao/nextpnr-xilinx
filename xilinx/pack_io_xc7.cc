@@ -1143,7 +1143,7 @@ void XC7Packer::pack_iologic()
             if (r_in != nullptr && r_in->name == ctx->id("$PACKER_GND_NET")) {
                 disconnect_port(ctx, ci, ctx->id("R"));
             } else {
-                iddr_rules[ctx->id("IDDR")].port_xform[ctx->id("R")] = ctx->id("SR");
+                iddr_rules[ci->type].port_xform[ctx->id("R")] = ctx->id("SR");
             }
             
             BelId io_bel;

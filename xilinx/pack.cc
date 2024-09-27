@@ -1194,6 +1194,7 @@ bool Arch::pack()
         packer.pack_luts();
         packer.pack_dsps();
         packer.pack_ffs();
+        packer.pack_cmt_fifo();
         packer.finalise_muxfs();
         packer.pack_lutffs();
         packer.prepare_clock_region_constraints();
@@ -1306,6 +1307,85 @@ void Arch::assignArchInfo()
     for (auto cell : sorted(cells)) {
         assignCellInfo(cell.second);
     }
+}
+
+void XC7Packer::pack_cmt_fifo()
+{
+    log_info("Packing cmt fifo..\n");
+
+    std::unordered_map<IdString, XFormRule> cmt_fifo_rules;
+    cmt_fifo_rules[ctx->id("IN_FIFO")].new_type = id_IN_FIFO_IN_FIFO;
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].new_type = id_OUT_FIFO_OUT_FIFO;
+
+    for(int i = 0; i < 8; i++){
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q0[" + std::to_string(i) + "]"))] = ctx->id("Q0" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q1[" + std::to_string(i) + "]"))] = ctx->id("Q1" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q2[" + std::to_string(i) + "]"))] = ctx->id("Q2" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q3[" + std::to_string(i) + "]"))] = ctx->id("Q3" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q4[" + std::to_string(i) + "]"))] = ctx->id("Q4" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q5[" + std::to_string(i) + "]"))] = ctx->id("Q5" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q6[" + std::to_string(i) + "]"))] = ctx->id("Q6" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q7[" + std::to_string(i) + "]"))] = ctx->id("Q7" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q8[" + std::to_string(i) + "]"))] = ctx->id("Q8" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("Q9[" + std::to_string(i) + "]"))] = ctx->id("Q9" + std::to_string(i));
+
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D0[" + std::to_string(i) + "]"))] = ctx->id("D0" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D1[" + std::to_string(i) + "]"))] = ctx->id("D1" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D2[" + std::to_string(i) + "]"))] = ctx->id("D2" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D3[" + std::to_string(i) + "]"))] = ctx->id("D3" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D4[" + std::to_string(i) + "]"))] = ctx->id("D4" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D5[" + std::to_string(i) + "]"))] = ctx->id("D5" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D6[" + std::to_string(i) + "]"))] = ctx->id("D6" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D7[" + std::to_string(i) + "]"))] = ctx->id("D7" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D8[" + std::to_string(i) + "]"))] = ctx->id("D8" + std::to_string(i));
+        cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("D9[" + std::to_string(i) + "]"))] = ctx->id("D9" + std::to_string(i));
+
+        if(i < 4){
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D0[" + std::to_string(i) + "]"))] = ctx->id("D0" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D1[" + std::to_string(i) + "]"))] = ctx->id("D1" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D2[" + std::to_string(i) + "]"))] = ctx->id("D2" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D3[" + std::to_string(i) + "]"))] = ctx->id("D3" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D4[" + std::to_string(i) + "]"))] = ctx->id("D4" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D5[" + std::to_string(i) + "]"))] = ctx->id("D5" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D6[" + std::to_string(i) + "]"))] = ctx->id("D6" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D7[" + std::to_string(i) + "]"))] = ctx->id("D7" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D8[" + std::to_string(i) + "]"))] = ctx->id("D8" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("D9[" + std::to_string(i) + "]"))] = ctx->id("D9" + std::to_string(i));
+
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q0[" + std::to_string(i) + "]"))] = ctx->id("Q0" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q1[" + std::to_string(i) + "]"))] = ctx->id("Q1" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q2[" + std::to_string(i) + "]"))] = ctx->id("Q2" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q3[" + std::to_string(i) + "]"))] = ctx->id("Q3" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q4[" + std::to_string(i) + "]"))] = ctx->id("Q4" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q5[" + std::to_string(i) + "]"))] = ctx->id("Q5" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q6[" + std::to_string(i) + "]"))] = ctx->id("Q6" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q7[" + std::to_string(i) + "]"))] = ctx->id("Q7" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q8[" + std::to_string(i) + "]"))] = ctx->id("Q8" + std::to_string(i));
+            cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("Q9[" + std::to_string(i) + "]"))] = ctx->id("Q9" + std::to_string(i));
+        }
+
+    }
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("RDCLK"))] = ctx->id("RDCLK");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("RDEN"))]  = ctx->id("RDEN");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("RESET"))] = ctx->id("RESET");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("WRCLK"))] = ctx->id("WRCLK");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("WREN"))]  = ctx->id("WREN");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("ALMOSTEMPTY"))]  = ctx->id("ALMOSTEMPTY");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("ALMOSTFULL"))]  = ctx->id("ALMOSTFULL");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("EMPTY"))]  = ctx->id("EMPTY");
+    cmt_fifo_rules[ctx->id("IN_FIFO")].port_xform[ctx->id(std::string("FULL"))]  = ctx->id("FULL");
+
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("RDCLK"))] = ctx->id("RDCLK");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("RDEN"))]  = ctx->id("RDEN");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("RESET"))] = ctx->id("RESET");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("WRCLK"))] = ctx->id("WRCLK");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("WREN"))]  = ctx->id("WREN");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("ALMOSTEMPTY"))]  = ctx->id("ALMOSTEMPTY");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("ALMOSTFULL"))]  = ctx->id("ALMOSTFULL");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("EMPTY"))]  = ctx->id("EMPTY");
+    cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("FULL"))]  = ctx->id("FULL");
+    
+    generic_xform(cmt_fifo_rules, true);
 }
 
 NEXTPNR_NAMESPACE_END

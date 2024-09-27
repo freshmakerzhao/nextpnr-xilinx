@@ -178,6 +178,26 @@ NetInfo *XilinxPacker::create_internal_net(IdString base, const std::string &pos
     return ctx->nets.at(name).get();
 }
 
+CellInfo *XilinxPacker::create_drom_lut(const std::string &name, CellInfo *base, std::vector<NetInfo *> address, NetInfo *dout, int z)
+{
+    std::unique_ptr<CellInfo> drom_lut = create_cell(ctx, ctx->id("SLICE_LUTX"), ctx->id(name));
+    for (int i = 0; i < int(address.size()); i++)
+        connect_port(ctx, address[i], drom_lut.get(), ctx->id("A" + std::to_string(i+1)));
+    connect_port(ctx, dout, drom_lut.get(), ctx->id("O6"));
+
+    drom_lut->constr_abs_z = true;
+    drom_lut->constr_z = (z << 4) | BEL_6LUT;
+    if (base != nullptr) {
+        drom_lut->constr_parent = base;
+        drom_lut->constr_x = 0;
+        drom_lut->constr_y = 0;
+        base->constr_children.push_back(drom_lut.get());
+    }
+    CellInfo *dl = drom_lut.get();
+    new_cells.push_back(std::move(drom_lut));
+    return dl;
+}
+
 void XilinxPacker::pack_rom()
 {
     log_info("Packing ROM..\n");
@@ -198,11 +218,7 @@ void XilinxPacker::pack_rom()
                 rename_port(ctx, ci, old_name, new_name);
             }
             xform_cell(rom_rules,ci);
-        }
-    }
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
-        if (ci->type == ctx->id("ROM32X1")) {
+        } else if (ci->type == ctx->id("ROM32X1")) {
             for (int i = 4; i >= 0; i--) {
                 IdString old_name = ctx->id("A" + std::to_string(i));
                 IdString new_name = ctx->id("A" + std::to_string(i + 1));
@@ -217,8 +233,44 @@ void XilinxPacker::pack_rom()
             // 使用tie_port函数添加A6端口并连接到高电平
             tie_port(ci, "A6", true, false);
             xform_cell(rom_rules,ci);
+        } else if (ci->type == ctx->id("ROM128X1")) {
+
+            NetInfo *dout = get_net_or_empty(ci, ctx->id("O"));
+            disconnect_port(ctx, ci, ctx->id("O"));
+
+            std::vector<NetInfo *> addressw_low;
+            for( auto i=0; i<=5; i++){
+                addressw_low.push_back(ci->ports.at(ctx->id("A" + std::to_string(i))).net);
+            }
+            std::vector<NetInfo *> addressw_high;
+            addressw_high.push_back(ci->ports.at(id_A6).net);
+            // 创建一个vector来存储两个64位LUT的输出
+            std::vector<NetInfo *> dout_interm;     
+
+            // 获取INIT值并拆分
+            auto init_property = get_or_default(ci->params, ctx->id("INIT"), Property(0, 128));
+            Property init_low = init_property.extract(0, 64);
+            Property init_high = init_property.extract(64, 64);
+
+            NetInfo *dout_low = create_internal_net(ci->name, "O_LOW", false);
+            auto base = create_drom_lut(ci->name.str(ctx)+ "/LOW", nullptr, addressw_low, dout_low, 3);
+            base->attrs[ctx->id("X_ORIG_TYPE")] = Property("ROM128X1");
+            // 设置低位的INIT值
+            base->params[ctx->id("INIT")] = init_low;
+            dout_interm.push_back(dout_low);
+
+            NetInfo *dout_high = create_internal_net(ci->name, "O_HIGH", false);
+            auto drom_high = create_drom_lut(ci->name.str(ctx)+ "/HIGH", base, addressw_low, dout_high, 2);
+            drom_high->attrs[ctx->id("X_ORIG_TYPE")] = Property("ROM128X1");
+            // 设置高位的INIT值
+            drom_high->params[ctx->id("INIT")] = init_high;
+            dout_interm.push_back(dout_high);
+
+            create_muxf_tree(base, "O", dout_interm, addressw_high, dout, 2);
+            packed_cells.insert(ci->name);
         }
     }
+    flush_cells();
 }
 
 void XilinxPacker::pack_luts()

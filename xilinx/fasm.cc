@@ -1563,6 +1563,52 @@ struct FasmBackend
             blank();
         }
     }
+    
+    void write_cmt_fifo()
+    {
+        auto tt = ctx->getTilesAndTypes();
+        std::string name, type;
+
+        std::set<std::string> all_gclk;
+        std::unordered_map<int, std::set<std::string>> hclk_by_row;
+
+        for (auto cell : sorted(ctx->cells)) {
+            // get tile name 
+            CellInfo *ci = cell.second;
+            
+            if (ci->type == id_IN_FIFO_IN_FIFO) {
+                // IN_FIFO
+                push(get_tile_name(ci->bel.tile)); // CMT_FIFO_R_X_Y_
+                // ARRAY_MODE
+                std::string array_mode = str_or_default(ci->params, ctx->id("ARRAY_MODE"), "ARRAY_MODE_4_X_8");
+                // ALMOST_FULL_VALUE
+                int almost_full_value = int_or_default(ci->params, ctx->id("ALMOST_FULL_VALUE"), 1);
+                // ALMOST_EMPTY_VALUE
+                int almost_empty_value = int_or_default(ci->params, ctx->id("ALMOST_EMPTY_VALUE"), 1);
+                push("IN_FIFO"); // IN_FIFO
+                write_bit("ARRAY_MODE", array_mode == "ARRAY_MODE_4_X_8");
+                write_bit("ALMOST_FULL_VALUE", almost_full_value == 2);
+                write_bit("ALMOST_EMPTY_VALUE", almost_empty_value == 2);
+                pop(2);
+                blank();
+            } else if (ci->type == id_OUT_FIFO_OUT_FIFO) {
+                // OUT_FIFO
+                push(get_tile_name(ci->bel.tile)); // CMT_FIFO_R_X_Y_
+                // ARRAY_MODE
+                std::string array_mode = str_or_default(ci->params, ctx->id("ARRAY_MODE"), "ARRAY_MODE_8_X_4");
+                // ALMOST_FULL_VALUE
+                int almost_full_value = int_or_default(ci->params, ctx->id("ALMOST_FULL_VALUE"), 1);
+                // ALMOST_EMPTY_VALUE
+                int almost_empty_value = int_or_default(ci->params, ctx->id("ALMOST_EMPTY_VALUE"), 1);
+                push("OUT_FIFO");
+                write_bit("ARRAY_MODE",array_mode == "ARRAY_MODE_8_X_4");
+                write_bit("ALMOST_FULL_VALUE",almost_full_value == 2);
+                write_bit("ALMOST_EMPTY_VALUE",almost_empty_value == 2);
+                pop(2);
+                blank();
+            }
+        }
+    }
 
     void write_bram_width(CellInfo *ci, const std::string &name, bool is_36, bool is_y1)
     {
@@ -3248,6 +3294,7 @@ struct FasmBackend
         write_io();
         write_routing();
         write_bram();
+        write_cmt_fifo();
         write_clocking();
         write_ip();
     }

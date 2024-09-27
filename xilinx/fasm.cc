@@ -1155,7 +1155,12 @@ struct FasmBackend
             write_bit("ODDR.DDR_CLK_EDGE.SAME_EDGE");
             write_bit("ODDR.SRUSED");
             write_bit("ODDR_TDDR.IN_USE");
-            write_bit("OQUSED", get_net_or_empty(ci, ctx->id("OQ")) != nullptr);
+            std::string mode = str_or_default(ci->params, ctx->id("SERDES_MODE"));
+            if(mode == "SLAVE"){
+                write_bit("OQUSED", true);
+            }else{
+                write_bit("OQUSED", get_net_or_empty(ci, ctx->id("OQ")) != nullptr);
+            }
             write_bit("ZINV_CLK", !bool_or_default(ci->params, ctx->id("IS_CLK_INVERTED"), false));
             for (std::string t : {"T1", "T2", "T3", "T4"})
                 write_bit("ZINV_" + t, (get_net_or_empty(ci, ctx->id(t)) != nullptr || t == "T1") &&
@@ -1170,12 +1175,12 @@ struct FasmBackend
 
             push("OSERDES");
             write_bit("IN_USE");
+            if(mode == "SLAVE"){
+                write_bit(std::string("SERDES_MODE.") + mode);
+            }
             std::string type = str_or_default(ci->params, ctx->id("DATA_RATE_OQ"), "DDR");
             write_bit(std::string("DATA_RATE_OQ.") + ((get_net_or_empty(ci, ctx->id("OQ")) != nullptr) ? type : "DDR"));
-            write_bit(std::string("DATA_RATE_TQ.") +
-                      ((get_net_or_empty(ci, ctx->id("TQ")) != nullptr)
-                               ? str_or_default(ci->params, ctx->id("DATA_RATE_TQ"), "DDR")
-                               : "BUF"));
+            write_bit(std::string("DATA_RATE_TQ.") + str_or_default(ci->params, ctx->id("DATA_RATE_TQ"), "DDR"));
             int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 8);
 #if 0
             write_bit("DATA_WIDTH.W" + std::to_string(width));

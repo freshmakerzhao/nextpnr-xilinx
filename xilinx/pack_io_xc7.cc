@@ -1043,8 +1043,8 @@ void XC7Packer::pack_iologic()
             NetInfo *tbytein = get_net_or_empty(ci, ctx->id("TBYTEIN"));
             if (tbytein != nullptr && tbytein->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("TBYTEIN"));
              //根据OQ或OFB确定oserdese2的位置，主模式下可以这样做，默认主模式
-            std::string is_SERDES_MODE = str_or_default(ci->params,ctx->id("SERDES_MODE"),"MASTER");
-            if(is_SERDES_MODE == "MASTER"){
+            std::string serdes_mode = str_or_default(ci->params,ctx->id("SERDES_MODE"),"MASTER");
+            if(serdes_mode == "MASTER"){
                 NetInfo *q = get_net_or_empty(ci, ctx->id("OQ"));
                 NetInfo *ofb = get_net_or_empty(ci, ctx->id("OFB"));
                 bool q_disconnected = q == nullptr || q->users.empty();
@@ -1178,19 +1178,8 @@ void XC7Packer::pack_iologic()
     for(auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
         if (ci->type == ctx->id("OSERDESE2")) {
-            // according to ug953 they should be left unconnected or connected to ground
-            // when not in slave mode, which is the same, since there are no wire routes to GND
-            NetInfo *shiftin1 = get_net_or_empty(ci, ctx->id("SHIFTIN1"));
-            if (shiftin1 != nullptr && shiftin1->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("SHIFTIN1"));
-            NetInfo *shiftin2 = get_net_or_empty(ci, ctx->id("SHIFTIN2"));
-            if (shiftin2 != nullptr && shiftin2->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("SHIFTIN2"));
-
-            // If this is tied to GND it's just unused. This does not have a route to GND anyway.
-            NetInfo *tbytein = get_net_or_empty(ci, ctx->id("TBYTEIN"));
-            if (tbytein != nullptr && tbytein->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("TBYTEIN"));
-
-            std::string is_SERDES_MODE = str_or_default(ci->params,ctx->id("SERDES_MODE"),"MASTER");
-            if(is_SERDES_MODE == "SLAVE"){
+            std::string serdes_mode = str_or_default(ci->params,ctx->id("SERDES_MODE"),"MASTER");
+            if(serdes_mode == "SLAVE"){
                 NetInfo *d = get_net_or_empty(ci, ctx->id("SHIFTOUT1"));
                 if (d == nullptr || d->users.size() == 0)
                     log_error("%s '%s' has disconnected clk input\n", ci->type.c_str(ctx), ctx->nameOf(ci));
@@ -1214,7 +1203,6 @@ void XC7Packer::pack_iologic()
                     // 重新拼接字符串，将前面的部分和加一后的数字拼接
                     new_ol_site = ol_site.substr(0, pos + 1) + std::to_string(num);
                 }
-                drv->constr_children.push_back(ci);
                 auto bel_name = new_ol_site + "/OSERDESE2";
                 ci->attrs[ctx->id("BEL")] = bel_name;
                 used_oserdes_bels.insert(ctx->getBelByName(ctx->id(bel_name)));

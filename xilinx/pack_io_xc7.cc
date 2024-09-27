@@ -903,6 +903,7 @@ void XC7Packer::pack_iologic()
     // SERDES
     iologic_rules[ctx->id("ISERDESE2")].new_type = ctx->id("ISERDESE2_ISERDESE2");
     iologic_rules[ctx->id("OSERDESE2")].new_type = ctx->id("OSERDESE2_OSERDESE2");
+    iologic_rules[ctx->id("OSERDESE2")].port_multixform[ctx->id("CLK")] = { ctx->id("CLK"), ctx->id("CLKB") };
 
     // DELAY
     iologic_rules[ctx->id("IDELAYE2")].new_type = ctx->id("IDELAYE2_IDELAYE2");
@@ -1032,30 +1033,38 @@ void XC7Packer::pack_iologic()
             if (shiftin1 != nullptr && shiftin1->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("SHIFTIN1"));
             NetInfo *shiftin2 = get_net_or_empty(ci, ctx->id("SHIFTIN2"));
             if (shiftin2 != nullptr && shiftin2->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("SHIFTIN2"));
-
+            //不允许shift1和shift2连接到除shiftout1和shiftout2以外的端口
+            if(shiftin1 != nullptr || shiftin2 != nullptr){
+                if(shiftin1->driver.port != ctx->id("SHIFTOUT1") || shiftin2->driver.port != ctx->id("SHIFTOUT2")){
+                    log_error("%s '%s' has illegal fanout on SHIFTIN1 or SHIFTOUT2 \n", ci->type.c_str(ctx), ctx->nameOf(ci));
+                }
+            }
             // If this is tied to GND it's just unused. This does not have a route to GND anyway.
             NetInfo *tbytein = get_net_or_empty(ci, ctx->id("TBYTEIN"));
             if (tbytein != nullptr && tbytein->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("TBYTEIN"));
-
-            NetInfo *q = get_net_or_empty(ci, ctx->id("OQ"));
-            NetInfo *ofb = get_net_or_empty(ci, ctx->id("OFB"));
-            bool q_disconnected = q == nullptr || q->users.empty();
-            bool ofb_disconnected = ofb == nullptr || ofb->users.empty();
-            if (q_disconnected && ofb_disconnected) {
-                log_error("%s '%s' has disconnected OQ/OFB output ports\n", ci->type.c_str(ctx), ctx->nameOf(ci));
-            }
-            BelId io_bel;
-            CellInfo *ob = !q_disconnected ? find_p_outbuf(q) : find_p_outbuf(ofb);
-            if (ob != nullptr) {
-                io_bel = ctx->getBelByName(ctx->id(ob->attrs.at(ctx->id("BEL")).as_string()));
-                std::string ol_site = get_ologic_site(ctx->getBelName(io_bel).str(ctx));
-                auto bel_name = ol_site + "/OSERDESE2";
-                ci->attrs[ctx->id("BEL")] = bel_name;
-                used_oserdes_bels.insert(ctx->getBelByName(ctx->id(bel_name)));
-            } else if (ofb->users.size() == 1 && ofb->users.at(0).cell->type == ctx->id("ISERDESE2")) {
-                unconstrained_oserdes.insert(ci);
-            } else {
-                log_error("%s '%s' has illegal fanout on OQ or OFB output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+             //根据OQ或OFB确定oserdese2的位置，主模式下可以这样做，默认主模式
+            std::string serdes_mode = str_or_default(ci->params,ctx->id("SERDES_MODE"),"MASTER");
+            if(serdes_mode == "MASTER"){
+                NetInfo *q = get_net_or_empty(ci, ctx->id("OQ"));
+                NetInfo *ofb = get_net_or_empty(ci, ctx->id("OFB"));
+                bool q_disconnected = q == nullptr || q->users.empty();
+                bool ofb_disconnected = ofb == nullptr || ofb->users.empty();
+                if (q_disconnected && ofb_disconnected) {
+                    log_error("%s '%s' has disconnected OQ/OFB output ports\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+                }
+                BelId io_bel;
+                CellInfo *ob = !q_disconnected ? find_p_outbuf(q) : find_p_outbuf(ofb);
+                if (ob != nullptr) {
+                    io_bel = ctx->getBelByName(ctx->id(ob->attrs.at(ctx->id("BEL")).as_string()));
+                    std::string ol_site = get_ologic_site(ctx->getBelName(io_bel).str(ctx));
+                    auto bel_name = ol_site + "/OSERDESE2";
+                    ci->attrs[ctx->id("BEL")] = bel_name;
+                    used_oserdes_bels.insert(ctx->getBelByName(ctx->id(bel_name)));
+                } else if (ofb->users.size() == 1 && ofb->users.at(0).cell->type == ctx->id("ISERDESE2")) {
+                    unconstrained_oserdes.insert(ci);
+                } else {
+                    log_error("%s '%s' has illegal fanout on OQ or OFB output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+                }
             }
         }  else if (ci->type == ctx->id("ISERDESE2")) {
             fold_inverter(ci, "CLKB");
@@ -1165,7 +1174,42 @@ void XC7Packer::pack_iologic()
             xform_cell(iddr_rules, ci);
         }
     }
-
+    //根据主oserdese2的位置，确定从oserdese2的位置，它两必须是相邻的一对
+    for(auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (ci->type == ctx->id("OSERDESE2")) {
+            std::string serdes_mode = str_or_default(ci->params,ctx->id("SERDES_MODE"),"MASTER");
+            if(serdes_mode == "SLAVE"){
+                NetInfo *d = get_net_or_empty(ci, ctx->id("SHIFTOUT1"));
+                if (d == nullptr || d->users.size() == 0)
+                    log_error("%s '%s' has disconnected clk input\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+                CellInfo *drv = nullptr;
+                for(auto it : d->users){
+                    if(it.cell->type == ctx->id("OSERDESE2")){
+                        drv = it.cell;
+                    }
+                }
+                std::string new_ol_site;
+                std::string ol_site = drv->attrs[ctx->id("BEL")].str;
+                // 找到 'y' 字符的位置
+                size_t pos = ol_site.find('Y');
+                if (pos != '/') {
+                    // 提取 'y' 后面的数字
+                    std::string num_str = ol_site.substr(pos + 1);
+                    // 将字符串形式的数字转换为整数
+                    int num = std::stoi(num_str);
+                    // 数字减一
+                    num -= 1;
+                    // 重新拼接字符串，将前面的部分和加一后的数字拼接
+                    new_ol_site = ol_site.substr(0, pos + 1) + std::to_string(num);
+                }
+                auto bel_name = new_ol_site + "/OSERDESE2";
+                ci->attrs[ctx->id("BEL")] = bel_name;
+                used_oserdes_bels.insert(ctx->getBelByName(ctx->id(bel_name)));
+                
+            }
+        }
+    }
     // place OSERDESE2 which are not connected to an output, but to another ISERDESE2 via OFB
     std::queue<BelId> available_oserdes_bels;
     IdString oserdes_id = ctx->id("OSERDESE2_OSERDESE2");

@@ -268,6 +268,55 @@ void XilinxPacker::pack_rom()
 
             create_muxf_tree(base, "O", dout_interm, addressw_high, dout, 2);
             packed_cells.insert(ci->name);
+        } else if (ci->type == ctx->id("ROM256X1")) {
+            NetInfo *dout = get_net_or_empty(ci, ctx->id("O"));
+            disconnect_port(ctx, ci, ctx->id("O"));
+
+            //低六位地址线
+            std::vector<NetInfo *> addressw_low;
+            for( auto i=0; i<=5; i++){
+                addressw_low.push_back(ci->ports.at(ctx->id("A" + std::to_string(i))).net);
+            }
+            
+            //高两位地址线
+            std::vector<NetInfo *> addressw_high;
+            addressw_high.push_back(ci->ports.at(ctx->id("A6")).net);
+            addressw_high.push_back(ci->ports.at(ctx->id("A7")).net);
+
+            std::vector<NetInfo *> dout_interm;
+
+            auto init_property = get_or_default(ci->params, ctx->id("INIT"), Property(0, 256));
+            Property init_d = init_property.extract(192, 64);
+            Property init_c = init_property.extract(128, 64);
+            Property init_b = init_property.extract(64, 64);
+            Property init_a = init_property.extract(0, 64);           
+            //D6LUT
+            NetInfo *dout_d = create_internal_net(ci->name, "O_D", false);
+            auto base = create_drom_lut(ci->name.str(ctx)+"/D", nullptr, addressw_low, dout_d, 3);
+            base->attrs[ctx->id("X_ORIG_TYPE")] = Property("ROM256X1");
+            base->params[ctx->id("INIT")] = init_d;
+            dout_interm.push_back(dout_d);
+            //C6LUT
+            NetInfo *dout_c = create_internal_net(ci->name, "O_C", false);
+            auto drom_c = create_drom_lut(ci->name.str(ctx)+"/C", base, addressw_low, dout_c, 2);
+            drom_c->attrs[ctx->id("X_ORIG_TYPE")] = Property("ROM256X1");
+            drom_c->params[ctx->id("INIT")] = init_c;
+            dout_interm.push_back(dout_c);
+            //B6LUT
+            NetInfo *dout_b = create_internal_net(ci->name, "O_B", false);
+            auto drom_b = create_drom_lut(ci->name.str(ctx)+"/B", base, addressw_low, dout_b, 1);
+            drom_b->attrs[ctx->id("X_ORIG_TYPE")] = Property("ROM256X1");
+            drom_b->params[ctx->id("INIT")] = init_b;
+            dout_interm.push_back(dout_b);
+            //A6LUT
+            NetInfo *dout_a = create_internal_net(ci->name, "O_A", false);
+            auto drom_a = create_drom_lut(ci->name.str(ctx)+"/A", base, addressw_low, dout_a, 0);
+            drom_a->attrs[ctx->id("X_ORIG_TYPE")] = Property("ROM256X1");
+            drom_a->params[ctx->id("INIT")] = init_a;
+            dout_interm.push_back(dout_a);   
+
+            create_muxf_tree(base, "O", dout_interm, addressw_high, dout, 0);
+            packed_cells.insert(ci->name);            
         }
     }
     flush_cells();

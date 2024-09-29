@@ -1008,24 +1008,71 @@ void XC7Packer::pack_iologic()
             PortRef dest_port = *q->users.begin();
             auto is_tristate = dest_port.port == ctx->id("TRI");
 
-            NetInfo *s_in = get_net_or_empty(ci, ctx->id("S"));
-            if (s_in != nullptr && s_in->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("S"));
-            NetInfo *r_in = get_net_or_empty(ci, ctx->id("R"));
-            if (r_in != nullptr && r_in->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("R"));
-
             std::unordered_map<IdString, XFormRule> oddr_rules;
             if (boost::contains(io_bel_str, "IOB18"))
                 oddr_rules[ctx->id("ODDR")].new_type = is_tristate ? ctx->id("OLOGICE2_TFF") : ctx->id("OLOGICE2_OUTFF");
             else
                 oddr_rules[ctx->id("ODDR")].new_type = is_tristate ? ctx->id("OLOGICE3_TFF") : ctx->id("OLOGICE3_OUTFF");
             oddr_rules[ctx->id("ODDR")].port_xform[ctx->id("C")] = ctx->id("CK");
-            oddr_rules[ctx->id("ODDR")].port_xform[ctx->id("S")] = ctx->id("SR");
-            oddr_rules[ctx->id("ODDR")].port_xform[ctx->id("R")] = ctx->id("SR");
+
+            NetInfo *s_in = get_net_or_empty(ci, ctx->id("S"));
+            if (s_in != nullptr && s_in->name == ctx->id("$PACKER_GND_NET")) {
+                disconnect_port(ctx, ci, ctx->id("S"));
+            } else {
+                oddr_rules[id_ODDR].port_xform[ctx->id("S")] = ctx->id("SR");
+            }
+                
+            NetInfo *r_in = get_net_or_empty(ci, ctx->id("R"));
+            if (r_in != nullptr && r_in->name == ctx->id("$PACKER_GND_NET")) {
+                disconnect_port(ctx, ci, ctx->id("R"));
+            } else {
+                oddr_rules[id_ODDR].port_xform[ctx->id("R")] = ctx->id("SR");
+            }
+
             xform_cell(oddr_rules, ci);
 
             fold_inverter(ci, "CLK");
 
             ci->attrs[ctx->id("BEL")] = ol_site + (is_tristate ? "/TFF" : "/OUTFF");
+        } else if (ci->type == ctx->id("IDDR") || ci->type == ctx->id("IDDR_2CLK")) {
+            // 每个iddr需要根据连线做单独规则
+            auto iddr_rules = iddr_base_rules;
+            fold_inverter(ci, "C");
+            if(ci->type == ctx->id("IDDR_2CLK")){
+                fold_inverter(ci, "CB");
+            }
+            
+            NetInfo *s_in = get_net_or_empty(ci, ctx->id("S"));
+            if (s_in != nullptr && s_in->name == ctx->id("$PACKER_GND_NET")) {
+                disconnect_port(ctx, ci, ctx->id("S"));
+            } else {
+                iddr_rules[ci->type].port_xform[ctx->id("S")] = ctx->id("SR");
+            }
+                
+            NetInfo *r_in = get_net_or_empty(ci, ctx->id("R"));
+            if (r_in != nullptr && r_in->name == ctx->id("$PACKER_GND_NET")) {
+                disconnect_port(ctx, ci, ctx->id("R"));
+            } else {
+                iddr_rules[ci->type].port_xform[ctx->id("R")] = ctx->id("SR");
+            }
+            
+            BelId io_bel;
+            NetInfo *d = get_net_or_empty(ci, ctx->id("D"));
+            if (d == nullptr || d->driver.cell == nullptr)
+                log_error("%s '%s' has disconnected D input\n", ci->type.c_str(ctx), ctx->nameOf(ci));
+            CellInfo *drv = d->driver.cell;
+            if (   boost::contains(drv->type.str(ctx), "INBUF_EN")
+                || boost::contains(drv->type.str(ctx), "INBUF_DCIEN"))
+                io_bel = ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string()));
+            else if (boost::contains(drv->type.str(ctx), "IDELAYE2") && d->driver.port == ctx->id("DATAOUT"))
+                io_bel = iodelay_to_io.at(drv->name);
+            else
+                log_error("%s '%s' has D input connected to illegal cell type %s\n", ci->type.c_str(ctx),
+                            ctx->nameOf(ci), drv->type.c_str(ctx));
+
+            std::string iol_site = get_ilogic_site(ctx->getBelName(io_bel).str(ctx));
+            ci->attrs[ctx->id("BEL")] = iol_site + "/IFF";
+            xform_cell(iddr_rules, ci);
         } else if (ci->type == ctx->id("OSERDESE2")) {
             // according to ug953 they should be left unconnected or connected to ground
             // when not in slave mode, which is the same, since there are no wire routes to GND
@@ -1066,7 +1113,7 @@ void XC7Packer::pack_iologic()
                     log_error("%s '%s' has illegal fanout on OQ or OFB output\n", ci->type.c_str(ctx), ctx->nameOf(ci));
                 }
             }
-        }  else if (ci->type == ctx->id("ISERDESE2")) {
+        } else if (ci->type == ctx->id("ISERDESE2")) {
             fold_inverter(ci, "CLKB");
             fold_inverter(ci, "OCLKB");
 
@@ -1130,50 +1177,6 @@ void XC7Packer::pack_iologic()
         }
     }
 
-    // iddr需要单独处理
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *ci = cell.second;
-        if (ci->type == ctx->id("IDDR") || ci->type == ctx->id("IDDR_2CLK")) {
-            // 每个iddr需要根据连线做单独规则
-            auto iddr_rules = iddr_base_rules;
-            fold_inverter(ci, "C");
-            if(ci->type == ctx->id("IDDR_2CLK")){
-                fold_inverter(ci, "CB");
-            }
-            
-            NetInfo *s_in = get_net_or_empty(ci, ctx->id("S"));
-            if (s_in != nullptr && s_in->name == ctx->id("$PACKER_GND_NET")) {
-                disconnect_port(ctx, ci, ctx->id("S"));
-            } else {
-                iddr_rules[ci->type].port_xform[ctx->id("S")] = ctx->id("SR");
-            }
-                
-            NetInfo *r_in = get_net_or_empty(ci, ctx->id("R"));
-            if (r_in != nullptr && r_in->name == ctx->id("$PACKER_GND_NET")) {
-                disconnect_port(ctx, ci, ctx->id("R"));
-            } else {
-                iddr_rules[ci->type].port_xform[ctx->id("R")] = ctx->id("SR");
-            }
-            
-            BelId io_bel;
-            NetInfo *d = get_net_or_empty(ci, ctx->id("D"));
-            if (d == nullptr || d->driver.cell == nullptr)
-                log_error("%s '%s' has disconnected D input\n", ci->type.c_str(ctx), ctx->nameOf(ci));
-            CellInfo *drv = d->driver.cell;
-            if (   boost::contains(drv->type.str(ctx), "INBUF_EN")
-                || boost::contains(drv->type.str(ctx), "INBUF_DCIEN"))
-                io_bel = ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string()));
-            else if (boost::contains(drv->type.str(ctx), "IDELAYE2") && d->driver.port == ctx->id("DATAOUT"))
-                io_bel = iodelay_to_io.at(drv->name);
-            else
-                log_error("%s '%s' has D input connected to illegal cell type %s\n", ci->type.c_str(ctx),
-                            ctx->nameOf(ci), drv->type.c_str(ctx));
-
-            std::string iol_site = get_ilogic_site(ctx->getBelName(io_bel).str(ctx));
-            ci->attrs[ctx->id("BEL")] = iol_site + "/IFF";
-            xform_cell(iddr_rules, ci);
-        }
-    }
     //根据主oserdese2的位置，确定从oserdese2的位置，它两必须是相邻的一对
     for(auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;

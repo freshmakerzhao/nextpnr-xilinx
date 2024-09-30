@@ -947,17 +947,23 @@ void XC7Packer::pack_iologic()
             if (d == nullptr || d->driver.cell == nullptr)
                 log_error("%s '%s' has disconnected IDATAIN input\n", ci->type.c_str(ctx), ctx->nameOf(ci));
             CellInfo *drv = d->driver.cell;
-            BelId io_bel;
-            if (   boost::contains(drv->type.str(ctx), "INBUF_EN")
-                || boost::contains(drv->type.str(ctx), "INBUF_DCIEN"))
-                io_bel = ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string()));
-            else
-                log_error("%s '%s' has IDATAIN input connected to illegal cell type %s\n", ci->type.c_str(ctx),
-                          ctx->nameOf(ci), drv->type.c_str(ctx));
-            std::string iol_site = get_idelay_site(ctx->getBelName(io_bel).str(ctx));
-            ci->attrs[ctx->id("BEL")] = iol_site + "/IDELAYE2";
-            ci->attrs[ctx->id("X_IO_BEL")] = ctx->getBelName(io_bel).str(ctx);
-            iodelay_to_io[ci->name] = io_bel;
+            std::string delay_src = str_or_default(ci->params,ctx->id("DELAY_SRC"),"IDATAIN");
+            if(delay_src == "IDATAIN"){
+                BelId io_bel;
+                if (   boost::contains(drv->type.str(ctx), "INBUF_EN")
+                    || boost::contains(drv->type.str(ctx), "INBUF_DCIEN"))
+                    io_bel = ctx->getBelByName(ctx->id(drv->attrs.at(ctx->id("BEL")).as_string()));
+                else
+                    log_error("%s '%s' has IDATAIN input connected to illegal cell type %s\n", ci->type.c_str(ctx),
+                            ctx->nameOf(ci), drv->type.c_str(ctx));
+                std::string iol_site = get_idelay_site(ctx->getBelName(io_bel).str(ctx));
+                ci->attrs[ctx->id("BEL")] = iol_site + "/IDELAYE2";
+                ci->attrs[ctx->id("X_IO_BEL")] = ctx->getBelName(io_bel).str(ctx);
+                iodelay_to_io[ci->name] = io_bel;
+            }else if(delay_src == "DATAIN"){
+                if(drv->type == ctx->id("PSEUDO_GND"))
+                    disconnect_port(ctx, ci, ctx->id("IDATAIN"));
+            }
         } else if (ci->type == ctx->id("ODELAYE2")) {
             NetInfo *clkin = get_net_or_empty(ci, ctx->id("CLKIN"));
             if (clkin != nullptr && clkin->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("CLKIN"));
@@ -1285,13 +1291,18 @@ void XC7Packer::pack_idelayctrl()
         auto idelayctrl = group.second;
         auto group_name = group_number == -1 ? "default" : std::to_string(group_number);
         std::set<std::string> ioctrl_sites;
+        std::string delay_src;
         for (auto cell : sorted(ctx->cells)) {
             CellInfo *ci = cell.second;
             if (ci->type == ctx->id("IDELAYE2_IDELAYE2") || ci->type == ctx->id("ODELAYE2_ODELAYE2")) {
-                auto grp_num = get_iodelay_group_number(ci);
-                if (!ci->attrs.count(ctx->id("BEL")) || grp_num != group_number)
-                    continue;
-                ioctrl_sites.insert(get_ioctrl_site(ci->attrs.at(ctx->id("X_IO_BEL")).as_string()));
+                //暂时不处理IODELAY_GROUP区分idelayctrl和 （idelaye2或odelaye2）的匹配问题
+                // auto grp_num = get_iodelay_group_number(ci);
+                // if (!ci->attrs.count(ctx->id("BEL")) || grp_num != group_number)
+                delay_src = str_or_default(ci->params,ctx->id("DELAY_SRC"),"IDATAIN");
+                if (delay_src == "DATAIN" && !ci->attrs.count(ctx->id("BEL")))
+                    ioctrl_sites.insert(ci->type.str(ctx));
+                else
+                    ioctrl_sites.insert(get_ioctrl_site(ci->attrs.at(ctx->id("X_IO_BEL")).as_string()));
             }
         }
         if (ioctrl_sites.empty())
@@ -1313,7 +1324,8 @@ void XC7Packer::pack_idelayctrl()
                 connect_port(ctx, dup_rdy, dup_idc.get(), ctx->id("RDY"));
                 dup_rdys.push_back(dup_rdy);
             }
-            dup_idc->attrs[ctx->id("BEL")] = site + "/IDELAYCTRL";
+            if(delay_src != "DATAIN")
+                dup_idc->attrs[ctx->id("BEL")] = site + "/IDELAYCTRL";
             new_cells.push_back(std::move(dup_idc));
             ++i;
         }

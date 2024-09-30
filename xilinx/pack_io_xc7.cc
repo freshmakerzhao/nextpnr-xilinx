@@ -1358,6 +1358,7 @@ void XC7Packer::pack_cfg()
     cfg_rules[id_FRAME_ECCE2].new_type  = id_FRAME_ECC_FRAME_ECC;
     cfg_rules[id_STARTUPE2].new_type    = id_STARTUP_STARTUP;
     cfg_rules[id_USR_ACCESSE2].new_type = id_USR_ACCESS_USR_ACCESS;
+    cfg_rules[id_CAPTUREE2].new_type    = id_CAPTURE_CAPTURE;
     generic_xform(cfg_rules);
 
     for (auto cell : sorted(ctx->cells)) {

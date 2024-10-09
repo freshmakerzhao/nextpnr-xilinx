@@ -442,7 +442,7 @@ struct FasmBackend
             auto otir = lut5->attrs.find(ctx->id("X_ORIG_TYPE"));
             if(otir != lut5->attrs.end()){
                 auto origin_type = otir->second.str;
-                if(origin_type == "SRL16E"){
+                if(origin_type == "SRL16E" || origin_type == "RAMD32"){
                     auto init_it = lut5->params.find(ctx->id("INIT"));
                     if(init_it != lut5->params.end()){
                         // 填充到lut的低32位

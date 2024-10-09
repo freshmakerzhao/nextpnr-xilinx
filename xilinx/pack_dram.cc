@@ -191,7 +191,7 @@ void XilinxPacker::pack_dram()
     for (int i = 0; i < 5; i++)
         dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("WADR" + std::to_string(i))] =
                 ctx->id("WA" + std::to_string(i + 1));
-    dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("I")] = id_DI1;
+    dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("I")] = id_DI2;
     dram32_6_rules[ctx->id("RAMD32")].port_xform[ctx->id("O")] = id_O6;
 
     dram32_5_rules = dram32_6_rules;
@@ -739,6 +739,7 @@ void XilinxPacker::pack_dram()
             }
         }
     }
+    std::map<int, std::string> init_low_map;  // 用于存储低32位init值
     // Whole-SLICE DRAM
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -781,14 +782,24 @@ void XilinxPacker::pack_dram()
                         if (base == nullptr)
                             base = dram;
                         if (ci->params.count(ctx->id(stringf("INIT_%c", 'A' + i)))) {
-                            auto orig_init =
-                                    ci->params.at(ctx->id(stringf("INIT_%c", 'A' + i))).extract(0, 64).as_bits();
+                            auto orig_init = ci->params.at(ctx->id(stringf("INIT_%c", 'A' + i))).extract(0, 64).as_bits();
                             std::string init;
-                            for (int k = 31; k >= 0; k--) {
-                                init.push_back(orig_init.at(k * 2 + j) ? Property::State::S1 : Property::State::S0);
+                            if (j == 0) {  // RAM32M使用低位LUT5，低32位，O5输出
+                                for (int k = 31; k >= 0; k--) {
+                                    init.push_back(orig_init.at(k * 2 + 0) ? Property::State::S1 : Property::State::S0);
+                                }
+                                init_low_map[i] = init;
+                            } else {  // RAM32M使用高位LUT5，高32位，O6输出
+                                for (int k = 31; k >= 0; k--) {
+                                    init.push_back(orig_init.at(k * 2 + 1) ? Property::State::S1 : Property::State::S0);
+                                }
+                                // 合并低32位
+                                if (init_low_map.find(i) != init_low_map.end()) {
+                                    init += init_low_map[i];
+                                }
                             }
                             dram->params[ctx->id("INIT")] = Property::from_string(init);
-                        }
+                        }    
                     }
                 }
             }

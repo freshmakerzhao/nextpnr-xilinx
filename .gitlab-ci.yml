@@ -16,7 +16,6 @@ build_job:
     - python3 xilinx/python/bbaexport.py --device xc7a100tfgg484-2 --bba xc7a100tfgg484-2.bba
     - ./build/bbasm  --l xc7a100tfgg484-2.bba xc7a100tfgg484-2.bin
     - mv build/nextpnr-xilinx .
-    - 
   artifacts:
     paths:
       - nextpnr-xilinx

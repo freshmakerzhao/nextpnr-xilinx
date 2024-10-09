@@ -1,0 +1,16 @@
+stages:
+  - build
+
+build_job:
+  stage: build
+  image: eda_env:v1.0
+  tags:
+    - eda
+  script:
+    - mkdir build
+    - cd build
+    - cmake -DARCH=xilinx ..
+    - make -j20
+  artifacts:
+    paths:
+      - build/nextpnr-xilinx

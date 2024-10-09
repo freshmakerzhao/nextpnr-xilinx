@@ -7,10 +7,17 @@ build_job:
   tags:
     - eda
   script:
+    - git submodule update --init --recursive
     - mkdir build
     - cd build
     - cmake -DARCH=xilinx ..
     - make -j20
+    - cd ..
+    - python3 xilinx/python/bbaexport.py --device xc7a100tfgg484-2 --bba xc7a100tfgg484-2.bba
+    - ./build/bbasm  --l xc7a100tfgg484-2.bba xc7a100tfgg484-2.bin
+    - mv build/nextpnr-xilinx .
+    - 
   artifacts:
     paths:
-      - build/nextpnr-xilinx
+      - nextpnr-xilinx
+      - xc7a100tfgg484-2.bin

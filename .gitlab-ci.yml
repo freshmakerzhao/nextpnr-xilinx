@@ -1,0 +1,22 @@
+stages:
+  - build
+
+build_job:
+  stage: build
+  image: eda_env:v1.0
+  tags:
+    - eda
+  script:
+    - git submodule update --init --recursive
+    - mkdir build
+    - cd build
+    - cmake -DARCH=xilinx ..
+    - make -j20
+    - cd ..
+    - python3 xilinx/python/bbaexport.py --device xc7a100tfgg484-2 --bba xc7a100tfgg484-2.bba
+    - ./build/bbasm  --l xc7a100tfgg484-2.bba xc7a100tfgg484-2.bin
+    - mv build/nextpnr-xilinx .
+  artifacts:
+    paths:
+      - nextpnr-xilinx
+      - xc7a100tfgg484-2.bin

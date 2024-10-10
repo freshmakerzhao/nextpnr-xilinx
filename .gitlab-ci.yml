@@ -20,3 +20,4 @@ build_job:
     paths:
       - nextpnr-xilinx
       - xc7a100tfgg484-2.bin
+    expire_in: 2 months

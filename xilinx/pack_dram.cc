@@ -167,6 +167,11 @@ void XilinxPacker::pack_dram()
     dram_types[ctx->id("RAM512X1S")] = {9, 1, 0};
     dram_types[ctx->id("RAM512X1D")] = {9, 1, 1};
 
+    dram_types[ctx->id("ROM64X1")] = {6, 1, 0};
+    dram_types[ctx->id("ROM32X1")] = {5, 1, 0};
+    dram_types[ctx->id("ROM128X1")] = {7, 1, 0};
+    dram_types[ctx->id("ROM256X1")] = {8, 1, 0};
+
     // Transform from RAMD64E UNISIM to SLICE_LUTX bel
     dram_rules[ctx->id("RAMD64E")].new_type = id_SLICE_LUTX;
     // dram_rules[ctx->id("RAMD64E")].param_xform[ctx->id("IS_CLK_INVERTED")] = ctx->id("IS_WCLK_INVERTED");
@@ -273,10 +278,109 @@ void XilinxPacker::pack_dram()
     }
 
     int height = ctx->xc7 ? 4 : 8;
+    int z = height - 1;     
+    CellInfo *base = nullptr;
     // Grouped DRAM
     for (auto &group : dram_groups) {
         auto &cs = group.first;
-        if (cs.memtype == ctx->id("RAM64X1D")) {
+        if (cs.memtype == ctx->id("ROM64X1")) {
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == ctx->id("ROM64X1"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+                disconnect_port(ctx, cell, ctx->id("O"));
+                
+                //6根只读地址线
+                std::vector<NetInfo *> address;
+                for (int i = 0; i < 6; i++) {
+                    address.push_back(cell->ports.at(ctx->id("A" + std::to_string(i))).net);
+                }
+                // 创建 ROM64X1 并进行链式连接
+                CellInfo *rom = create_dram_lut(cell->name.str(ctx), base, DRAMControlSet(), address, nullptr, dout, z);
+                if (cell->params.count(ctx->id("INIT")))
+                    rom->params[ctx->id("INIT")] = cell->params[ctx->id("INIT")];
+                // 更新 base，下一次创建将基于当前的 rom
+                base = rom;
+                z--;
+                if (z < 0) {
+                    z = height - 1;
+                    base = nullptr;  // 新的基准重置为 nullptr，以便创建新的链
+                }
+                packed_cells.insert(cell->name);
+            }
+        } else if (cs.memtype == ctx->id("ROM32X1")) {
+            for (auto cell : group.second) {
+                NPNR_ASSERT(cell->type == ctx->id("ROM32X1"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                //处理INIT值，低32位补零，使用高位LUT5的高32位
+                auto init_property=get_or_default(cell->params, ctx->id("INIT"), Property(0));
+                init_property.str.append(32-init_property.str.size(), '0');
+                init_property.str.insert(0, 32, '0');
+                init_property.update_intval();
+
+                //五根只读地址线
+                std::vector<NetInfo *> address;
+                for (int i = 0; i < 5; i++) {
+                    address.push_back(cell->ports.at(ctx->id("A" + std::to_string(i))).net);
+                }
+                //使用组成LUT6的高位LUT5实现，第六根地址线接高
+                address.push_back(ctx->nets[ctx->id("$PACKER_VCC_NET")].get());
+
+                // 创建 ROM32X1 并进行链式连接
+                CellInfo *rom = create_dram_lut(cell->name.str(ctx), base, DRAMControlSet(), address, nullptr, dout, z);
+                if (cell->params.count(ctx->id("INIT")))
+                    rom->params[ctx->id("INIT")] = init_property;
+                // 更新 base，下一次创建将基于当前的 rom
+                base = rom;
+                z--;
+                if (z < 0) {
+                    z = height - 1;
+                    base = nullptr;  // 新的基准重置为 nullptr，以便创建新的链
+                }
+                packed_cells.insert(cell->name);                
+            }
+        } else if (cs.memtype == ctx->id("ROM128X1")) {        
+            for (auto cell : group.second) {
+                CellInfo *base = nullptr;            
+                // 创建一个vector来存储两个64位LUT的输出
+                std::vector<NetInfo *> dout_interm;
+                NPNR_ASSERT(cell->type == ctx->id("ROM128X1"));
+                NetInfo *dout = get_net_or_empty(cell, ctx->id("O"));
+                disconnect_port(ctx, cell, ctx->id("O"));
+
+                // 分割地址线：低6位用于64位LUT，高1位用于MUX选择
+                std::vector<NetInfo *> address_low; // 低6位地址
+                std::vector<NetInfo *> address_high;// 高1位用于 MUXF7 选择
+
+                for (int i = 0; i < 6; i++) {
+                    address_low.push_back(cell->ports.at(ctx->id("A" + std::to_string(i))).net);
+                }
+                address_high.push_back(cell->ports.at(ctx->id("A6")).net);
+
+                // 创建第一个64位LUT（低64位）
+                NetInfo *dout_low = create_internal_net(cell->name, "O_LOW", false);
+                CellInfo *dram_low = create_dram_lut(cell->name.str(ctx) + "/LOW", base, DRAMControlSet(), address_low, nullptr, dout_low, 1);
+                dout_interm.push_back(dout_low);
+                if (base == nullptr) base = dram_low;
+
+                // 创建第二个64位LUT（高64位）
+                NetInfo *dout_high = create_internal_net(cell->name, "O_HIGH", false);
+                CellInfo *dram_high = create_dram_lut(cell->name.str(ctx) + "/HIGH", base, DRAMControlSet(), address_low, nullptr, dout_high, 0);
+                dout_interm.push_back(dout_high);
+
+                // 设置 INIT 参数
+                if (cell->params.count(ctx->id("INIT"))) {
+                    Property init = cell->params.at(ctx->id("INIT"));
+                    dram_low->params[ctx->id("INIT")] = init.extract(0, 64);
+                    dram_high->params[ctx->id("INIT")] = init.extract(64, 64);
+                }
+
+                // 使用 create_muxf_tree 函数创建 MUXF7 以选择两个 64 位 LUT 的输出
+                create_muxf_tree(dram_low, "O", dout_interm, address_high, dout, 0);
+                packed_cells.insert(cell->name);
+            }
+        } else if (cs.memtype == ctx->id("RAM64X1D")) {
             int z = height - 1;
             CellInfo *base = nullptr;
             for (auto cell : group.second) {

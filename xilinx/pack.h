@@ -141,9 +141,6 @@ struct XilinxPacker
     CellInfo *create_dram32_lut(const std::string &name, CellInfo *base, const DRAMControlSet &ctrlset,
                                 std::vector<NetInfo *> address, NetInfo *di, NetInfo *dout, bool o5, int z);
     void pack_dram();
-    void pack_rom();
-    CellInfo *create_drom_lut(const std::string &name, CellInfo *base, std::vector<NetInfo *> address, NetInfo *dout, int z);
-
     // Constant pins
     std::unordered_map<IdString, std::unordered_map<IdString, bool>> tied_pins;
     std::unordered_map<IdString, std::unordered_set<IdString>> invertible_pins;

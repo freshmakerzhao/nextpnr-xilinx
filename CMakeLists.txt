@@ -12,7 +12,6 @@ option(EXTERNAL_CHIPDB "Create build with pre-built chipdb binaries" OFF)
 option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory use" ON)
 
 set(Boost_NO_BOOST_CMAKE ON)
-set(CMAKE_BUILD_TYPE Debug)
 
 # ================ hybrdlink ===============
 

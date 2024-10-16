@@ -2449,9 +2449,9 @@ struct FasmBackend
         if (ci->type == id_IBUFDS_GTE2) {
             Loc siteLoc = ctx->getSiteLocInTile(ci->bel);
             push("IBUFDS_GTE2_Y" + std::to_string(siteLoc.y));
-            write_bit("IN_USE");
-            auto clkcm_cfg = bool_or_default(ci->params, ctx->id("CLKCM_CFG"), true);
-            if (!clkcm_cfg){
+            // write_bit("IN_USE"); // To do 
+            std::string clkcm_cfg_str = str_or_default(ci->params, ctx->id("CLKCM_CFG"), "TRUE");
+            if (clkcm_cfg_str != "TRUE"){
 #ifdef HYBRDLINK
                 log_warning("%s/%s: According to ug482_hybrdchip, CLKCM_CFG_hybrdchip should always be on\n",
                                         ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
@@ -2460,9 +2460,9 @@ struct FasmBackend
                                         ci->hierpath.c_str(ctx), ci->name.c_str(ctx));       
 #endif
             } 
-            write_bit("CLKCM_CFG", clkcm_cfg);
-            auto clkrcv_trst = bool_or_default(ci->params, ctx->id("CLKRCV_TRST"), true);
-            if (!clkrcv_trst){
+            write_bit("CLKCM_CFG", clkcm_cfg_str=="TRUE");
+            std::string clkrcv_trst_str = str_or_default(ci->params, ctx->id("CLKCM_CFG"), "TRUE");
+            if (clkrcv_trst_str != "TRUE"){
 #ifdef HYBRDLINK
                 log_warning("%s/%s: According to ug482_hybrdchip, CLKRCV_TRST_hybrdchip should always be on\n",
                                            ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
@@ -2471,16 +2471,8 @@ struct FasmBackend
                                            ci->hierpath.c_str(ctx), ci->name.c_str(ctx));     
 #endif
             }
-            write_bit("CLKRCV_TRST", clkrcv_trst);
+            write_bit("CLKRCV_TRST", clkrcv_trst_str=="TRUE");
             pop();
-        } else {
-            push("GTPE2_COMMON");
-            write_bit("IN_USE");
-            write_bit("ENABLE_DRP", bool_or_default(ci->params, ctx->id("_DRPCLK_USED"), false));
-            write_bit("BOTH_GTREFCLK_USED", bool_or_default(ci->params, ctx->id("_BOTH_GTREFCLK_USED"), false));
-            write_bit("GTREFCLK0_USED", bool_or_default(ci->params, ctx->id("_GTREFCLK0_USED"), false));
-            write_bit("GTREFCLK1_USED", bool_or_default(ci->params, ctx->id("_GTREFCLK1_USED"), false));
-            write_bit("GTGREFCLK0_USED", bool_or_default(ci->params, ctx->id("_GTGREFCLK0_USED"), false));
             auto clkswing_cfg = int_or_default(ci->params, ctx->id("CLKSWING_CFG"), 3);
             if (clkswing_cfg != 3){
 #ifdef HYBRDLINK
@@ -2491,7 +2483,26 @@ struct FasmBackend
                                                ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
 #endif    
             } 
-            write_int_vector("IBUFDS_GTE2.CLKSWING_CFG[1:0]", clkswing_cfg, 2);
+            write_int_vector("GTPE2_COMMON.IBUFDS_GTE2.CLKSWING_CFG[1:0]", clkswing_cfg, 2);
+        } else {
+            push("GTPE2_COMMON");
+            write_bit("IN_USE");
+            write_bit("ENABLE_DRP", bool_or_default(ci->params, ctx->id("_DRPCLK_USED"), false));
+            write_bit("BOTH_GTREFCLK_USED", bool_or_default(ci->params, ctx->id("_BOTH_GTREFCLK_USED"), false));
+            write_bit("GTREFCLK0_USED", bool_or_default(ci->params, ctx->id("_GTREFCLK0_USED"), false));
+            write_bit("GTREFCLK1_USED", bool_or_default(ci->params, ctx->id("_GTREFCLK1_USED"), false));
+            write_bit("GTGREFCLK0_USED", bool_or_default(ci->params, ctx->id("_GTGREFCLK0_USED"), false));
+//             auto clkswing_cfg = int_or_default(ci->params, ctx->id("CLKSWING_CFG"), 3);
+//             if (clkswing_cfg != 3){
+// #ifdef HYBRDLINK
+//                 log_warning("%s/%s: According to ug482_hybrdchip, CLK_hybrdchip should always be 0b11\n",
+//                                                ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
+// #else
+//                 log_warning("%s/%s: According to ug482, CLK should always be 0b11\n",
+//                                                ci->hierpath.c_str(ctx), ci->name.c_str(ctx));
+// #endif    
+//             } 
+//             write_int_vector("IBUFDS_GTE2.CLKSWING_CFG[1:0]", clkswing_cfg, 2);
             write_bit("INV_DRPCLK", bool_or_default(ci->params, ctx->id("IS_DRPCLK_INVERTED")));
             write_bit("INV_PLL0LOCKDETCLK", bool_or_default(ci->params, ctx->id("IS_PLL0LOCKDETCLK_INVERTED")));
             write_bit("INV_PLL1LOCKDETCLK", bool_or_default(ci->params, ctx->id("IS_PLL1LOCKDETCLK_INVERTED")));

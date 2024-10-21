@@ -3306,6 +3306,71 @@ struct FasmBackend
         }
     }
 
+    void write_xadc()
+    {
+        std::vector<bool> INIT_4_vector;
+        std::vector<bool> INIT_5_vector;
+        std::vector<bool> INIT_4_CHAR_vector;
+        std::vector<bool> INIT_5_CHAR_vector;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("XADC_XADC")) {
+                push(get_tile_name(ci->bel.tile));
+                push("XADC");
+                // 生成参数名，例如 "INIT_41", "INIT_42" 等
+                for(int i = 0; i < 10; i++){
+                    std::string INIT_4_START = "INIT_4" + std::to_string(i);
+                    if(i == 3 || i==4 || i==5 || i==6 || i==7) continue;
+                    Property INIT_4_VALUE = get_or_default(ci->params, ctx->id(INIT_4_START), Property(0,16));
+                    for(auto c:INIT_4_VALUE.str){
+                        INIT_4_vector.push_back(c == Property::S1);
+                    }
+                    write_vector(INIT_4_START+"[15:0]",INIT_4_vector);
+                    INIT_4_vector.clear();
+                }
+
+                for(int i = 0; i < 10; i++){
+                    std::string INIT_5_START = "INIT_5" + std::to_string(i);
+                    Property INIT_5_VALUE = get_or_default(ci->params, ctx->id(INIT_5_START), Property(0,16));
+                    for(auto c:INIT_5_VALUE.str){
+                        INIT_5_vector.push_back(c == Property::S1);
+                    }
+                    write_vector(INIT_5_START+"[15:0]",INIT_5_vector);
+                    INIT_5_vector.clear();
+                }
+
+                for (char c = 'A'; c <= 'F'; ++c) {
+                    // 生成参数名，例如 "INIT_4A", "INIT_4B" 等
+                    std::string INIT_4_CHAR = "INIT_4";
+                    INIT_4_CHAR += c;
+                    // 获取参数并调用 write_bit
+                    Property INIT_4_CHAR_VALUE = get_or_default(ci->params, ctx->id(INIT_4_CHAR), Property(0, 16));
+                    for(auto c:INIT_4_CHAR_VALUE.str){
+                        INIT_4_CHAR_vector.push_back(c == Property::S1);
+                    }
+                    write_vector(INIT_4_CHAR+"[15:0]",INIT_4_CHAR_vector);
+                    INIT_4_CHAR_vector.clear();
+
+                    std::string INIT_5_CHAR = "INIT_5";
+                    INIT_5_CHAR += c;
+                    // 获取参数并调用 write_bit
+                    Property INIT_5_CHAR_VALUE = get_or_default(ci->params, ctx->id(INIT_5_CHAR), Property(0, 16));
+                    for(auto c:INIT_5_CHAR_VALUE.str){
+                        INIT_5_CHAR_vector.push_back(c == Property::S1);
+                    }
+                    write_vector(INIT_5_CHAR+"[15:0]",INIT_5_CHAR_vector);
+                    INIT_5_CHAR_vector.clear();
+                }
+                write_bit("Reg_58_Vccbram_upper",true);
+                write_bit("Reg_5D_Vccpint_lower",true);
+                pop();
+                pop();
+                blank();
+            }
+        }
+
+    }
+
     void write_fasm()
     {
         get_invertible_pins(ctx, invertible_pins);
@@ -3317,6 +3382,7 @@ struct FasmBackend
         write_cmt_fifo();
         write_clocking();
         write_ip();
+        write_xadc();
     }
 };
 

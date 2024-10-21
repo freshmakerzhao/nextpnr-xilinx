@@ -3306,6 +3306,40 @@ struct FasmBackend
         }
     }
 
+    void write_xadc()
+    {
+        std::vector<bool> INIT_vector;
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *ci = cell.second;
+            if (ci->type == ctx->id("XADC_XADC")) {
+                push(get_tile_name(ci->bel.tile));
+                push("XADC");
+                char buffer[4];
+                // 生成参数名，例如 "INIT_41", "INIT_42" 等
+                for(int i=0x40; i<=0x5F; i++) {
+                    if (i>=0x43 && i<=0x47) {
+                        continue;
+                    }
+                    std::sprintf(buffer, "%X", i);
+                    std::string init_name = std::string("INIT_") + buffer;
+                    Property init_value = get_or_default(ci->params, ctx->id(init_name), Property(0, 16));
+                    for (auto ch : init_value.str) {
+                        INIT_vector.push_back(ch == Property::S1);
+                    }
+                    write_vector(init_name + "[15:0]", INIT_vector);
+                    INIT_vector.clear();
+                }
+                // TODO: 暂时不知道这两个fasm具体是什么
+                write_bit("MC_R0C192",true);
+                write_bit("MC_R1C232",true);
+                pop();
+                pop();
+                blank();
+            }
+        }
+
+    }
+
     void write_fasm()
     {
         get_invertible_pins(ctx, invertible_pins);
@@ -3317,6 +3351,7 @@ struct FasmBackend
         write_cmt_fifo();
         write_clocking();
         write_ip();
+        write_xadc();
     }
 };
 

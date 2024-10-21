@@ -1268,6 +1268,22 @@ void XilinxPacker::pack_inverters()
         }
     }
 }
+void XC7Packer::pack_xadc()
+{
+    log_info("Packing xadc..\n");
+
+    std::unordered_map<IdString, XFormRule> xadc_rules;
+    xadc_rules[ctx->id("XADC")].new_type = id_XADC_XADC;
+    // XADC映射
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if(ci->type == ctx->id("XADC")){
+            fold_inverter(ci, "CONVSTCLK");
+            fold_inverter(ci, "DCLK");
+            xform_cell(xadc_rules,ci);
+        }
+    }
+}
 
 bool Arch::pack()
 {
@@ -1294,6 +1310,7 @@ bool Arch::pack()
         packer.pack_bram();
         packer.pack_luts();
         packer.pack_dsps();
+        packer.pack_xadc();
         packer.pack_ffs();
         packer.pack_cmt_fifo();
         packer.finalise_muxfs();

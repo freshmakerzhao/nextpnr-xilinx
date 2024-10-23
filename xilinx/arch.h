@@ -1550,7 +1550,11 @@ struct Arch : BaseCtx
         IdString belTileType = getBelTileType(bel);
         return belTileType == id_BRAM || belTileType == id_BRAM_L || belTileType == id_BRAM_R;
     }
-
+    bool is_HCLK_IOI3_Tile(BelId bel) const
+    {
+        IdString belTileType = getBelTileType(bel);
+        return belTileType == id_HCLK_IOI3 || belTileType == id_BUFR_BUFR || belTileType == id_BUFIO_BUFIO;
+    }
     // 根据cell的clk status调整tile的clk status
     void updateTileClkStatus(int32_t tile_id);
 

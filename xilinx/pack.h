@@ -242,8 +242,6 @@ struct XC7Packer : public XilinxPacker
     void pack_plls();
     void pack_gbs();
     void pack_clocking();
-    void prepare_BUFR_dependants();
-    void prepare_clock_region_constraints();
 
     // CFG
     void pack_cfg();

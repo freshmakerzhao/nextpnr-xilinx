@@ -694,7 +694,7 @@ bool Arch::place()
         cfg.cellGroups.emplace_back();
         cfg.cellGroups.back().insert(id_SLICE_LUTX);
         cfg.cellGroups.back().insert(id_SLICE_FFX);
-        cfg.cellGroups.back().insert(id_CARRY8);
+        cfg.cellGroups.back().insert(id_CARRY4);
         if (!placer_heap(getCtx(), cfg))
             return false;
     } else if (placer == "sa") {
@@ -1458,6 +1458,11 @@ void Arch::bindBel(BelId bel, CellInfo *cell, PlaceStrength strength)
             updateLogicBel(bel, cell);
         else if (isBRAMTile(bel))
             updateBramBel(bel, cell);
+        else if (is_HCLK_IOI3_Tile(bel))
+        {   // Bind cell to region.
+            IdString clock_region_id = this->chip_info->tile_insts[bel.tile].clock_region;
+            cell->region = this->region[clock_region_id].get();
+        }
     }
 
 // 根据cell的clk status调整tile的clk status

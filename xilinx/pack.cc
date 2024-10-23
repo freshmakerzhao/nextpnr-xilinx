@@ -1315,7 +1315,6 @@ bool Arch::pack()
         packer.pack_cmt_fifo();
         packer.finalise_muxfs();
         packer.pack_lutffs();
-        packer.prepare_clock_region_constraints();
         packer.check();
 
     } else {

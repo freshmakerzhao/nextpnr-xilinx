@@ -249,31 +249,5 @@ void XC7Packer::pack_clocking()
     pack_gbs();
 }
 
-void XC7Packer::prepare_clock_region_constraints()
-{
-    prepare_BUFR_dependants();
-}
-
-void XC7Packer::prepare_BUFR_dependants()
-{
-    for (auto cell : sorted(ctx->cells)) {
-        CellInfo *current_cell = cell.second;
-        if (current_cell->type == id_BUFR_BUFR)
-        {   
-            // Get current cell clock region id
-            BelId bel = current_cell->bel;
-            IdString current_clock_region_id = ctx->chip_info->tile_insts[bel.tile].clock_region;
-            
-            // Pass current cell region info to output net
-            NetInfo *output = current_cell->ports[ctx->id("O")].net;
-            output->region = ctx->region[current_clock_region_id].get();
-
-            // Pass BUFR's region info to output users
-            std::vector<PortRef> &dependants = output->users;
-            for(auto dependant : dependants)
-                dependant.cell->region = ctx->region[current_clock_region_id].get();
-        }
-    }
-}
 
 NEXTPNR_NAMESPACE_END

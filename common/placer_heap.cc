@@ -146,7 +146,7 @@ class HeAPPlacer
         ctx->lock();
         
         place_constraints();
-        // prepare_BUFR_dependants();  // setup clock region for BUFR dependants
+        bind_clock_region();  // Apply clock region cells
         build_fast_bels();  // Build maps for quick access of bels based on bel_type_id and coordinates
         seed_placement();   // Initial ramdom placement
         update_all_chains();
@@ -451,6 +451,31 @@ class HeAPPlacer
         }
         log_info("Placed %d cells based on constraints.\n", int(placed_cells));
         ctx->yield();
+    }
+
+    // Apply clock region constraints to cells
+    void bind_clock_region()
+    {
+        for (auto cell : sorted(ctx->cells)) {
+            CellInfo *current_cell = cell.second;
+
+            // Bind clock region for BUFR dependants
+            if (current_cell->type == id_BUFR_BUFR)
+            {   
+                // Get current cell clock region id
+                BelId bel = current_cell->bel;
+                IdString current_clock_region_id = ctx->chip_info->tile_insts[bel.tile].clock_region;
+                
+                // Pass current cell region info to output net
+                NetInfo *output = current_cell->ports[ctx->id("O")].net;
+                output->region = ctx->region[current_clock_region_id].get();
+
+                // Pass BUFR's region info to output users
+                std::vector<PortRef> &dependants = output->users;
+                for(auto dependant : dependants)
+                    dependant.cell->region = ctx->region[current_clock_region_id].get();
+            }
+        }
     }
 
     // Construct the fast_bels, nearest_row_with_bel and nearest_col_with_bel

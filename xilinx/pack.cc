@@ -286,10 +286,10 @@ void XilinxPacker::pack_rom()
             std::vector<NetInfo *> dout_interm;
 
             auto init_property = get_or_default(ci->params, ctx->id("INIT"), Property(0, 256));
-            Property init_d = init_property.extract(192, 64);
-            Property init_c = init_property.extract(128, 64);
-            Property init_b = init_property.extract(64, 64);
-            Property init_a = init_property.extract(0, 64);           
+            Property init_a = init_property.extract(192, 64);
+            Property init_b = init_property.extract(128, 64);
+            Property init_c = init_property.extract(64, 64);
+            Property init_d = init_property.extract(0, 64);           
             //D6LUT
             NetInfo *dout_d = create_internal_net(ci->name, "O_D", false);
             auto base = create_drom_lut(ci->name.str(ctx)+"/D", nullptr, addressw_low, dout_d, 3);

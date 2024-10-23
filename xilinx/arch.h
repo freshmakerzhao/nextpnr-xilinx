@@ -26,6 +26,7 @@
 #include <boost/iostreams/device/mapped_file.hpp>
 
 #include <iostream>
+#include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -170,6 +171,7 @@ NPNR_PACKED_STRUCT(struct PipInfoPOD {
     int32_t extra_data;   // for special pips like lut permutation
     int16_t site;         // site index in tile
     int16_t site_variant; // site variant index in tile
+    int32_t is_pass_transistor;
 });
 
 NPNR_PACKED_STRUCT(struct TileWireInfoPOD {
@@ -1105,23 +1107,7 @@ struct Arch : BaseCtx
 
     PipId getPipByName(IdString name) const;
 
-    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength)
-    {
-        NPNR_ASSERT(pip != PipId());
-        NPNR_ASSERT(pip_to_net[pip] == nullptr);
-
-        WireId dst = canonicalWireId(chip_info, pip.tile, locInfo(pip).pip_data[pip.index].dst_index);
-        NPNR_ASSERT(wire_to_net[dst] == nullptr || wire_to_net[dst] == net);
-
-        pip_to_net[pip] = net;
-        driving_pip_loc[dst] = std::make_pair(pip.tile % chip_info->width, pip.tile / chip_info->width);
-
-        wire_to_net[dst] = net;
-        net->wires[dst].pip = pip;
-        net->wires[dst].strength = strength;
-        refreshUiPip(pip);
-        refreshUiWire(dst);
-    }
+    void bindPip(PipId pip, NetInfo *net, PlaceStrength strength);
 
     void unbindPip(PipId pip)
     {
@@ -1141,79 +1127,9 @@ struct Arch : BaseCtx
     dict<int, pool<int>> blacklist_pips;
     void setup_pip_blacklist();
 
-    bool usp_pip_hard_unavail(PipId pip) const
-    {
-        if (blacklist_pips.count(locInfo(pip).type) && blacklist_pips.at(locInfo(pip).type).count(pip.index))
-            return true;
-        if (locInfo(pip).pip_data[pip.index].flags == PIP_SITE_ENTRY) {
-            WireId dst = getPipDstWire(pip);
-            if (dst.tile != -1) {
-                auto &wi = wireInfo(dst);
-                if (wi.intent == ID_INTENT_SITE_GND) {
-                    LogicTileStatus *lts = tileStatus[dst.tile].lts;
-                    if (lts != nullptr && (lts->cells[BEL_5LUT] != nullptr || lts->cells[BEL_6LUT] != nullptr))
-                        return true; // Ground driver only available if lowest 5LUT and 6LUT not used
-                }
-            }
-        } else if (locInfo(pip).pip_data[pip.index].flags == PIP_CONST_DRIVER) {
-            WireId dst = getPipDstWire(pip);
-            LogicTileStatus *lts = tileStatus[xc7 ? dst.tile : pip.tile].lts;
-            if (lts != nullptr && (lts->cells[BEL_5LUT] != nullptr || lts->cells[BEL_6LUT] != nullptr))
-                return true; // Ground driver only available if lowest 5LUT and 6LUT not used
-        } else if (locInfo(pip).pip_data[pip.index].flags == PIP_SITE_INTERNAL) {
-            auto &pd = locInfo(pip).pip_data[pip.index];
-            if (pd.bel == ID_TRIBUF)
-                return true;
-            if (pd.site >= 0 && pd.site <= int(tileStatus[pip.tile].sitevariant.size()))
-                if (pd.site_variant > 0 && pd.site_variant != tileStatus[pip.tile].sitevariant.at(pd.site))
-                    return true;
-        } else if (locInfo(pip).pip_data[pip.index].flags == PIP_LUT_PERMUTATION) {
-            LogicTileStatus *lts = tileStatus[pip.tile].lts;
-            if (lts == nullptr)
-                return false;
-            int eight = (locInfo(pip).pip_data[pip.index].extra_data >> 8) & 0xF;
+    bool usp_pip_hard_unavail(PipId pip) const;
 
-            if (((locInfo(pip).pip_data[pip.index].extra_data >> 4) & 0xF) ==
-                (locInfo(pip).pip_data[pip.index].extra_data & 0xF))
-                return false; // from==to, always valid
-
-            const CellInfo *lut6 = lts->cells[(eight << 4) | BEL_6LUT];
-            if (lut6 != nullptr && (lut6->lutInfo.is_memory || lut6->lutInfo.is_srl))
-                return true;
-            const CellInfo *lut5 = lts->cells[(eight << 4) | BEL_5LUT];
-            if (lut5 != nullptr && (lut5->lutInfo.is_memory || lut5->lutInfo.is_srl))
-                return true;
-        } else if (locInfo(pip).pip_data[pip.index].flags == PIP_LUT_ROUTETHRU) {
-            int eight = (locInfo(pip).pip_data[pip.index].extra_data >> 8) & 0xF;
-            int dest = (locInfo(pip).pip_data[pip.index].extra_data) & 0x1;
-            if (eight == 0)
-                return true; // FIXME: conflict with ground
-            if (dest & 0x1)
-                return true; // FIXME: routethru to MUX
-            LogicTileStatus *lts = tileStatus[pip.tile].lts;
-            if (lts == nullptr)
-                return false;
-            const CellInfo *lut6 = lts->cells[(eight << 4) | BEL_6LUT];
-            if (lut6 != nullptr)
-                return true;
-            const CellInfo *lut5 = lts->cells[(eight << 4) | BEL_5LUT];
-            if (lut5 != nullptr)
-                return true;
-        } /*else if (chip_info->tile_types[chip_info->tile_insts[pip.tile].type].type == ID_BRAM) {
-            auto &pd = locInfo(pip).pip_data[pip.index];
-            if (pd.site != -1 && pd.site_variant != 0)
-                return true;
-        }*/
-        return false;
-    }
-
-    bool checkPipAvail(PipId pip) const
-    {
-        NPNR_ASSERT(pip != PipId());
-        if (usp_pip_hard_unavail(pip))
-            return false;
-        return pip_to_net.find(pip) == pip_to_net.end() || pip_to_net.at(pip) == nullptr;
-    }
+    bool checkPipAvail(PipId pip) const;
 
     NetInfo *getBoundPipNet(PipId pip) const
     {
@@ -1266,6 +1182,8 @@ struct Arch : BaseCtx
     std::vector<std::pair<IdString, std::string>> getPipAttrs(PipId pip) const;
 
     uint32_t getPipChecksum(PipId pip) const { return pip.index; }
+
+    bool isPipPassTransistor(PipId pip) const { return locInfo(pip).pip_data[pip.index].is_pass_transistor==1; }
 
     WireId getPipSrcWire(PipId pip) const
     {

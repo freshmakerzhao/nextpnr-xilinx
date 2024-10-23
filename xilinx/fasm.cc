@@ -424,7 +424,7 @@ struct FasmBackend
             auto otir = lut6->attrs.find(ctx->id("X_ORIG_TYPE"));
             if(otir != lut6->attrs.end()){
                 auto origin_type = otir->second.str;
-                if(origin_type == "SRLC32E" || origin_type == "CFGLUT5"|| origin_type =="RAMD32"|| origin_type =="RAMD64E" || origin_type =="ROM64X1" || origin_type =="ROM32X1" || origin_type =="ROM128X1" || origin_type =="ROM256X1"){ //  
+                if(origin_type == "SRLC32E" || origin_type == "CFGLUT5"|| origin_type =="RAMD32"|| origin_type =="RAMD64E" || origin_type =="ROM64X1" || origin_type =="ROM32X1" || origin_type =="ROM128X1" || origin_type =="ROM256X1" || origin_type == "LUT6_2"){ //  
                     auto init_it = lut6->params.find(ctx->id("INIT"));
                     if(init_it != lut6->params.end()){
                         // 填充到lut

@@ -40,6 +40,7 @@ class NextpnrPip:
 		self.extra_data = 0
 		self.site = -1
 		self.site_variant = -1
+		self.is_pass_transistor = 1
 
 class NextpnrBelWire:
 	def __init__(self, name, port_type, wire):
@@ -437,25 +438,25 @@ class NextpnrTileType:
 				timing_class=timing_class, pip_type=NextpnrPipType.SITE_EXIT
 			)
 		else:
-			if s.site_type() in ("SLICEL", "SLICEM"):
-				# Add permuation pseudo-pips for LUT inputs
-				swn = pin.site_wire().name()
-				if len(swn) == 2 and swn[0] in "ABCDEFGH" and swn[1] in "123456":
-					i = int(swn[1])
-					for j in range(1, 7):
-						if (i == 6) != (j == 6):
-							continue # don't allow permutation of input 6
-						pp = NextpnrPip(index=len(self.pips),
-							from_wire=s.pin(swn[0] + str(j)).tile_wire().index,
-							to_wire=self.sitewire_to_tilewire(pin.site_wire()),
-							timing_class=timing_class, pip_type=NextpnrPipType.LUT_PERMUTATION)
-						pp.extra_data = ("ABCDEFGH".index(swn[0]) << 8) | ((j - 1) << 4) | (i - 1)
-						if s.rel_xy()[0] == 1:
-							pp.extra_data |= (4 << 8)
-						self.wires[pp.from_wire].pips_dh.append(pp.index)
-						self.wires[pp.to_wire].pips_uh.append(pp.index)
-						self.pips.append(pp)
-					return None
+			# if s.site_type() in ("SLICEL", "SLICEM"):
+			# 	# Add permuation pseudo-pips for LUT inputs
+			# 	swn = pin.site_wire().name()
+			# 	if len(swn) == 2 and swn[0] in "ABCDEFGH" and swn[1] in "123456":
+			# 		i = int(swn[1])
+			# 		for j in range(1, 7):
+			# 			if (i == 6) != (j == 6):
+			# 				continue # don't allow permutation of input 6
+			# 			pp = NextpnrPip(index=len(self.pips),
+			# 				from_wire=s.pin(swn[0] + str(j)).tile_wire().index,
+			# 				to_wire=self.sitewire_to_tilewire(pin.site_wire()),
+			# 				timing_class=timing_class, pip_type=NextpnrPipType.LUT_PERMUTATION)
+			# 			pp.extra_data = ("ABCDEFGH".index(swn[0]) << 8) | ((j - 1) << 4) | (i - 1)
+			# 			if s.rel_xy()[0] == 1:
+			# 				pp.extra_data |= (4 << 8)
+			# 			self.wires[pp.from_wire].pips_dh.append(pp.index)
+			# 			self.wires[pp.to_wire].pips_uh.append(pp.index)
+			# 			self.pips.append(pp)
+			# 		return None
 			np = NextpnrPip(index=len(self.pips),
 				from_wire=pin.tile_wire().index,
 				to_wire=self.sitewire_to_tilewire(pin.site_wire()),

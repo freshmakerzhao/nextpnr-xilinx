@@ -163,6 +163,7 @@ def main():
 				bba.u32(p.extra_data) # misc extra data for pseudo-pips (e.g lut permutation info)
 				bba.u16(p.site) # site index in tile for site pips
 				bba.u16(p.site_variant) # site variant index for site pips
+				bba.u32(p.is_pass_transistor) # 是否通过晶体管，不通过晶体管为直连线,bool类型，后续优化数据长度
 
 		# Per-tile-type data including references to the above lists of objects
 		bba.label("tiletype_data")

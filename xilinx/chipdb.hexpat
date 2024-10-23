@@ -71,6 +71,7 @@ struct PipInfoPOD {
     s32 extra_data;   // for special pips like lut permutation
     s16 site;         // site index in tile
     s16 site_variant; // site variant index in tile
+    s32 is_pass_transistor; // 是否通过晶体管，不通过晶体管为直连线
 };
 
 struct TileWireInfoPOD {

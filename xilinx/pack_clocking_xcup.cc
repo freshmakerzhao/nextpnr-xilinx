@@ -80,6 +80,9 @@ void XilinxPacker::try_preplace(CellInfo *cell, IdString port)
         log_info("    Constrained %s '%s' to bel '%s' based on dedicated routing\n", cell->type.c_str(ctx),
                  ctx->nameOf(cell), ctx->nameOfBel(tgt));
     }
+    else
+        log_warning("    Could not constrained %s '%s' to physical bel based on net from %s to %s\n", cell->type.c_str(ctx),
+                 ctx->nameOf(cell), ctx->nameOf(drv), ctx->nameOf(cell));
 }
 
 void XilinxPacker::preplace_unique(CellInfo *cell)

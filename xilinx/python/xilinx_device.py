@@ -506,7 +506,7 @@ def import_device(name, prjxray_root, metadata_root):
 		
 		tiletype = tiledata["type"]
 		t = Tile(x, y, tile, get_tile_type_data(tiletype), (-1, -1), [], clock_region)
-		for idx, (site, sitetype) in enumerate(sorted(tiledata["sites"].items())):
+		for idx, (site, sitetype) in enumerate(tiledata["sites"].items()):
 				si = Site(t, site, idx, parse_xy(site), get_site_type_data(sitetype))
 				t.site_insts.append(si)
 				d.sites_by_name[site] = si

@@ -30,7 +30,6 @@
  *     spreading, with diameter increasing over iterations, with a heuristic to prefer lower wirelength choices.
  *   - To make the placer timing-driven, the bound2bound weights are multiplied by (1 + 10 * crit^2)
  */
-
 #ifdef WITH_HEAP
 
 #include "placer_heap.h"
@@ -464,8 +463,13 @@ class HeAPPlacer
             {   
                 // Get current cell clock region id
                 BelId bel = current_cell->bel;
+                if (bel == BelId())
+                {
+                    log_warning("    Could not pass BUFR '%s''s region info to its dependants.\n", ctx->nameOf(current_cell));
+                    continue;
+                }
                 IdString current_clock_region_id = ctx->chip_info->tile_insts[bel.tile].clock_region;
-                
+
                 // Pass current cell region info to output net
                 NetInfo *output = current_cell->ports[ctx->id("O")].net;
                 output->region = ctx->region[current_clock_region_id].get();
@@ -555,6 +559,8 @@ class HeAPPlacer
         // Determine bounding boxes of region constraints
         for (auto &region : sorted(ctx->region)) {
             Region *r = region.second;
+            if (!r)
+                continue;
             BoundingBox bb;
             if (r->constr_bels) {
                 bb.x0 = std::numeric_limits<int>::max();

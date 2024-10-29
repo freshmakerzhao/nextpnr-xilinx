@@ -1502,6 +1502,12 @@ struct FasmBackend
                 else
                     write_bit("D" + ci->params[ctx->id("BUFR_DIVIDE")].str);
                 pop(3);
+            }  else if (ci->type == id_BUFIO_BUFIO) {
+                push(get_tile_name(ci->bel.tile));
+                auto xy = ctx->getSiteLocInTile(ci->bel);
+                push("BUFIO_Y" + std::to_string(xy.y));
+                write_bit("IN_USE");
+                pop(2);
             } else if (ci->type == id_PLLE2_ADV_PLLE2_ADV) {
                 write_pll(ci);
             } else if (ci->type == id_MMCME2_ADV_MMCME2_ADV) {

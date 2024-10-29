@@ -1204,6 +1204,10 @@ struct FasmBackend
 #endif
             write_bit("SRTYPE.SYNC");
             write_bit("TSRTYPE.SYNC");
+
+            // TODO: TRISTATE_WIDTH
+            write_bit("TRISTATE_WIDTH.W4");
+
             pop();
         } else if (ci->type == ctx->id("ISERDESE2_ISERDESE2")) {
             //std::string data_rate = str_or_default(ci->params, ctx->id("DATA_RATE"));

@@ -165,13 +165,20 @@ void XC7Packer::prepare_clocking()
                 tie_port(ci, "CLR", false, false);
 
             std::unordered_map<IdString, XFormRule> bufr_rules;
-            bufr_rules[ctx->id("BUFR")].new_type = ctx->id("BUFR_BUFR");
-            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("CE")] = ctx->id("CE");
-            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("CLR")] = ctx->id("CLR");
-            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("I")] = ctx->id("I");
-            bufr_rules[ctx->id("BUFR")].port_xform[ctx->id("O")] = ctx->id("O");
+            bufr_rules[id_BUFR].new_type = id_BUFR_BUFR;
+            bufr_rules[id_BUFR].port_xform[id_CE] = id_CE;
+            bufr_rules[id_BUFR].port_xform[id_CLR] = id_CLR;
+            bufr_rules[id_BUFR].port_xform[id_I] = id_I;
+            bufr_rules[id_BUFR].port_xform[id_O] = id_O;
             xform_cell(bufr_rules, ci);
+        } else if (ci->type == id_BUFIO) {
+            std::unordered_map<IdString, XFormRule> bufio_rules;
+            bufio_rules[id_BUFIO].new_type = id_BUFIO_BUFIO;
+            bufio_rules[id_BUFIO].port_xform[id_I] = id_I;
+            bufio_rules[id_BUFIO].port_xform[id_O] = id_O;
+            xform_cell(bufio_rules, ci);
         }
+
 
     }
     //应用bufgmux_rules中的规则
@@ -240,6 +247,9 @@ void XC7Packer::pack_gbs()
             try_preplace(ci, id_I);
         if (ci->type == id_BUFR_BUFR)
             try_preplace(ci, id_I);  // Determine bels for BUFR
+        if (ci->type == id_BUFIO_BUFIO)
+            try_preplace(ci, id_I);  // Determine bels for BUFR
+
     }
 }
 

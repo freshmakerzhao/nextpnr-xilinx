@@ -459,8 +459,7 @@ class HeAPPlacer
             CellInfo *current_cell = cell.second;
 
             // Bind clock region for BUFR dependants
-            if (current_cell->type == id_BUFR_BUFR)
-            {   
+            if (current_cell->type == id_BUFR_BUFR) {   
                 // Get current cell clock region id
                 BelId bel = current_cell->bel;
                 if (bel == BelId())
@@ -475,6 +474,20 @@ class HeAPPlacer
                 output->region = ctx->region[current_clock_region_id].get();
 
                 // Pass BUFR's region info to output users
+                std::vector<PortRef> &dependants = output->users;
+                for(auto dependant : dependants)
+                    dependant.cell->region = ctx->region[current_clock_region_id].get();
+            } else if (current_cell->type == id_PLLE2_ADV_PLLE2_ADV) {
+                // Get current cell clock region id
+                BelId bel = current_cell->bel;
+                if (bel == BelId()) {
+                    continue;
+                }
+                IdString current_clock_region_id = ctx->chip_info->tile_insts[bel.tile].clock_region;
+                // Pass current cell region info to output net
+                NetInfo *output = current_cell->ports[ctx->id("CLKOUT1")].net;
+                output->region = ctx->region[current_clock_region_id].get();
+
                 std::vector<PortRef> &dependants = output->users;
                 for(auto dependant : dependants)
                     dependant.cell->region = ctx->region[current_clock_region_id].get();

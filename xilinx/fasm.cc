@@ -712,7 +712,15 @@ struct FasmBackend
 
         push(tname);
         push(get_half_name(half, is_mtile));
-
+        
+        auto post_crc_value = str_or_default(ctx->settings, ctx->id("POST_CRC"), "");
+        if(post_crc_value == "ENABLE"){
+            // Write configuration bits
+            write_bit("CFG_MC_GMASK2_WCK_A");
+            write_bit("CFG_MC_GMASK2_WCK_B");
+            write_bit("CFG_MC_GMASK2_WCK_C");
+            write_bit("CFG_MC_CLK");
+        }
         BelId bel_in_half =
                 ctx->getBelByLocation(Loc(tile % ctx->chip_info->width, tile / ctx->chip_info->width, half << 6));
         if (half ==0){

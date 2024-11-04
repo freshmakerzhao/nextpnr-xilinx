@@ -130,6 +130,7 @@ void Arch::parseXdc(std::istream &in)
         return tgt_nets;
     };
 
+    Context *ctx = getCtx();
     while (std::getline(in, line)) {
         ++lineno;
         // Trim comments, from # until end of the line
@@ -160,6 +161,17 @@ void Arch::parseXdc(std::istream &in)
             if (arguments.at(1) == "INTERNAL_VREF")
                 continue;
             if (arguments.at(3).size() > 2 && arguments.at(3) == "[current_design]") {
+                // 打开文件并读取现有内容
+                std::ifstream infile("order.json");
+                nlohmann::json json_content;
+                if (infile.is_open()) {
+                    try {
+                        infile >> json_content;  // 读取并解析现有的 JSON 文件
+                    } catch (...) {
+                        log_error("[Implementation_pack_hybrd]：Failed to parse the existing order.json file\n");
+                    }
+                    infile.close();
+                }
                 // 判断pair.first是否包含BITSTREAM.CONFIG.USR_ACCESS
                 std::string first_key = std::get<0>(arg_pairs[0]);
                 if(first_key=="BITSTREAM.CONFIG.USR_ACCESS") {
@@ -167,19 +179,54 @@ void Arch::parseXdc(std::istream &in)
                     std::string first_value = std::get<1>(arg_pairs[0]);
                     bool paramter_is_valid = is_valid_hex32(first_value);
                     if(paramter_is_valid){
-                        nlohmann::json json_content;
-                        json_content["usr_access_value"]=nlohmann::json(std::get<1>(arg_pairs[0]));
-                        std::ofstream file("order.json");
-                        if (!file.is_open()) {
-                            log_error("[Implementation_pack_hybrd]：Not Create or Open the order.json file\n");
-                        } else {
-                            file << json_content.dump(4);
-                            file.close();
-                        }
+                        json_content["usr_access_value"] = nlohmann::json(std::get<1>(arg_pairs[0]));   
                     }else{
-                        log_error("[Implementation_pack_hybrd]：The 8-bit hexadecimal number format is incorrect\n");
+                        log_error("[Implementation_pack_hybrd]:The 8-bit hexadecimal number format is incorrect\n");
                         return;
                     }
+                } else if(first_key=="POST_CRC") {
+                    std::string first_value = std::get<1>(arg_pairs[0]);
+                    if(first_value == "ENABLE" || first_value == "DISABLE"){
+                        ctx->settings[ctx->id("POST_CRC")] = first_value;
+                        json_content["POST_CRC"]=nlohmann::json(std::get<1>(arg_pairs[0]));
+                    }else {
+                        log_error("[Implementation_pack_hybrd]: POST_CRC has the ENABLE or DISABLE attributes\n");
+                    }
+                } else if(first_key=="POST_CRC_SOURCE") {
+                    std::string first_value = std::get<1>(arg_pairs[0]);
+                    if(first_value == "PRE_COMPUTED" || first_key=="FIRST_READBACK"){
+                        json_content["POST_CRC_SOURCE"]=nlohmann::json(std::get<1>(arg_pairs[0]));
+                    }else{
+                        log_error("[Implementation_pack_hybrd]: POST_CRC_SOURCE value must PRE_COMPUTED or FIRST_READBACK attributes\n");
+                    }
+                } else if(first_key=="POST_CRC_FREQ") {
+                    std::string first_value = std::get<1>(arg_pairs[0]);
+                    if(first_value == "{1}" || first_value == "{2}" || first_value == "{3}" || first_value == "{4}" || first_value == "{6}" || first_value == "{7}"
+                    || first_value == "{8}" || first_value == "{10}" || first_value == "{12}" || first_value == "{13}" || first_value == "{16}" || first_value == "{17}"
+                    || first_value == "{22}" || first_value == "{25}" || first_value == "{26}" || first_value == "{27}" || first_value == "{33}" || first_value == "{40}"
+                    || first_value == "{44}" || first_value == "{50}" || first_value == "{66}" || first_value == "{100}"){
+                        json_content["POST_CRC_FREQ"]=nlohmann::json(std::get<1>(arg_pairs[0]));
+                    }else{
+                        log_error("[Implementation_pack_hybrd]: POST_CRC_FREQ value must one of the 1 2 3 4 6 7 8 10 12 13 16 17 22 25 26 27 33 40 44 50 66 100\n");
+                    }
+                } else if(first_key=="CONFIG_MODE") {
+                    std::string first_value = std::get<1>(arg_pairs[0]);
+                    if(first_value == "SPIx1" || first_value == "SPIx2" || first_value == "SPIx4" || first_value == "BPI8" || first_value == "BPI16" || first_value == "S_SELECTMAP16+READBACK" ||
+                       first_value == "S_SELECTMAP16" || first_value == "S_SELECTMAP32+READBACK" || first_value == "S_SELECTMAP32" || first_value == "B_SCAN+READBACK" || 
+                       first_value == "M_SELECTMAP+READBACK" || first_value == "S_SELECTMAP+READBACK" || first_value == "B_SCAN" || first_value == "M_SELECTMAP" ||
+                       first_value == "S_SELECTMAP" || first_value == "M_SERIAL" || first_value == "S_SERIAL"){
+                        json_content["CONFIG_MODE"]=nlohmann::json(std::get<1>(arg_pairs[0]));
+                    }else{
+                        log_error("[Implementation_pack_hybrd]: CONFIG_MODE value must one of the SPIx1 SPIx2 SPIx4 BPI8 BPI16  S_SERIAL M_SERIAL S_SELECTMAP M_SELECTMAP B_SCAN S_SELECTMAP+READBACK M_SELECTMAP+READBACK B_SCAN+READBACK S_SELECTMAP32 S_SELECTMAP32+READBACK S_SELECTMAP16 S_SELECTMAP16+READBACK  attributes\n");
+                    }
+                }
+                 // 将合并后的 JSON 对象写回到文件中
+                std::ofstream outfile("order.json");
+                if (!outfile.is_open()) {
+                    log_error("[Implementation_pack_hybrd]: Not Create or Open the order.json file\n");
+                } else {
+                    outfile << json_content.dump(4);  // 以 4 个空格缩进的格式写入 JSON
+                    outfile.close();
                 }
                 continue;
             }

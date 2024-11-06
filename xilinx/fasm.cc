@@ -1522,6 +1522,19 @@ struct FasmBackend
                 write_mmcm(ci);
             } else if (ci->type == id_GTPE2_COMMON || ci->type == id_IBUFDS_GTE2) {
                 write_gtp_pll(ci);
+            } else  if (ci->type == id_BUFMRCE_BUFMRCE) {
+                push(get_tile_name(ci->bel.tile));
+                auto xy = ctx->getSiteLocInTile(ci->bel);
+                push("BUFMR_Y" + std::to_string(xy.y));
+                write_bit("ZINV_CE");
+                write_bit("CREAT_EDGE");
+                pop(2);
+            } else if (ci->type == id_PHASER_IN_PHY_PHASER_IN_PHY) {
+                push(get_tile_name(ci->bel.tile));
+                auto xy = ctx->getSiteLocInTile(ci->bel);
+                push("PHASER_IN_PHY_Y" + std::to_string(xy.y));
+                write_bit("MC_ICLK_TO_RCLK_BYPASS");
+                pop(2);
             }
             blank();
         }

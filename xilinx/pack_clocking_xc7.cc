@@ -177,9 +177,25 @@ void XC7Packer::prepare_clocking()
             bufio_rules[id_BUFIO].port_xform[id_I] = id_I;
             bufio_rules[id_BUFIO].port_xform[id_O] = id_O;
             xform_cell(bufio_rules, ci);
+        } else if (ci->type == id_BUFMR) {
+            std::unordered_map<IdString, XFormRule> bufmr_rules;
+            bufmr_rules[id_BUFMR].new_type = id_BUFMRCE_BUFMRCE;
+            bufmr_rules[id_BUFMR].port_xform[id_I] = id_I;
+            bufmr_rules[id_BUFMR].port_xform[id_O] = id_O;
+            tie_port(ci, "CE", true, false);
+            xform_cell(bufmr_rules, ci);
+        } else if (ci->type == id_BUFMRCE) {
+            std::unordered_map<IdString, XFormRule> bufmrce_rules;
+            bufmrce_rules[id_BUFMRCE].new_type = id_BUFMRCE_BUFMRCE;
+            bufmrce_rules[id_BUFMRCE].port_xform[id_I] = id_I;
+            bufmrce_rules[id_BUFMRCE].port_xform[id_O] = id_O;
+            bufmrce_rules[id_BUFMRCE].port_xform[id_CE] = id_CE;
+            xform_cell(bufmrce_rules, ci);
+        } else if (ci->type == id_PHASER_IN_PHY) {
+            std::unordered_map<IdString, XFormRule> phaser_rules;
+            phaser_rules[id_PHASER_IN_PHY].new_type = id_PHASER_IN_PHY_PHASER_IN_PHY;
+            xform_cell(phaser_rules, ci);
         }
-
-
     }
     //应用bufgmux_rules中的规则
     generic_xform(bufgctrl_rules);

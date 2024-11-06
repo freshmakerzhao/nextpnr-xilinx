@@ -1831,29 +1831,29 @@ struct FasmBackend
             write_bit("CASCOUT_ARD_ACTIVE", !used_rdaddrcasc.empty());
             write_bit("CASCOUT_BWR_ACTIVE", !used_wraddrcasc.empty());
             if(ci != nullptr && (ci->type == id_FIFO36E1_FIFO36E1 || ci->type == id_FIFO18E1_FIFO18E1) ) {
-            std::vector<bool>almost_empty_offset_vector;
-            auto almost_empty_offset = Property(128,13);
-            auto found = ci->params.find(ctx->id("ALMOST_EMPTY_OFFSET"));
-            if (found != ci->params.end()){
-                almost_empty_offset = Property(found->second.intval,13);
-            } 
-            for(auto c:almost_empty_offset.str){
-                // 取反
-                almost_empty_offset_vector.push_back(c == Property::S0);
-            }
-            write_vector("ZALMOST_EMPTY_OFFSET[12:0]",almost_empty_offset_vector);
+                std::vector<bool>almost_empty_offset_vector;
+                auto almost_empty_offset = Property(128,13);
+                auto found = ci->params.find(ctx->id("ALMOST_EMPTY_OFFSET"));
+                if (found != ci->params.end()){
+                    almost_empty_offset = Property(found->second.intval,13);
+                } 
+                for(auto c:almost_empty_offset.str){
+                    // 取反
+                    almost_empty_offset_vector.push_back(c == Property::S0);
+                }
+                write_vector("ZALMOST_EMPTY_OFFSET[12:0]",almost_empty_offset_vector);
 
-            std::vector<bool>almost_full_offset_vector;
-            auto almost_full_offset = Property(129,13);
-            auto full_found = ci->params.find(ctx->id("ALMOST_FULL_OFFSET"));
-            if (full_found != ci->params.end()){
-                almost_full_offset = Property(full_found->second.intval+1,13);
-            }
-            for(auto c:almost_full_offset.str){
-                // 取反
-                almost_full_offset_vector.push_back(c == Property::S0);
-            }
-            write_vector("ZALMOST_FULL_OFFSET[12:0]",almost_full_offset_vector);
+                std::vector<bool>almost_full_offset_vector;
+                auto almost_full_offset = Property(129,13);
+                auto full_found = ci->params.find(ctx->id("ALMOST_FULL_OFFSET"));
+                if (full_found != ci->params.end()){
+                    almost_full_offset = Property(full_found->second.intval+1,13);
+                }
+                for(auto c:almost_full_offset.str){
+                    // 取反
+                    almost_full_offset_vector.push_back(c == Property::S0);
+                }
+                write_vector("ZALMOST_FULL_OFFSET[12:0]",almost_full_offset_vector);
 
                 int width = int_or_default(ci->params, ctx->id("DATA_WIDTH"), 0);
                 if(ci->type == id_FIFO36E1_FIFO36E1) {
@@ -1874,6 +1874,26 @@ struct FasmBackend
                 }
                 std::string en_syn = str_or_default(ci->params, ctx->id("EN_SYN"), "FALSE");
                 write_bit("EN_SYN", en_syn == "TRUE");
+            }
+            // TODO: 后续整理这部分逻辑
+            if(ci != nullptr && (ci->type == id_RAMB36E1_RAMB36E1) ) {
+                // ramb36且数据宽度为1时，要写特定fasm
+                int read_width_a = int_or_default(ci->params, ctx->id("READ_WIDTH_A"), 0);
+                if (read_width_a == 1) {
+                    write_bit("RAMB36.BRAM36_READ_WIDTH_A_1");
+                }
+                int write_width_a = int_or_default(ci->params, ctx->id("WRITE_WIDTH_A"), 0);
+                if (write_width_a == 1) {
+                    write_bit("RAMB36.BRAM36_WRITE_WIDTH_A_1");
+                }
+                int read_width_b = int_or_default(ci->params, ctx->id("READ_WIDTH_B"), 0);
+                if (read_width_b == 1) {
+                    write_bit("RAMB36.BRAM36_READ_WIDTH_B_1");
+                }
+                int write_width_b = int_or_default(ci->params, ctx->id("WRITE_WIDTH_B"), 0);
+                if (write_width_b == 1) {
+                    write_bit("RAMB36.BRAM36_WRITE_WIDTH_B_1");
+                }
             }
         }
         pop();

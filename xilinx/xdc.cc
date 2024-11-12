@@ -259,11 +259,6 @@ void Arch::parseXdc(std::istream &in)
             for (auto c : dest)
                 for (const auto &pair : arg_pairs)
                     c->attrs[id(pair.first)] = std::string(pair.second);
-            for (auto cell : sorted(ctx->cells)) {
-                CellInfo *ci = cell.second;
-                if(ci->attrs.count(ctx->id("BEL")) && ci->attrs.count(ctx->id("LOC")))
-                    ci->attrs[ctx->id("BEL")] = ci->attrs.at(ctx->id("LOC")).as_string() + "/" + ci->attrs.at(ctx->id("BEL")).as_string();
-            }
 
         } else if (cmd == "create_clock") {
             double period = 0;

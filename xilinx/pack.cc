@@ -833,18 +833,22 @@ void XilinxPacker::constrains_bel_loc()
         auto sorted_cells = sorted(ctx->cells);
         for (const auto& outer_pair : ctx->constrains) {
             const IdString& cell_name = outer_pair.first;
+            std::string loc;
+            std::string bel_type;
             for (auto cell : sorted_cells) {
                 CellInfo *current_cell = cell.second;
                 if (current_cell->name == cell_name) {
                     const auto& inner_map = outer_pair.second;
-                    std::string result;
-                    for (auto it = inner_map.begin(); it != inner_map.end(); ++it) {
-                        result += it->second.as_string();
-                        if (std::next(it) != inner_map.end()) {
-                            result += '/';
-                        }
+                    auto it_bel = inner_map.find(ctx->id("BEL_TYPE"));
+                    if (it_bel != inner_map.end()) {
+                        bel_type = it_bel->second.as_string();
                     }
-                    current_cell->attrs[ctx->id("BEL")] = result;
+                    auto it_loc = inner_map.find(ctx->id("LOC"));
+                    if (it_loc != inner_map.end()) {
+                        loc = it_loc->second.as_string();;
+                    }
+                    if(!loc.empty() && !bel_type.empty())
+                        current_cell->attrs[ctx->id("BEL")] = loc + "/" + bel_type;
                 }
             }
         }

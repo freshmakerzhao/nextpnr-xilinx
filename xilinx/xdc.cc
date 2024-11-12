@@ -21,6 +21,7 @@
 #include "nextpnr.h"
 #include <fstream>
 #include "json.hpp"
+#include "util.h"
 NEXTPNR_NAMESPACE_BEGIN
 
 // 判断字符串是不是一个合法的8位16进制数
@@ -92,6 +93,21 @@ void Arch::parseXdc(std::istream &in)
         flush();
         return split_args;
     };
+    auto get_cells_name = [&](std::string str) {
+        std::vector<CellInfo *> tgt_cells;
+        if (str.empty() || str.front() != '[')
+            log_error("failed to parse target (on line %d)\n", lineno);
+        str = str.substr(1, str.size() - 2);
+        auto split = split_to_args(str, false);
+        if (split.size() < 1)
+            log_error("failed to parse target (on line %d)\n", lineno);
+        if (split.front() != "get_ports" && split.front() != "get_cells")
+            log_error("targets other than 'get_ports' are not supported (on line %d)\n", lineno);
+        if (split.size() < 2)
+            log_error("failed to parse target (on line %d)\n", lineno);
+        std::string cellname = strip_quotes(split.at(1));
+        return cellname;
+    };
 
     auto get_cells = [&](std::string str) {
         std::vector<CellInfo *> tgt_cells;
@@ -101,13 +117,13 @@ void Arch::parseXdc(std::istream &in)
         auto split = split_to_args(str, false);
         if (split.size() < 1)
             log_error("failed to parse target (on line %d)\n", lineno);
-        if (split.front() != "get_ports")
+        if (split.front() != "get_ports" && split.front() != "get_cells")
             log_error("targets other than 'get_ports' are not supported (on line %d)\n", lineno);
         if (split.size() < 2)
             log_error("failed to parse target (on line %d)\n", lineno);
         IdString cellname = id(strip_quotes(split.at(1)));
         if (cells.count(cellname))
-            tgt_cells.push_back(cells.at(cellname).get());
+            tgt_cells.push_back(cells.at(cellname).get());      
         return tgt_cells;
     };
 
@@ -229,11 +245,26 @@ void Arch::parseXdc(std::istream &in)
                     outfile.close();
                 }
                 continue;
+            } else if(std::get<0>(arg_pairs[0])=="BEL") {
+                Property bel_type = std::get<1>(arg_pairs[0]);
+                IdString cell_name = id(get_cells_name(arguments.at(3)));
+                ctx->constrains[cell_name][id("BEL_TYPE")] = bel_type;
+
+             } else if(std::get<0>(arg_pairs[0])=="LOC") {
+                Property bel_loc = std::get<1>(arg_pairs[0]);
+                IdString cell_name = id(get_cells_name(arguments.at(3)));
+                ctx->constrains[cell_name][id("LOC")] = bel_loc;
             }
             std::vector<CellInfo *> dest = get_cells(arguments.at(3));
             for (auto c : dest)
                 for (const auto &pair : arg_pairs)
                     c->attrs[id(pair.first)] = std::string(pair.second);
+            for (auto cell : sorted(ctx->cells)) {
+                CellInfo *ci = cell.second;
+                if(ci->attrs.count(ctx->id("BEL")) && ci->attrs.count(ctx->id("LOC")))
+                    ci->attrs[ctx->id("BEL")] = ci->attrs.at(ctx->id("LOC")).as_string() + "/" + ci->attrs.at(ctx->id("BEL")).as_string();
+            }
+
         } else if (cmd == "create_clock") {
             double period = 0;
             bool got_period = false;

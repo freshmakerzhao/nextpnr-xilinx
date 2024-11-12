@@ -678,6 +678,7 @@ struct BaseCtx
 
     // Project settings and config switches
     std::unordered_map<IdString, Property> settings;
+    std::unordered_map<IdString, std::unordered_map<IdString, Property>> constrains;
 
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;

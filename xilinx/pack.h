@@ -121,6 +121,7 @@ struct XilinxPacker
     void pack_ffs();
     void pack_lutffs();
     void check();
+    void constrains_bel_loc();
 
     bool is_constrained(const CellInfo *cell);
     void pack_muxfs();
@@ -180,6 +181,7 @@ struct USPacker : public XilinxPacker
     CellInfo *create_iobuf(CellInfo *npnr_io, IdString &top_port);
     void decompose_iob(CellInfo *xil_iob, const std::string &iostandard);
     void pack_io();
+    void constrains_bel_loc();
 
     // IOLOGIC
     std::unordered_map<IdString, XFormRule> hp_iol_rules, hd_iol_rules, ioctrl_rules;
@@ -211,7 +213,6 @@ struct XC7Packer : public XilinxPacker
     // Carries
     bool has_illegal_fanout(NetInfo *carry);
     void pack_carries();
-
     // IO
     CellInfo *insert_ibuf(IdString name, IdString type, NetInfo *i, NetInfo *o);
     CellInfo *insert_diffibuf(IdString name, IdString type, const std::array<NetInfo *, 2> &i, NetInfo *o);

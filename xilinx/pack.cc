@@ -827,6 +827,34 @@ void XilinxPacker::pack_constants()
     }
 }
 
+void XilinxPacker::constrains_bel_loc()
+{
+    if(!ctx->constrains.empty()) {
+        auto sorted_cells = sorted(ctx->cells);
+        for (const auto& outer_pair : ctx->constrains) {
+            const IdString& cell_name = outer_pair.first;
+            std::string loc;
+            std::string bel_type;
+            for (auto cell : sorted_cells) {
+                CellInfo *current_cell = cell.second;
+                if (current_cell->name == cell_name) {
+                    const auto& inner_map = outer_pair.second;
+                    auto it_bel = inner_map.find(ctx->id("BEL_TYPE"));
+                    if (it_bel != inner_map.end()) {
+                        bel_type = it_bel->second.as_string();
+                    }
+                    auto it_loc = inner_map.find(ctx->id("LOC"));
+                    if (it_loc != inner_map.end()) {
+                        loc = it_loc->second.as_string();;
+                    }
+                    if(!loc.empty() && !bel_type.empty())
+                        current_cell->attrs[ctx->id("BEL")] = loc + "/" + bel_type;
+                }
+            }
+        }
+    }
+}
+
 void XilinxPacker::rename_net(IdString old, IdString newname)
 {
     std::unique_ptr<NetInfo> ni;
@@ -1315,6 +1343,7 @@ bool Arch::pack()
         packer.pack_cmt_fifo();
         packer.finalise_muxfs();
         packer.pack_lutffs();
+        packer.constrains_bel_loc();
         packer.check();
 
     } else {

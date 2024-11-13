@@ -666,7 +666,7 @@ void XC7Packer::pack_io()
         else if (belname.substr(pos+1, 5) == "IOB33")
             rules = hriobuf_rules;
         else
-            log_error("Unexpected IOBUF BEL %s\n", belname.c_str());
+            continue;
         if (rules.count(ci->type)) {
             xform_cell(rules, ci);
         }

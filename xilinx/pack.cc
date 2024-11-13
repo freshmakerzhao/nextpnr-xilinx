@@ -836,7 +836,7 @@ void XilinxPacker::constrains_bel_loc()
                 auto bel_type = str_or_default(cons, ctx->id("BEL_TYPE"), "");
                 auto loc = str_or_default(cons, ctx->id("LOC"), "");
                 if(!loc.empty() && !bel_type.empty())
-                    current_cell->attrs[ctx->id("BEL")] = loc + "/" + bel_type;
+                    cell.second->attrs[ctx->id("BEL")] = loc + "/" + bel_type;
             }
         }
     }

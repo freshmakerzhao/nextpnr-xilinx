@@ -830,12 +830,11 @@ void XilinxPacker::pack_constants()
 void XilinxPacker::constrains_bel_loc()
 {
     if(!ctx->constrains.empty()) {
-        auto sorted_cells = sorted(ctx->cells);
-        for (const auto& outer_pair : ctx->constrains) {
-            const IdString& cell_name = outer_pair.first;
-            std::string loc;
-            std::string bel_type;
-            for (auto cell : sorted_cells) {
+         for (auto cell : sorted(ctx->cells)) {
+            for (const auto& outer_pair : ctx->constrains) {
+                const IdString& cell_name = outer_pair.first;
+                std::string loc;
+                std::string bel_type;
                 CellInfo *current_cell = cell.second;
                 if (current_cell->name == cell_name) {
                     const auto& inner_map = outer_pair.second;

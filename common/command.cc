@@ -41,7 +41,9 @@
 #include "timing.h"
 #include "util.h"
 #include "version.h"
-
+#ifdef HYBRDLINK
+#include "ArchiveTool.h"
+#endif
 NEXTPNR_NAMESPACE_BEGIN
 
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
@@ -299,10 +301,27 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 #endif
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
+        bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
+#ifdef HYBRDLINK
+        if(do_pack){
+            Tool::ArchiveTool tool;
+            std::vector< Tool::byte_t > buffer;
+            tool.extractWithPassword(filename, buffer, KEY);
+            std::string buffer_str = tool.byte_to_string(buffer);
+            if (!parse_json(buffer_str, filename, ctx.get()))
+                log_error("Loading design failed.\n");
+        }
+        else{
+            std::ifstream f(filename);
+            if (!parse_json(f, filename, ctx.get()))
+                log_error("Loading design failed.\n");
+        }
+
+#else
         std::ifstream f(filename);
         if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
-
+#endif
         customAfterLoad(ctx.get());
     }
 

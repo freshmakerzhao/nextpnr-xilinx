@@ -427,6 +427,11 @@ void XilinxPacker::pack_lutffs()
             // 如果时钟信号反向不一致，无法作为chain
             continue;
         }
+        // 如果ff有bel，无法作为chain
+        std::string ff_bel = str_or_default(ci->attrs, ctx->id("BEL"), "NONE");
+        if (ff_bel != "NONE"){
+            continue;
+        }
                 
         lut->constr_children.push_back(ci);
         ci->constr_parent = lut;
@@ -831,12 +836,17 @@ void XilinxPacker::constrains_bel_loc()
 {
     if(!ctx->constrains.empty()) {
          for (auto cell : sorted(ctx->cells)) {
-            auto cons = get_or_default(ctx->constrains, cell.first, std::unordered_map<IdString, Property>());
-            if (!cons.empty()) {
-                auto bel_type = str_or_default(cons, ctx->id("BEL_TYPE"), "");
-                auto loc = str_or_default(cons, ctx->id("LOC"), "");
-                if(!loc.empty() && !bel_type.empty())
-                    cell.second->attrs[ctx->id("BEL")] = loc + "/" + bel_type;
+            // 如果constrains的key里有cell的name
+            if (ctx->constrains.count(cell.first)) {
+                auto cons = ctx->constrains.at(cell.first);
+                if (!cons.empty()) {
+                    auto bel_type = str_or_default(cons, ctx->id("BEL_TYPE"), "");
+                    auto loc = str_or_default(cons, ctx->id("LOC"), "");
+                    if(!loc.empty() && !bel_type.empty())
+                        cell.second->attrs[ctx->id("BEL")] = loc + "/" + bel_type;
+                }
+                // 使用过的约束需要删除
+                ctx->constrains.erase(cell.first);
             }
         }
     }
@@ -1305,6 +1315,7 @@ bool Arch::pack()
     if (xc7) {
         XC7Packer packer;
         packer.ctx = getCtx();
+        packer.constrains_bel_loc();
         packer.pack_constants();
         packer.pack_inverters();
         packer.pack_io();

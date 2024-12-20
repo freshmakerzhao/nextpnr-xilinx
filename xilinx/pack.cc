@@ -723,7 +723,8 @@ void XilinxPacker::pack_srls()
 
 void XilinxPacker::pack_constants()
 {
-    log_info("Packing constants..\n");
+    log_info("Packing constants..\n","pack","[Place 30-611]");
+    log_info("Packing constants no prefix..\n","pack","");
     if (tied_pins.empty())
         get_tied_pins(ctx, tied_pins);
     if (invertible_pins.empty())

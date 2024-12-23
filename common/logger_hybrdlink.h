@@ -13,7 +13,7 @@
 #include "json.hpp" // 引入 nlohmann/json
 
 // 状态码的枚举类
-enum class level_code {
+enum class LevelCode {
     INFO_LOG = 1,                   // 普通信息
     WARNING_LOG = 2,                // 警告
     CRITICAL_LOG = 3,
@@ -37,6 +37,25 @@ enum class PipeType {
     CONTROL = 3,               // 错误
 };
 
+// 定义 LogData 结构体,用来存储进程通信字段
+struct LogData {
+    std::string pipe_type;   // 日志前缀
+    int level_code;   // 日志前缀
+    std::string message_content;   // 日志前缀
+    std::string phase; // 日志类别
+    std::string sub_phase;  // 日志内容
+    std::string category;  // 日志内容
+    std::string task_info;  // 日志内容
+     // 构造函数
+    LogData()
+        : pipe_type("log"),
+          level_code(static_cast<int>(LevelCode::INFO_LOG)),
+          message_content(""),
+          phase("IMPLEMENTATION"),
+          sub_phase(""),
+          category(""),
+          task_info("") {}
+};
 
 namespace Common {
     extern std::string _father_process_id; // 父进程id
@@ -60,8 +79,7 @@ namespace Common {
     * \param[in] message: 日志消息内容
     * \return 构造好的 JSON 数据包
     */
-    nlohmann::json createLogJson(StatusCode code, const std::string& message, const std::string& phase,const std::string& sub_phase,const std::string& category);
-
+     nlohmann::json createLogJson(StatusCode code, const LogData& data);
     /*!
     * \brief 构造数据类型的 JSON 数据包
     * \param[in] data: 要传输的数据内容

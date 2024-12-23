@@ -83,8 +83,8 @@ namespace Common {
             }
 
             // 关闭管道句柄
-            CloseHandle(hPipe);
-            std::cout << "Connection to pipe closed: " << pipeName << std::endl;
+            // CloseHandle(hPipe);
+            // std::cout << "Connection to pipe closed: " << pipeName << std::endl;
 //            printInfo("Connection to pipe closed: " + pipeName);
         }
     }
@@ -106,17 +106,17 @@ namespace Common {
         }
     }
 
-        std::string levelCodeToString(level_code code) {
+        std::string levelCodeToString(LevelCode code) {
         switch (code) {
-            case level_code::INFO_LOG:
+            case LevelCode::INFO_LOG:
                 return "Info";
-            case level_code::WARNING_LOG:
+            case LevelCode::WARNING_LOG:
                 return "Warning";
-            case level_code::CRITICAL_LOG:
+            case LevelCode::CRITICAL_LOG:
                 return "CRITICAL_LOG";
-            case level_code::ERROR_LOG:
+            case LevelCode::ERROR_LOG:
                 return "Error";
-            case level_code::ALWAYS_LOG:
+            case LevelCode::ALWAYS_LOG:
                 return "ALWAYS";
             default:
                 return "Unknown Log category";
@@ -129,14 +129,15 @@ namespace Common {
     //     "message": "happy"
 //          "phase_info"：{phase:"synth",  sub_phase:"opt_ext"}
     // }
-    nlohmann::json createLogJson(StatusCode code, const std::string& message, const std::string& phase,const std::string& sub_phase,const std::string& category) {
+    nlohmann::json createLogJson(StatusCode code, const LogData& data) {
         nlohmann::json packet;
         packet["pipe_type"] = "log";                      // 日志
         packet["level_code"] = static_cast<int>(code);  // 级别
-        packet["message_content"] = message;                 // 内容
-        packet["phase"] = phase;
-        packet["sub_phase"] = sub_phase;
-        packet["category"] = category;
+        packet["message_content"] = data.message_content;                 // 内容
+        packet["phase"] = data.phase;
+        packet["sub_phase"] = data.sub_phase;
+        packet["category"] = data.category;
+        packet["task_info"] = data.task_info;
         return packet;
     }
 

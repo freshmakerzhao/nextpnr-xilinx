@@ -20,7 +20,7 @@ using offset = s32;
 
 fn RelPtr(u32 addr) {
     offset off @ addr;
-    return addr + off * 4;
+    return addr + off;
 };
 
 struct BelWirePOD {
@@ -242,7 +242,7 @@ struct ChipInfoPOD {
     ConstIDDataPOD ExtraConstIDs @ RelPtr(addressof(extra_constids));
 
     s32 num_speed_grades;
-    offset timing_data; // TimingDataPOD
+    offset timing_data[[hidden]]; // TimingDataPOD
 
     String Name                              @ RelPtr(addressof(name));
     String Generator                         @ RelPtr(addressof(generator));
@@ -250,7 +250,8 @@ struct ChipInfoPOD {
     TileTypeInfoPOD TileTypes[num_tiletypes] @ RelPtr(addressof(tile_types));
     //TileInstInfoPOD TileInsts[num_tiles]     @ RelPtr(addressof(tile_insts));
     TileRow         TileRows[height]         @ RelPtr(addressof(tile_insts));
-    //NodeInfoPOD     Nodes[num_nodes]         @ RelPtr(addressof(nodes));
+    // NodeInfoPOD     Nodes[num_nodes]         @ RelPtr(addressof(nodes));
+    TimingDataPOD TimingDatas[1] @ RelPtr(addressof(timing_data));
 };
 
 offset chipdb_offset @ 0x0 [[hidden]];

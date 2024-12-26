@@ -723,12 +723,40 @@ void XilinxPacker::pack_srls()
 
 void XilinxPacker::pack_constants()
 {
-    LogData logEntry1;
-    logEntry1.sub_phase = "PACK";
-    logEntry1.category = "[PACK 30-611]";
-    logEntry1.task_info = "";
-    logEntry1.message_content = "Packing constants..\n";
-    log_info("Packing constants..\n",logEntry1);
+    // LogData logEntry1;
+    // logEntry1.sub_phase = "PACK";
+    // logEntry1.category = "[PACK 30-611]";
+    // logEntry1.task_info = "";
+    // logEntry1.message_content = "Packing constants..\n";
+    // log_info("Packing constants..\n",logEntry1);
+    LogCategory category = LogCategory::PACK;
+    LogData logEntry1 = LogData::createLogStruct(
+        static_cast<int>(LevelCode::INFO_LOG),
+        getCategoryToString(category),
+        getCategoryInt(category),
+        Common::getNextIndex(getCategoryToString(category)),
+        "zl",
+        "This is my first word\n");
+    log_info("Hello world, This is my first word..\n", logEntry1);
+
+    LogData logEntry2 = LogData::createLogStruct(
+        static_cast<int>(LevelCode::WARNING_LOG),
+        getCategoryToString(category),
+        getCategoryInt(category),
+        Common::getNextIndex(getCategoryToString(category)),
+        "zl",
+        "this is my warning info..\n");
+    log_warning("this is my warning info..\n",logEntry2);
+
+    LogData logEntry3 = LogData::createLogStruct(
+        static_cast<int>(LevelCode::ERROR_LOG),
+        getCategoryToString(category),
+        getCategoryInt(category),
+        Common::getNextIndex(getCategoryToString(category)),
+        "zl",
+        "this is my error info..\n");
+    log_error("this is my error info..\n",logEntry3);
+
     if (tied_pins.empty())
         get_tied_pins(ctx, tied_pins);
     if (invertible_pins.empty())

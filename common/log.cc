@@ -132,11 +132,11 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
 {
     // LOG_MSG,INFO_MSG,WARNING_MSG,ERROR_MSG,ALWAYS_MSG
     std::string message = vstringf(format, ap);
+    message = logdata.category + " " + message;
     nlohmann::json data;
     data["pipe_type"] = logdata.pipe_type;
-    data["level_code"] = LevelCode::INFO_LOG;
-    std::string message_content = logdata.category + " " + message;
-    data["message_content"] = message_content;
+    data["level_code"] = logdata.level_code;
+    data["message_content"] = message;
     data["phase"] = logdata.phase;
     data["sub_phase"] = logdata.sub_phase;
     data["category"] = logdata.category;
@@ -158,7 +158,8 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
         }
         else{
             data["level_code"] = LevelCode::ERROR_LOG;
-            Common::connectAndSendJson(PipeType::LOG, data);
+            nlohmann::json data_info = Common::createDataJson(StatusCode::INTERNAL_SERVER_ERROR,data,logdata.phase,logdata.sub_phase);
+            Common::connectAndSendJson(PipeType::DATA, data_info);
         }
         } catch (const std::exception &e) {
         std::cerr << "JSON Error: " << e.what() << "\n";

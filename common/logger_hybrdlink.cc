@@ -13,6 +13,13 @@ namespace Common {
     std::string _data_pipe_name    = R"(\\.\pipe\DataPipe_)";    // 数据管道名称
     std::string _control_pipe_name = R"(\\.\pipe\ControlPipe_)"; // 控制管道名称
 	std::string _log_cache = "";
+    std::map<std::string, int> indices; // 存储每个类别的消息编号
+	// 动态生成消息唯一标号
+    int getNextIndex(const std::string& messagelabel) {
+        std::string key = messagelabel;
+        return ++indices[key];
+    }
+
     /**
      * 拼接log数据
      * @param pipeName: 命名管道名称
@@ -30,9 +37,12 @@ namespace Common {
     void connectAndSendJson(PipeType pipeType, nlohmann::json jsonData) {
         if(Common::_father_process_id != "-1"){
             std::string pipeName = Common::_log_pipe_name;
-            if (pipeType == PipeType::LOG)
+            if (pipeType == PipeType::LOG){
                 pipeName = Common::_log_pipe_name + Common::_father_process_id;
-            else if (pipeType == PipeType::DATA)
+                 // 将 JSON 对象序列化为字符串
+			    jsonData["message_content"] = _log_cache + jsonData["message_content"].get<std::string>();
+
+            } else if (pipeType == PipeType::DATA)
                 pipeName = Common::_data_pipe_name + Common::_father_process_id;
             else if (pipeType == PipeType::CONTROL)
                 pipeName = Common::_control_pipe_name + Common::_father_process_id;
@@ -64,10 +74,6 @@ namespace Common {
                 }
                 return;
             }
-
-            // 将 JSON 对象序列化为字符串
-			jsonData["message_content"] = _log_cache + jsonData["message_content"].get<std::string>();
-
 			_log_cache = "";
             std::string jsonString = jsonData.dump();
 
@@ -75,11 +81,9 @@ namespace Common {
             DWORD bytesWritten = 0;
             if (WriteFile(hPipe, jsonString.c_str(), static_cast<DWORD>(jsonString.length()), &bytesWritten, NULL)) {
                 std::cout << "JSON message sent to pipe: "<< pipeName << " (" << std::to_string(bytesWritten) << " bytes written)" << std::endl;
-//                printInfo("JSON message sent to pipe: " + pipeName + " (" + std::to_string(bytesWritten) + " bytes written)");
             } else {
                 DWORD errorCode = GetLastError();
                 std::cerr << "Failed to write to pipe: "<< pipeName << " Error: " << std::to_string(errorCode) << std::endl;
-//                printError("Failed to write to pipe: " + pipeName + " Error: " + std::to_string(errorCode));
             }
 
             // 关闭管道句柄
@@ -165,3 +169,28 @@ namespace Common {
         return {};
     }
 }
+    // 获取category值
+    std::string getCategoryToString(LogCategory& category) {
+        return categoryToString.at(category);
+    }
+
+    // 获取category的整型值
+    int getCategoryInt(LogCategory& category) {
+        return categoryToInt.at(category);
+    }
+
+    //构建logData结构体
+    LogData createLogStruct(int levelCode, const std::string& categoryName, int categoryCode, int messageIndex,
+                                    const std::string& taskInfo, const std::string& message) {
+        std::string category = "[" + categoryName + " " + std::to_string(categoryCode) + "-" + std::to_string(messageIndex) + "]";
+        LogData logData;
+        logData.category = category;
+        logData.message_content = message;
+        logData.pipe_type = "log";
+        logData.level_code = levelCode;
+        logData.phase = "SYNTHESIS";
+        logData.sub_phase = "SYNTHESIS";
+        logData.task_info = taskInfo;
+        return logData;
+    }
+

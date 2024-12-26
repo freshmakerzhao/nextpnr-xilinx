@@ -729,30 +729,26 @@ void XilinxPacker::pack_constants()
     // logEntry1.task_info = "";
     // logEntry1.message_content = "Packing constants..\n";
     // log_info("Packing constants..\n",logEntry1);
-    LogCategory category = LogCategory::PACK;
     LogData logEntry1 = LogData::createLogStruct(
-        static_cast<int>(LevelCode::INFO_LOG),
-        getCategoryToString(category),
-        getCategoryInt(category),
-        Common::getNextIndex(getCategoryToString(category)),
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
         "zl",
         "This is my first word\n");
     log_info("Hello world, This is my first word..\n", logEntry1);
 
     LogData logEntry2 = LogData::createLogStruct(
-        static_cast<int>(LevelCode::WARNING_LOG),
-        getCategoryToString(category),
-        getCategoryInt(category),
-        Common::getNextIndex(getCategoryToString(category)),
+        LevelCode::WARNING_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
         "zl",
         "this is my warning info..\n");
     log_warning("this is my warning info..\n",logEntry2);
 
     LogData logEntry3 = LogData::createLogStruct(
-        static_cast<int>(LevelCode::ERROR_LOG),
-        getCategoryToString(category),
-        getCategoryInt(category),
-        Common::getNextIndex(getCategoryToString(category)),
+        LevelCode::ERROR_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
         "zl",
         "this is my error info..\n");
     log_error("this is my error info..\n",logEntry3);

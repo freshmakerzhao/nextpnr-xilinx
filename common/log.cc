@@ -158,6 +158,7 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
         }
         else{
             data["level_code"] = LevelCode::ERROR_LOG;
+            data["pipe_type"] = pipeTypeToString(PipeType::DATA);
             nlohmann::json data_info = Common::createDataJson(StatusCode::INTERNAL_SERVER_ERROR,data,logdata.phase,logdata.sub_phase);
             Common::connectAndSendJson(PipeType::DATA, data_info);
         }

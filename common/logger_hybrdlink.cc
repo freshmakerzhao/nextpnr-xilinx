@@ -2,10 +2,9 @@
 /*
  * Copyright (C) 2023 Gwenhael Goavec-Merou <gwenhael.goavec-merou@trabucayre.com>
  */
-
-#include "logger_hybrdlink.h"
-#include <windows.h>
 #include <iostream>
+#include <windows.h>
+#include "logger_hybrdlink.h"
 
 namespace Common {
     std::string _father_process_id = "-1";
@@ -135,7 +134,7 @@ namespace Common {
     // }
     nlohmann::json createLogJson(StatusCode code, const LogData& data) {
         nlohmann::json packet;
-        packet["pipe_type"] = "log";                      // 日志
+        packet["pipe_type"] = PipeType::LOG;                      // 日志
         packet["level_code"] = static_cast<int>(code);  // 级别
         packet["message_content"] = data.message_content;                 // 内容
         packet["phase"] = data.phase;
@@ -152,7 +151,7 @@ namespace Common {
     // }
     nlohmann::json createDataJson(StatusCode code, const nlohmann::json& data, const std::string& phase,const std::string& sub_phase) {
         nlohmann::json packet;
-        packet["pipe_type"] = "data";      // 数据
+        packet["pipe_type"] = pipeTypeToString(PipeType::DATA);      // 数据
         packet["status_code"] = static_cast<int>(code);    // Success 等
         packet["data"] = data;     // 数据内容
 		packet["phase"] = phase;
@@ -169,28 +168,57 @@ namespace Common {
         return {};
     }
 }
-    // 获取category值
-    std::string getCategoryToString(LogCategory& category) {
-        return categoryToString.at(category);
-    }
+// 获取category值
+std::string getCategoryToString(const LogCategory& category) {
+    return categoryToString.at(category);
+}
 
-    // 获取category的整型值
-    int getCategoryInt(LogCategory& category) {
-        return categoryToInt.at(category);
-    }
+// 获取category的整型值
+int getCategoryInt(const LogCategory& category) {
+    return categoryToInt.at(category);
+}
 
-    //构建logData结构体
-    LogData createLogStruct(int levelCode, const std::string& categoryName, int categoryCode, int messageIndex,
-                                    const std::string& taskInfo, const std::string& message) {
-        std::string category = "[" + categoryName + " " + std::to_string(categoryCode) + "-" + std::to_string(messageIndex) + "]";
-        LogData logData;
-        logData.category = category;
-        logData.message_content = message;
-        logData.pipe_type = "log";
-        logData.level_code = levelCode;
-        logData.phase = "SYNTHESIS";
-        logData.sub_phase = "SYNTHESIS";
-        logData.task_info = taskInfo;
-        return logData;
+// 枚举类型PhsaeType---->std::String
+std::string phaseTypeToString(PhaseType phase) {
+    switch (phase) {
+        case PhaseType::IMPLEMENTATION:
+            return "IMPLEMENTATION";
+        case PhaseType::PACK:
+            return "PACK";
+        case PhaseType::PLACE:
+            return "PLACE";
+        case PhaseType::ROUTE:
+            return "ROUTE";
+        default:
+            return "UNKNOWN";
     }
+}
 
+// 枚举类型PhsaeType---->std::String
+std::string pipeTypeToString(PipeType pipeType) {
+    switch (pipeType) {
+        case PipeType::LOG:
+            return "log";
+        case PipeType::DATA:
+            return "data";
+        case PipeType::CONTROL:
+            return "control";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+// 创建Log结构体
+LogData LogData::createLogStruct(const LevelCode& levelCode,const LogCategory& category_info,const PhaseType& sub_phase, 
+            const std::string& taskInfo,const std::string& message) {
+    std::string category = "[" + getCategoryToString(category_info) + " " + std::to_string(getCategoryInt(category_info)) + "-" + std::to_string(Common::getNextIndex(getCategoryToString(category_info))) + "]";
+    LogData logData;
+    logData.category = category;
+    logData.message_content = message;
+    logData.pipe_type = pipeTypeToString(PipeType::LOG);
+    logData.level_code = static_cast<int>(levelCode);
+    logData.phase = phaseTypeToString(PhaseType::IMPLEMENTATION);
+    logData.sub_phase = phaseTypeToString(sub_phase);
+    logData.task_info = taskInfo;
+    return logData;
+}

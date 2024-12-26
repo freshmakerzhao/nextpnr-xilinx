@@ -50,9 +50,17 @@ enum class LogCategory {
 
 // 三种命名管道
 enum class PipeType {
-    LOG     = 1,                   // 普通信息
-    DATA    = 2,                  // 警告
-    CONTROL = 3,               // 错误
+    LOG,                   // 普通信息
+    DATA ,                  // 警告
+    CONTROL               // 错误
+};
+
+enum class PhaseType {
+    IMPLEMENTATION,              
+    PACK,                     
+    PLACE,
+    ROUTE,
+    GENERATE_BITSTREAM       
 };
 
 const std::map<LogCategory, int> categoryToInt = {
@@ -92,12 +100,17 @@ const std::map<LogCategory, std::string> categoryToString = {
     {LogCategory::TIMING, "Timing"}
 };
 
-// 获取字符串值
+// 获取category字符串值
 std::string getCategoryToString(LogCategory& category);
 
-// 获取整型值
+// 获取category整型值
 int getCategoryInt(LogCategory& category);
 
+// 枚举类型PhsaeType---->std::String
+std::string phaseTypeToString(PhaseType phase);
+
+// 枚举类型PhsaeType---->std::String
+std::string pipeTypeToString(PipeType pipeType);
 
 // 定义 LogData 结构体,用来存储进程通信字段
 struct LogData {
@@ -108,32 +121,21 @@ struct LogData {
     std::string sub_phase;  // 日志内容
     std::string category;  // 日志内容
     std::string task_info;  // 日志内容
-     // 构造函数
+    // 构造函数。初始化某些固定参数值，节省传参数量
     LogData()
-        : pipe_type("log"),
+        : pipe_type(pipeTypeToString(PipeType::LOG)),
           level_code(static_cast<int>(LevelCode::INFO_LOG)),
           message_content(""),
-          phase("IMPLEMENTATION"),
+          phase(phaseTypeToString(PhaseType::IMPLEMENTATION)),
           sub_phase(""),
           category(""),
           task_info("") {}
-    // 创建LogData结构体
-	static LogData createLogStruct(int levelCode, const std::string& categoryName, int categoryCode, int messageIndex,
-								const std::string& taskInfo, const std::string& message) {
-		std::string category = "[" + categoryName + " " + std::to_string(categoryCode) + "-" + std::to_string(messageIndex) + "]";
-		LogData logData;
-		logData.category = category;
-		logData.message_content = message;
-		logData.pipe_type = "log";
-		logData.level_code = levelCode;
-		logData.phase = "IMPLEMENTATION";
-		logData.sub_phase = "";
-		logData.task_info = taskInfo;
-		return logData;
-	}
-
+	// 创建LogData结构体，用来传输日志信息
+    static LogData createLogStruct(const LevelCode& levelCode,const LogCategory& category_info,const PhaseType& sub_phase, 
+        const std::string& taskInfo,const std::string& message);
 };
 
+// 定义全局变量和命名管道的进程通信的逻辑
 namespace Common {
     extern std::string _father_process_id; // 父进程id
     extern std::string _log_pipe_name;     // 日志管道名称

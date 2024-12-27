@@ -44,8 +44,8 @@ struct FasmBackend
     std::vector<Tool::byte_t>& buffer;
     FasmBackend(Context *ctx, std::vector<Tool::byte_t>& buffer) : ctx(ctx), buffer(buffer){};
     void append_to_buffer(const std::string &data) {
-		buffer.insert(buffer.end(), data.begin(), data.end());
-	}
+        buffer.insert(buffer.end(), data.begin(), data.end());
+    }
 #else
     std::ostream &out;
     FasmBackend(Context *ctx, std::ostream &out) : ctx(ctx), out(out){};
@@ -3483,19 +3483,30 @@ struct FasmBackend
 void Arch::writeFasm(const std::string &filename)
 {
 #ifdef HYBRDLINK
-    std::ofstream out(filename,std::ofstream::trunc|std::ofstream::binary);
-    if (!out)
-        log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
-    std::vector<Tool::byte_t> mbuffer;
-    FasmBackend be(getCtx(), mbuffer);
-    be.write_fasm();
+    if(getCtx()->hybrdchip){
+        std::ofstream out(filename,std::ofstream::trunc|std::ofstream::binary);
+        if (!out)
+            log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
+        std::vector<Tool::byte_t> mbuffer;
+        FasmBackend be(getCtx(), mbuffer);
+        be.write_fasm();
 
-    Tool::ArchiveTool tool;
+        Tool::ArchiveTool tool;
 
-    size_t lastSlash = filename.find_last_of("/\\");
-    // 获取文件名部分
-    std::string use_filename = filename.substr(lastSlash + 1);
-    tool.compressWithPassword(mbuffer,out,use_filename,KEY);
+        size_t lastSlash = filename.find_last_of("/\\");
+        // 获取文件名部分
+        std::string use_filename = filename.substr(lastSlash + 1);
+        tool.compressWithPassword(mbuffer,out,use_filename,KEY);
+    }else{
+        std::ofstream out(filename,std::ofstream::trunc|std::ofstream::binary);
+        if (!out)
+            log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
+        std::vector<Tool::byte_t> mbuffer;
+        FasmBackend be(getCtx(), mbuffer);
+        be.write_fasm();
+        out.write(reinterpret_cast<const char*>(mbuffer.data()), mbuffer.size());
+
+    }
 #else
     std::ofstream out(filename);
     if (!out)

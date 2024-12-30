@@ -745,13 +745,13 @@ void XilinxPacker::pack_constants()
         "this is my warning info..\n");
     log_warning("this is my warning info..\n",logEntry2);
 
-    LogData logEntry3 = LogData::createLogStruct(
-        LevelCode::ERROR_LOG,
-        LogCategory::PACK,
-        PhaseType::PACK,
-        "zl",
-        "this is my error info..\n");
-    log_error("this is my error info..\n",logEntry3);
+    // LogData logEntry3 = LogData::createLogStruct(
+    //     LevelCode::ERROR_LOG,
+    //     LogCategory::PACK,
+    //     PhaseType::PACK,
+    //     "zl",
+    //     "this is my error info..\n");
+    // log_error("this is my error info..\n",logEntry3);
 
     if (tied_pins.empty())
         get_tied_pins(ctx, tied_pins);

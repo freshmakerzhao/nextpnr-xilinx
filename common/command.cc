@@ -41,9 +41,12 @@
 #include "timing.h"
 #include "util.h"
 #include "version.h"
+#include "logger_hybrdlink.h"
+
 #ifdef HYBRDLINK
 #include "ArchiveTool.h"
 #endif
+
 NEXTPNR_NAMESPACE_BEGIN
 
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
@@ -102,6 +105,7 @@ bool CommandHandler::executeBeforeContext()
 po::options_description CommandHandler::getGeneralOptions()
 {
     po::options_description general("General options");
+    general.add_options()("process_number", po::value<std::string>(), "process_number");
     general.add_options()("help,h", "show help");
     general.add_options()("hybrdchip", "hybrdchip files");
     general.add_options()("verbose,v", "verbose output");
@@ -188,6 +192,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("seed")) {
         ctx->rngseed(vm["seed"].as<int>());
+    }
+
+    if (vm.count("process_number")) {
+        Common::_father_process_id = vm["process_number"].as<std::string>();
     }
 
     if (vm.count("randomize-seed")) {

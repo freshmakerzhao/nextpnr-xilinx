@@ -728,7 +728,36 @@ void XilinxPacker::pack_srls()
 
 void XilinxPacker::pack_constants()
 {
-    log_info("Packing constants..\n");
+    // LogData logEntry1;
+    // logEntry1.sub_phase = "PACK";
+    // logEntry1.category = "[PACK 30-611]";
+    // logEntry1.task_info = "";
+    // logEntry1.message_content = "Packing constants..\n";
+    // log_info("Packing constants..\n",logEntry1);
+    LogData logEntry1 = LogData::createLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "zl",
+        "This is my first word\n");
+    log_info("Hello world, This is my first word..\n", logEntry1);
+
+    LogData logEntry2 = LogData::createLogStruct(
+        LevelCode::WARNING_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "zl",
+        "this is my warning info..\n");
+    log_warning("this is my warning info..\n",logEntry2);
+
+    // LogData logEntry3 = LogData::createLogStruct(
+    //     LevelCode::ERROR_LOG,
+    //     LogCategory::PACK,
+    //     PhaseType::PACK,
+    //     "zl",
+    //     "this is my error info..\n");
+    // log_error("this is my error info..\n",logEntry3);
+
     if (tied_pins.empty())
         get_tied_pins(ctx, tied_pins);
     if (invertible_pins.empty())

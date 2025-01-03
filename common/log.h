@@ -29,6 +29,7 @@
 #include <unordered_map>
 #include <vector>
 #include "nextpnr.h"
+#include "logger_hybrdlink.h"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -66,9 +67,13 @@ extern std::ostream clog;
 void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_always(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_info(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_info(const char *format,LogData& logdata,...) NPNR_ATTRIBUTE(format(printf, 1, 3));
 void log_warning(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_warning(const char *format,LogData& logdata, ...) NPNR_ATTRIBUTE(format(printf, 1, 3));
 NPNR_NORETURN void log_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2), noreturn);
+NPNR_NORETURN void log_error(const char *format,LogData& logdata, ...) NPNR_ATTRIBUTE(format(printf, 1, 3), noreturn);
 void log_nonfatal_error(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_nonfatal_error(const char *format, LogData& logdata, ...) NPNR_ATTRIBUTE(format(printf, 1, 3));
 void log_break();
 void log_flush();
 

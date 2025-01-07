@@ -81,6 +81,8 @@ std::string LogCategoryToString(LogCategory category) {
             return "pack";
         case LogCategory::PlACE:
             return "place";
+        case LogCategory::ROUTE:
+            return "route";
         default:
             throw std::invalid_argument("Invalid LogCategory value");
     }

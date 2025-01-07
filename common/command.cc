@@ -173,7 +173,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("debug")) {
-        ctx->verbose = true;
+        // ctx->verbose = true;
         ctx->debug = true;
     }
 

@@ -201,14 +201,13 @@ namespace Common {
     }
 
 
-    nlohmann::json CreateDataJson(StatusCode code, const nlohmann::json& data,const PhaseType& phase_type, const std::string& task_info) {
+    nlohmann::json CreateDataJson(StatusCode code, const nlohmann::json& data,const std::string& sub_phase) {
         nlohmann::json packet;
         packet["pipe_type"] = PipeTypeToString(PipeType::DATA);
         packet["status_code"] = static_cast<int>(code);
         packet["data"] = data;
 		packet["phase"] = PhaseTypeToString(PhaseType::IMPLEMENTATION);
-        packet["sub_phase"] = PhaseTypeToString(phase_type);
-		packet["task_info"] = task_info;
+        packet["sub_phase"] = sub_phase;
         return packet;
     }
 

@@ -146,21 +146,21 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
         if(level == LogLevel::ALWAYS_MSG){
             data["level_code"] = LevelCode::INFO_LOG;
             data["category"] = "";
-            Common::connectAndSendJson(PipeType::LOG, data);
+            Common::ConnectAndSendJson(PipeType::LOG, data);
         }
         else if(level == LogLevel::INFO_MSG){
             data["level_code"] = LevelCode::INFO_LOG;
-            Common::connectAndSendJson(PipeType::LOG, data);
+            Common::ConnectAndSendJson(PipeType::LOG, data);
         }
         else if(level == LogLevel::WARNING_MSG){
             data["level_code"] = LevelCode::WARNING_LOG;
-            Common::connectAndSendJson(PipeType::LOG, data);
+            Common::ConnectAndSendJson(PipeType::LOG, data);
         }
         else{
             data["level_code"] = LevelCode::ERROR_LOG;
-            data["pipe_type"] = pipeTypeToString(PipeType::DATA);
-            nlohmann::json data_info = Common::createDataJson(StatusCode::INTERNAL_SERVER_ERROR,data,logdata.phase,logdata.sub_phase);
-            Common::connectAndSendJson(PipeType::DATA, data_info);
+            data["pipe_type"] = PipeTypeToString(PipeType::DATA);
+            nlohmann::json data_info = Common::CreateDataJson(StatusCode::INTERNAL_SERVER_ERROR,data,logdata.sub_phase);
+            Common::ConnectAndSendJson(PipeType::DATA, data_info);
         }
         } catch (const std::exception &e) {
         std::cerr << "JSON Error: " << e.what() << "\n";

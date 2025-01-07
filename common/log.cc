@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
-
+#include <windows.h>
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -84,43 +84,6 @@ std::string vstringf(const char *fmt, va_list ap)
     return string;
 }
 
-void logv(const char *format, va_list ap, LogData& logdata, LogLevel level = LogLevel::LOG_MSG)
-{
-    //
-    // Trim newlines from the beginning
-    while (format[0] == '\n' && format[1] != 0) {
-        log_always("\n");
-        format++;
-    }
-
-    std::string str = vstringf(format, ap);
-    nlohmann::json data;
-    data["pipe_type"] = PipeTypeToString(PipeType::LOG);
-    data["level_code"] = logdata.level_code;
-    data["message_content"] = str;
-    data["phase"] =  PhaseTypeToString(PhaseType::IMPLEMENTATION);
-    data["sub_phase"] = logdata.sub_phase;
-    data["category"] = "";
-    data["task_info"] = "";
-    Common::ConnectAndSendJson(PipeType::LOG, data);
-
-
-    if (str.empty())
-        return;
-
-    size_t nnl_pos = str.find_last_not_of('\n');
-    if (nnl_pos == std::string::npos)
-        log_newline_count += str.size();
-    else
-        log_newline_count = str.size() - nnl_pos - 1;
-
-    for (auto f : log_streams)
-        if (f.second <= level)
-            *f.first << str;
-    if (log_write_function)
-        log_write_function(str);
-}
-
 void logv(const char *format, va_list ap, LogLevel level = LogLevel::LOG_MSG)
 {
     //
@@ -131,6 +94,7 @@ void logv(const char *format, va_list ap, LogLevel level = LogLevel::LOG_MSG)
     }
 
     std::string str = vstringf(format, ap);
+
     if (str.empty())
         return;
 
@@ -146,7 +110,6 @@ void logv(const char *format, va_list ap, LogLevel level = LogLevel::LOG_MSG)
     if (log_write_function)
         log_write_function(str);
 }
-
 
 void log_with_level(LogLevel level, const char *format, ...)
 {
@@ -183,27 +146,30 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
         if(level == LogLevel::ALWAYS_MSG){
             data["level_code"] = LevelCode::INFO_LOG;
             data["category"] = "";
-            Common::ConnectAndSendJson(PipeType::LOG, data);
+            Common::connectAndSendJson(PipeType::LOG, data);
         }
         else if(level == LogLevel::INFO_MSG){
             data["level_code"] = LevelCode::INFO_LOG;
-            Common::ConnectAndSendJson(PipeType::LOG, data);
+            Common::connectAndSendJson(PipeType::LOG, data);
         }
         else if(level == LogLevel::WARNING_MSG){
             data["level_code"] = LevelCode::WARNING_LOG;
-            Common::ConnectAndSendJson(PipeType::LOG, data);
+            Common::connectAndSendJson(PipeType::LOG, data);
         }
         else{
             data["level_code"] = LevelCode::ERROR_LOG;
-            data["pipe_type"] = PipeTypeToString(PipeType::DATA);
-            nlohmann::json data_info = Common::CreateDataJson(StatusCode::INTERNAL_SERVER_ERROR,data,logdata.sub_phase);
-            Common::ConnectAndSendJson(PipeType::DATA, data_info);
+            data["pipe_type"] = pipeTypeToString(PipeType::DATA);
+            nlohmann::json data_info = Common::createDataJson(StatusCode::INTERNAL_SERVER_ERROR,data,logdata.phase,logdata.sub_phase);
+            Common::connectAndSendJson(PipeType::DATA, data_info);
         }
         } catch (const std::exception &e) {
         std::cerr << "JSON Error: " << e.what() << "\n";
     }
     #endif
-    log_with_level(level, "%s%s", prefix, message.c_str());
+    if(data["category"] !="")
+        log_with_level(level, "%s%s%s", prefix, logdata.category.c_str(), logdata.message_content.c_str());
+    else
+        log_with_level(level, "%s%s%s", "", logdata.category.c_str(), logdata.message_content.c_str());
     log_flush();
 }
 
@@ -215,19 +181,19 @@ void log_always(const char *format, ...)
     va_end(ap);
 }
 
-void log_always(const char *format,LogData& logdata, ...)
-{
-    va_list ap;
-    va_start(ap, logdata);
-    logv(format, ap, logdata, LogLevel::ALWAYS_MSG);
-    va_end(ap);
-}
-
 void log(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
     logv(format, ap, LogLevel::LOG_MSG);
+    va_end(ap);
+}
+
+void log_info(const char *format,LogData& logdata, ...)
+{
+    va_list ap;
+    va_start(ap, logdata);
+    logv_prefixed("Info: ", format, ap, LogLevel::INFO_MSG,logdata);
     va_end(ap);
 }
 
@@ -239,12 +205,32 @@ void log_info(const char *format, ...)
     va_end(ap);
 }
 
+void log_warning(const char *format,LogData& logdata, ...)
+{
+    va_list ap;
+    va_start(ap, logdata);
+    logv_prefixed("Warning: ", format, ap, LogLevel::WARNING_MSG,logdata);
+    va_end(ap);
+}
+
 void log_warning(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
     logv_prefixed("Warning: ", format, ap, LogLevel::WARNING_MSG);
     va_end(ap);
+}
+
+void log_error(const char *format,LogData& logdata, ...)
+{
+    va_list ap;
+    va_start(ap, logdata);
+    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG,logdata);
+
+    if (log_error_atexit)
+        log_error_atexit();
+
+    throw log_execution_error_exception();
 }
 
 void log_error(const char *format, ...)
@@ -265,6 +251,15 @@ void log_break()
         log("\n");
     if (log_newline_count < 2)
         log("\n");
+}
+
+void log_nonfatal_error(const char *format,LogData& logdata, ...)
+{
+    va_list ap;
+    va_start(ap, logdata);
+    logv_prefixed("ERROR: ", format, ap, LogLevel::ERROR_MSG, logdata);
+    va_end(ap);
+    had_nonfatal_error = true;
 }
 
 void log_nonfatal_error(const char *format, ...)

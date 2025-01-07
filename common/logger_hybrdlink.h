@@ -123,7 +123,7 @@ namespace Common {
     * \param[in] data: 要传输的数据内容
     * \return 构造好的 JSON 数据包
     */
-    nlohmann::json CreateDataJson(StatusCode code, const nlohmann::json& data,const std::string& sub_phase);
+    nlohmann::json CreateDataJson(StatusCode code, const nlohmann::json& data,const PhaseType& phasetype, const std::string& task_info);
 
     /*!
     * \brief 构造控制类型的 JSON 数据包

@@ -170,17 +170,15 @@ namespace Common {
                 }
                 return;
             }
-
-			g_log_cache = "";
             std::string jsonString = jsonData.dump();
 
 			// 发送 JSON 数据到命名管道
 			DWORD bytesWritten = 0;
 			if (WriteFile(hPipe, jsonString.c_str(), static_cast<DWORD>(jsonString.length()), &bytesWritten, NULL)) {
-				std::cout << "JSON message sent to pipe: "<< pipeName << " (" << std::to_string(bytesWritten) << " bytes written)" << std::endl;
+				// std::cout << "JSON message sent to pipe: "<< pipeName << " (" << std::to_string(bytesWritten) << " bytes written)" << std::endl;
 			} else {
 				DWORD errorCode = GetLastError();
-				std::cerr << "Failed to write to pipe: "<< pipeName << " Error: " << std::to_string(errorCode) << std::endl;
+				// std::cerr << "Failed to write to pipe: "<< pipeName << " Error: " << std::to_string(errorCode) << std::endl;
 			}
 			// // 关闭管道句柄
 			CloseHandle(hPipe);
@@ -188,20 +186,20 @@ namespace Common {
     }
 
 
-    nlohmann::json CreateLogJson(LevelCode level_code,const std::string message_content,const PhaseType& phase_type,const std::string task_info) {
+    nlohmann::json CreateLogJson(LevelCode level_code,const std::string message_content,const PhaseType& sub_phase,const std::string task_info) {
         nlohmann::json packet;
         packet["pipe_type"] = PipeTypeToString(PipeType::LOG);            // 日志
         packet["level_code"] = static_cast<int>(level_code);  // 级别
         packet["message_content"] = message_content;                 // 内容
         packet["phase"] = PhaseTypeToString(PhaseType::IMPLEMENTATION);
-        packet["sub_phase"] = PhaseTypeToString(phase_type);
+        packet["sub_phase"] = PhaseTypeToString(sub_phase);
         packet["category"] = "";
         packet["task_info"] = task_info;
         return packet;
     }
 
 
-    nlohmann::json CreateDataJson(StatusCode code, const nlohmann::json& data,const std::string& sub_phase) {
+    nlohmann::json CreateDataJson(StatusCode code, const nlohmann::json& data,  const std::string& sub_phase) {
         nlohmann::json packet;
         packet["pipe_type"] = PipeTypeToString(PipeType::DATA);
         packet["status_code"] = static_cast<int>(code);

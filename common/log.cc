@@ -132,11 +132,11 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
 {
     // LOG_MSG,INFO_MSG,WARNING_MSG,ERROR_MSG,ALWAYS_MSG
     std::string message = vstringf(format, ap);
-    message = logdata.category + " " + message;
+    std::string message_content = logdata.category + " " + message;
     nlohmann::json data;
     data["pipe_type"] = logdata.pipe_type;
     data["level_code"] = logdata.level_code;
-    data["message_content"] = message;
+    data["message_content"] = message_content;
     data["phase"] = logdata.phase;
     data["sub_phase"] = logdata.sub_phase;
     data["category"] = logdata.category;
@@ -166,10 +166,7 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
         std::cerr << "JSON Error: " << e.what() << "\n";
     }
     #endif
-    if(data["category"] !="")
-        log_with_level(level, "%s%s%s", prefix, logdata.category.c_str(), logdata.message_content.c_str());
-    else
-        log_with_level(level, "%s%s%s", "", logdata.category.c_str(), logdata.message_content.c_str());
+    log_with_level(level, "%s%s%s", prefix, logdata.category.c_str(), message.c_str());
     log_flush();
 }
 

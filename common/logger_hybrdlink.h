@@ -116,7 +116,7 @@ namespace Common {
     * \param[in] message: 日志消息内容
     * \return 构造好的 JSON 数据包
     */
-	nlohmann::json CreateLogJson(LevelCode level_code,const std::string message_content,const PhaseType& phasetype,const std::string task_info);
+	nlohmann::json CreateLogJson(LevelCode level_code,const std::string message_content,const PhaseType& sub_phase,const std::string task_info);
 
     /*!
     * \brief 构造数据类型的 JSON 数据包

@@ -772,7 +772,13 @@ void Arch::routeVcc()
 
 void Arch::routeClock()
 {
-    log_info("Routing global clocks...\n");
+    LogData logEntry = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::ROUTE,
+        PhaseType::ROUTE,
+        "Routing global clocks"
+    );
+    log_info("Routing global clocks...\n",logEntry);
     // Special pass for faster routing of global clock psuedo-net
     for (auto net : sorted(nets)) {
         NetInfo *clk_net = net.second;
@@ -806,7 +812,15 @@ void Arch::routeClock()
         if (!is_global)
             continue;
 
-        log_info("    routing clock '%s'\n", clk_net->name.c_str(this));
+        if(getCtx()->verbose){
+            LogData logEntry1 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "routing clock"
+            );
+            log_always("    routing clock '%s'\n",logEntry1, clk_net->name.c_str(this));
+        }
         bindWire(getCtx()->getNetinfoSourceWire(clk_net), clk_net, STRENGTH_LOCKED);
 
         for (auto &usr : clk_net->users) {
@@ -819,7 +833,13 @@ void Arch::routeClock()
                 auto sink_wire_name = "(uninitialized)";
                 if (sink_wire != WireId())
                     sink_wire_name = nameOfWire(sink_wire);
-                log_info("        routing arc to %s.%s (wire %s):\n", usr.cell->name.c_str(this), usr.port.c_str(this), sink_wire_name);
+                LogData logEntry2 = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::ROUTE,
+                    PhaseType::ROUTE,
+                    "routing arc to"
+                );    
+                log_always("        routing arc to %s.%s (wire %s):\n",usr.cell->name.c_str(this), usr.port.c_str(this), sink_wire_name);
             }
 
             visit.push(sink_wire);
@@ -832,7 +852,15 @@ void Arch::routeClock()
                 }
                 for (auto uh : getPipsUphill(curr)) {
                     if (!checkPipAvail(uh)) {
-                        if (getCtx()->debug) log_info("            skipping unavailable pip %s\n", getPipName(uh).c_str(this));
+                        if (getCtx()->debug) {
+                            LogData logEntry3 = LogData::CreateLogStruct(
+                                LevelCode::ALWAYS_LOG,
+                                LogCategory::ROUTE,
+                                PhaseType::ROUTE,
+                                "skipping unavailable pip"
+                            );
+                            log_always("            skipping unavailable pip %s\n", getPipName(uh).c_str(this));
+                        }
                         continue;
                     }
                     WireId src = getPipSrcWire(uh);
@@ -854,8 +882,15 @@ void Arch::routeClock()
                     auto bound_net = getBoundWireNet(src);
                     if (!avail && bound_net != clk_net)
                         {
-                            if (getCtx()->debug)
-                                log_info("            skipping unavailable wire %s used by net %s\n", srcname.c_str(), bound_net->name.c_str(this));
+                            if (getCtx()->debug){
+                                LogData logEntry5 = LogData::CreateLogStruct(
+                                    LevelCode::ALWAYS_LOG,
+                                    LogCategory::ROUTE,
+                                    PhaseType::ROUTE,
+                                    "skipping unavailable wire used by net"
+                                );
+                                log_always("            skipping unavailable wire %s used by net %s\n",srcname.c_str(), bound_net->name.c_str(this));
+                            }
                             continue;
                         }
                     backtrace[src] = uh;
@@ -898,8 +933,15 @@ void Arch::routeClock()
             while (backtrace.count(dest)) {
                 auto uh = backtrace[dest];
                 dest = getPipDstWire(uh);
-                if (getCtx()->debug)
-                    log_info("            bind pip %s\n", nameOfPip(uh));
+                if (getCtx()->debug){
+                    LogData logEntry4 = LogData::CreateLogStruct(
+                        LevelCode::ALWAYS_LOG,
+                        LogCategory::ROUTE,
+                        PhaseType::ROUTE,
+                        "bind pip"
+                    );
+                    log_always("            bind pip %s\n", nameOfPip(uh));
+                }
                 bindWire(dest, clk_net, STRENGTH_LOCKED);
                 bindPip(uh, clk_net, STRENGTH_LOCKED);
             }
@@ -1048,7 +1090,7 @@ void Arch::findSourceSinkLocations()
                         int tile = cursor.tile == -1 ? chip_info->nodes[cursor.index].tile_wires[0].tile : cursor.tile;
                         sink_locs[sink] = Loc(tile % chip_info->width, tile / chip_info->width, 0);
                         if (getCtx()->debug) {
-                            log_info("%s <---- %s\n", nameOfWire(sink), nameOfWire(cursor));
+                            // log_info("%s <---- %s\n", nameOfWire(sink), nameOfWire(cursor));
                         }
 
                         while (backtrace.count(cursor)) {
@@ -1098,7 +1140,7 @@ void Arch::findSourceSinkLocations()
                         int tile = cursor.tile == -1 ? chip_info->nodes[cursor.index].tile_wires[0].tile : cursor.tile;
                         source_locs[source] = Loc(tile % chip_info->width, tile / chip_info->width, 0);
                         if (getCtx()->debug) {
-                            log_info("%s ----> %s\n", nameOfWire(source), nameOfWire(cursor));
+                            // log_info("%s ----> %s\n", nameOfWire(source), nameOfWire(cursor));
                         }
 
                         while (backtrace.count(cursor)) {

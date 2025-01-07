@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(nextpnr CXX C)
 
-option(BUILD_GUI "Build GUI" ON)
-option(BUILD_PYTHON "Build Python Integration" ON)
+option(BUILD_GUI "Build GUI" OFF)
+option(BUILD_PYTHON "Build Python Integration" OFF)
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_HEAP "Build HeAP analytic placer" ON)
 option(USE_OPENMP "Use OpenMP to accelerate analytic placer" ON)
@@ -15,27 +15,29 @@ set(Boost_NO_BOOST_CMAKE ON)
 
 
 # ================ hybrdlink ===============
+# 添加子项目
+add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/)
+include_directories(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/bit7z/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/api)
+set(HYBRDLINK_LIBS "")  # 初始化变量
+if (WIN32)
+    # Windows-specific设置
+    list(APPEND HYBRDLINK_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/win/libSecuArc64.a oleaut32 uuid)
+elseif (UNIX)
+    # Linux/Unix-specific设置
+    list(APPEND HYBRDLINK_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/linux/libSecuArc64.a dl)
+endif()
+# 如果 build 文件夹存在，将指定文件夹内容复制到 build 文件夹
+if (EXISTS "${CMAKE_BINARY_DIR}")
+    message(STATUS "Build folder exists. Copying files...")
+    file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.so ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.dll DESTINATION ${CMAKE_BINARY_DIR}/)
+else()
+    message(WARNING "Build folder does not exist. Skipping file copy.")
+endif()
+add_definitions(-DKEY="lwh123456")
 
 option(HYBRDLINK "Encrption Option" OFF)
 if (HYBRDLINK)
     add_definitions(-DHYBRDLINK)
-    include_directories(${CMAKE_SOURCE_DIR}/3rdparty/bit7z/include/ ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/include/bit7z/ ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/)
-    set(HYBRDLINK_LIBS "")  # 初始化变量
-    if (WIN32)
-        # Windows-specific设置
-        list(APPEND HYBRDLINK_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/lib/win/SecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/lib/win/libSecuArc64.a oleaut32 uuid)
-    elseif (UNIX)
-        # Linux/Unix-specific设置
-        list(APPEND HYBRDLINK_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/lib/linux/SecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/lib/linux/libSecuArc64.a dl)
-    endif()
-    # 如果 build 文件夹存在，将指定文件夹内容复制到 build 文件夹
-    if (EXISTS "${CMAKE_BINARY_DIR}")
-        message(STATUS "Build folder exists. Copying files...")
-        file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/lib/SecuEngine.so ${CMAKE_SOURCE_DIR}/3rdparty/bit7z/lib/SecuEngine.dll DESTINATION ${CMAKE_BINARY_DIR}/)
-    else()
-        message(WARNING "Build folder does not exist. Skipping file copy.")
-    endif()
-    add_definitions(-DHYBRDLINK -DKEY="lwh123456")
 endif()
 
 message(STATUS "HYBRDLINK option is ${HYBRDLINK}")
@@ -268,10 +270,10 @@ foreach (family ${ARCH})
         # set(CMAKE_EXECUTABLE_SUFFIX) breaks CMake tests for some reason
         set_property(TARGET ${PROGRAM_PREFIX}nextpnr-${family} PROPERTY SUFFIX ".wasm")
     endif()
-    if(HYBRDLINK)
+
     # 在目标被定义后，链接 HYBRDLINK 库
     target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE ${HYBRDLINK_LIBS})
-    endif()
+
     install(TARGETS ${PROGRAM_PREFIX}nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 

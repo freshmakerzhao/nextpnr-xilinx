@@ -22,7 +22,5 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 bool parse_json(std::istream &in, const std::string &filename, Context *ctx);
-#ifdef HYBRDLINK
-bool parse_json(std::string &in, const std::string &filename, Context *ctx);
-#endif
+bool extract_Modules(std::string &in, const std::string &filename, Context *ctx);
 NEXTPNR_NAMESPACE_END

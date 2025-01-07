@@ -183,30 +183,19 @@ struct JsonFrontendImpl
 
 bool parse_json(std::istream &in, const std::string &filename, Context *ctx)
 {
-    Json root;
-    {
-        if (!in)
-            log_error("Failed to open JSON file '%s'.\n", filename.c_str());
-        std::string json_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-        std::string error;
-        root = Json::parse(json_str, error, JsonParse::COMMENTS);
-        if (root.is_null())
-            log_error("Failed to parse JSON file '%s': %s.\n", filename.c_str(), error.c_str());
-        root = root["modules"];
-        if (root.is_null())
-            log_error("JSON file '%s' doesn't look like a netlist (doesn't contain \"modules\" key)\n",
-                      filename.c_str());
-    }
-    GenericFrontend<JsonFrontendImpl>(ctx, JsonFrontendImpl(root))();
-    return true;
+    if (!in)
+        log_error("Failed to open JSON file '%s'.\n", filename.c_str());
+    std::string json_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    bool is_extract = extract_Modules(json_str,filename,ctx);
+    return is_extract;
 }
-#ifdef HYBRDLINK
-bool parse_json(std::string &in, const std::string &filename, Context *ctx)
+
+bool extract_Modules(std::string &in, const std::string &filename, Context *ctx)
 {
     Json root;
     {
         if (in.empty())
-            log_error("Failed to open JSON file '%s'.\n", filename.c_str());
+            log_error("The JSON file is empty '%s'.\n", filename.c_str());
         std::string error;
         root = Json::parse(in, error, JsonParse::COMMENTS);
         if (root.is_null())
@@ -219,5 +208,5 @@ bool parse_json(std::string &in, const std::string &filename, Context *ctx)
     GenericFrontend<JsonFrontendImpl>(ctx, JsonFrontendImpl(root))();
     return true;
 }
-#endif
+
 NEXTPNR_NAMESPACE_END

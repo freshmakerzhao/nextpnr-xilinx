@@ -41,9 +41,7 @@
 #include "timing.h"
 #include "util.h"
 #include "version.h"
-#ifdef HYBRDLINK
 #include "ArchiveTool.h"
-#endif
 NEXTPNR_NAMESPACE_BEGIN
 
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
@@ -103,7 +101,7 @@ po::options_description CommandHandler::getGeneralOptions()
 {
     po::options_description general("General options");
     general.add_options()("help,h", "show help");
-    general.add_options()("hybrdchip", "hybrdchip files");
+    general.add_options()("U", "Enable encryption and decryption");
     general.add_options()("verbose,v", "verbose output");
     general.add_options()("quiet,q", "quiet mode, only errors and warnings displayed");
     general.add_options()("log,l", po::value<std::string>(),
@@ -182,8 +180,8 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->force = true;
     }
 
-    if (vm.count("hybrdchip")) {
-        ctx->hybrdchip = true;
+    if (vm.count("U")) {
+        ctx->secure = true;
     }
 
     if (vm.count("seed")) {
@@ -307,32 +305,19 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
         bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
-#ifdef HYBRDLINK
-        if(do_pack){
-            if(ctx->hybrdchip){
-                Tool::ArchiveTool tool;
-                std::vector< Tool::byte_t > buffer;
-                tool.extractWithPassword(filename, buffer, KEY);
-                std::string buffer_str = tool.byte_to_string(buffer);
-                if (!parse_json(buffer_str, filename, ctx.get()))
-                    log_error("Loading design failed.\n");
-            }else{
-                std::ifstream f(filename);
-                if (!parse_json(f, filename, ctx.get()))
-                    log_error("Loading design failed.\n");
-            }
-        }
-        else{
+        if(do_pack && ctx->secure){
+            Tool::ArchiveTool tool;
+            std::vector< Tool::byte_t > buffer;
+            tool.extractWithPassword(filename, buffer, KEY);
+            std::string buffer_str = tool.byte_to_string(buffer);
+            if (!extract_Modules(buffer_str, filename, ctx.get()))
+                log_error("Loading design failed.\n");
+        }else{
             std::ifstream f(filename);
             if (!parse_json(f, filename, ctx.get()))
                 log_error("Loading design failed.\n");
         }
 
-#else
-        std::ifstream f(filename);
-        if (!parse_json(f, filename, ctx.get()))
-            log_error("Loading design failed.\n");
-#endif
         customAfterLoad(ctx.get());
     }
 

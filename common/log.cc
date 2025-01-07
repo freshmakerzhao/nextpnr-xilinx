@@ -25,7 +25,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
-#include <windows.h>
 #include "log.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -111,6 +110,46 @@ void logv(const char *format, va_list ap, LogLevel level = LogLevel::LOG_MSG)
         log_write_function(str);
 }
 
+void logv(const char *format, va_list ap, LogData& logdata, LogLevel level = LogLevel::LOG_MSG)
+{
+    //
+    // Trim newlines from the beginning
+    while (format[0] == '\n' && format[1] != 0) {
+        log_always("\n");
+        format++;
+    }
+
+    std::string str = vstringf(format, ap);
+
+    nlohmann::json data;
+    data["pipe_type"] = logdata.pipe_type;
+    data["level_code"] = logdata.level_code;
+    data["message_content"] = str;
+    data["phase"] = logdata.phase;
+    data["sub_phase"] = logdata.sub_phase;
+    data["category"] = "";
+    data["task_info"] = logdata.task_info;
+    data["level_code"] = LevelCode::ALWAYS_LOG;
+    #ifdef HYBRDLINK
+        Common::ConnectAndSendJson(PipeType::LOG, data);
+    #endif
+
+    if (str.empty())
+        return;
+
+    size_t nnl_pos = str.find_last_not_of('\n');
+    if (nnl_pos == std::string::npos)
+        log_newline_count += str.size();
+    else
+        log_newline_count = str.size() - nnl_pos - 1;
+
+    for (auto f : log_streams)
+        if (f.second <= level)
+            *f.first << str;
+    if (log_write_function)
+        log_write_function(str);
+}
+
 void log_with_level(LogLevel level, const char *format, ...)
 {
     message_count_by_level[level]++;
@@ -143,12 +182,7 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
     data["task_info"] = logdata.task_info;
     #ifdef HYBRDLINK
     try {
-        if(level == LogLevel::ALWAYS_MSG){
-            data["level_code"] = LevelCode::INFO_LOG;
-            data["category"] = "";
-            Common::ConnectAndSendJson(PipeType::LOG, data);
-        }
-        else if(level == LogLevel::INFO_MSG){
+       if(level == LogLevel::INFO_MSG){
             data["level_code"] = LevelCode::INFO_LOG;
             Common::ConnectAndSendJson(PipeType::LOG, data);
         }
@@ -170,11 +204,19 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
     log_flush();
 }
 
-void log_always(const char *format, ...)
+void log_always(const char *format,...)
 {
     va_list ap;
     va_start(ap, format);
     logv(format, ap, LogLevel::ALWAYS_MSG);
+    va_end(ap);
+}
+
+void log_always(const char *format, LogData& logdata, ...)
+{
+    va_list ap;
+    va_start(ap, logdata);
+    logv(format, ap,logdata, LogLevel::ALWAYS_MSG);
     va_end(ap);
 }
 

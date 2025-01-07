@@ -30,6 +30,9 @@
 #include <vector>
 #include "nextpnr.h"
 #include "logger_hybrdlink.h"
+#ifdef HYBRDLINK
+#include <windows.h>
+#endif
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -66,6 +69,7 @@ std::string vstringf(const char *fmt, va_list ap);
 extern std::ostream clog;
 void log(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_always(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
+void log_always(const char *format, LogData& logdata, ...) NPNR_ATTRIBUTE(format(printf, 1, 3));
 void log_info(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));
 void log_info(const char *format,LogData& logdata,...) NPNR_ATTRIBUTE(format(printf, 1, 3));
 void log_warning(const char *format, ...) NPNR_ATTRIBUTE(format(printf, 1, 2));

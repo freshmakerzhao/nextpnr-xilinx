@@ -186,7 +186,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("process_number")) {
-        Common::_father_process_id = vm["process_number"].as<std::string>();
+        Common::g_father_process_id = vm["process_number"].as<std::string>();
     }
     if (vm.count("randomize-seed")) {
         srand(time(NULL));

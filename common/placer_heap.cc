@@ -152,7 +152,13 @@ class HeAPPlacer
         wirelen_t hpwl = total_hpwl();
 
 #ifdef HYBRDLINK
-        log_info("Creating initial placement for %d cells, random placement wirelen = %d.\n",
+        LogData logEntry1 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::PlACE,
+            PhaseType::PLACE,
+            "Creating initial placement for cells"
+        );
+        log_info("Creating initial placement for %d cells, random placement wirelen = %d.\n",logEntry1,
                  int(place_cells.size()), int(hpwl));
 
 #else
@@ -176,7 +182,15 @@ class HeAPPlacer
             update_all_chains();
 
             hpwl = total_hpwl();
-            log_info("    at initial placer iter %d, wirelen = %d\n", i, int(hpwl));
+            if(ctx->verbose){
+                LogData logEntry2 = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::PlACE,
+                    PhaseType::PLACE,
+                    "at initial placer iter"
+                );
+                log_always("    at initial placer iter %d, wirelen = %d\n", logEntry2,i, int(hpwl));
+            }
         }
 
         /****************************************************************/
@@ -219,7 +233,13 @@ class HeAPPlacer
 
         // The main HeAP placer loop
 #ifdef HYBRDLINK
-        log_info("Running main placer.\n");
+        LogData logEntry3 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::PlACE,
+            PhaseType::PLACE,
+            "Running main placer"
+        );
+        log_info("Running main placer.\n",logEntry3);
 #else
         log_info("Running main analytical placer.\n");     
 #endif
@@ -227,8 +247,13 @@ class HeAPPlacer
         /*******************************/
         /** The main HeAP placer loop **/
         /*******************************/
-
-        log_info("Running main analytical placer.\n");
+        LogData logEntry4 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::PlACE,
+            PhaseType::PLACE,
+            "Running main analytical placer"
+        );
+        log_info("Running main analytical placer.\n",logEntry4);
         // If stall 5 times consecutively, break.
         while (stalled < 5 && (solved_hpwl <= legal_hpwl * 0.8)) {
             // Alternate between particular Bel types and all bels
@@ -272,12 +297,19 @@ class HeAPPlacer
 
                 legal_hpwl = total_hpwl();
                 auto run_stopt = std::chrono::high_resolution_clock::now();
-                log_info("    at iteration #%d, type %s: wirelen solved = %d, spread = %d, legal = %d; time = %.02fs\n",
-                         iter + 1, (run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)), int(solved_hpwl),
-                         int(spread_hpwl), int(legal_hpwl),
-                         std::chrono::duration<double>(run_stopt - run_startt).count());
+                if(ctx->verbose){
+                    LogData logEntry5 = LogData::CreateLogStruct(
+                        LevelCode::ALWAYS_LOG,
+                        LogCategory::PlACE,
+                        PhaseType::PLACE,
+                        "at iteration"
+                    );
+                    log_always("    at iteration #%d, type %s: wirelen solved = %d, spread = %d, legal = %d; time = %.02fs\n",logEntry5,
+                            iter + 1, (run.size() > 1 ? "ALL" : run.begin()->c_str(ctx)), int(solved_hpwl),
+                            int(spread_hpwl), int(legal_hpwl),
+                            std::chrono::duration<double>(run_stopt - run_startt).count());
+                }
             }
-
             if (cfg.timing_driven)
                 get_criticalities(ctx, &net_crit);
 
@@ -321,7 +353,15 @@ class HeAPPlacer
                 log_error("Found cell %s with mismatched binding\n", cell.first.c_str(ctx));
             if (ctx->debug){
 #ifdef HYBRDLINK
-                log_info("Placer2 soln: %s -> %s\n", cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));
+            if(ctx->verbose){
+                LogData logEntry6 = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::PlACE,
+                    PhaseType::PLACE,
+                    "Placer2 soln"
+                );
+                log_always("Placer2 soln: %s -> %s\n",logEntry6, cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));
+            }
 #else
                 log_info("AP soln: %s -> %s\n", cell.first.c_str(ctx), ctx->getBelName(cell.second->bel).c_str(ctx));     
 #endif
@@ -331,13 +371,42 @@ class HeAPPlacer
         ctx->unlock();
         auto endtt = std::chrono::high_resolution_clock::now();
 #ifdef HYBRDLINK
-        log_info("Placer2 Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
+        if(ctx->verbose){
+            LogData logEntry7 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::PlACE,
+                PhaseType::PLACE,
+                "Placer2 Time"
+            );
+            log_always("Placer2 Time: %.02fs\n",logEntry7, std::chrono::duration<double>(endtt - startt).count());
+        }
 #else
         log_info("HeAP Placer Time: %.02fs\n", std::chrono::duration<double>(endtt - startt).count());
 #endif
-        log_info("  of which solving equations: %.02fs\n", solve_time);
-        log_info("  of which spreading cells: %.02fs\n", cl_time);
-        log_info("  of which strict legalisation: %.02fs\n", sl_time);
+    if(ctx->verbose){
+        LogData logEntry8 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PlACE,
+            PhaseType::PLACE,
+            "of which solving equations"
+        );
+        log_always("  of which solving equations: %.02fs\n", logEntry8 ,solve_time);
+        LogData logEntry9 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PlACE,
+            PhaseType::PLACE,
+            "of which spreading cells"
+        );
+        log_always("  of which spreading cells: %.02fs\n", logEntry9 ,cl_time);
+        LogData logEntry10 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PlACE,
+            PhaseType::PLACE,
+            "of which strict legalisation"
+        );
+        log_always("  of which strict legalisation: %.02fs\n",logEntry10, sl_time);
+    }
+
 
         ctx->check();
 
@@ -448,7 +517,13 @@ class HeAPPlacer
                 placed_cells++;
             }
         }
-        log_info("Placed %d cells based on constraints.\n", int(placed_cells));
+        LogData logEntry = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::PlACE,
+            PhaseType::PLACE,
+            "Placed cells based on constraints"
+        );
+        log_info("Placed %d cells based on constraints.\n", logEntry,int(placed_cells));
         ctx->yield();
     }
 

@@ -95,8 +95,22 @@ void XC7Packer::constrain_ibufds_gtp_site(CellInfo *buf_cell, const std::string 
 
     buf_cell->attrs[id_BEL] = buf_bel;
     buf_cell->attrs[ctx->id("_REL_BUF_Y")] = Property(rel_buf_y);
-    log_info("    Constraining '%s' to site '%s'\n", buf_cell->name.c_str(ctx), buf_bel.c_str());
-    log_info("    Tile '%s'\n", tile->name.get());
+    if(ctx->verbose){
+        LogData logEntry1 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PACK,
+            PhaseType::PACK,
+            "Constraining to site"
+        );
+        log_always("    Constraining '%s' to site '%s'\n",logEntry1, buf_cell->name.c_str(ctx), buf_bel.c_str());
+        LogData logEntry2 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PACK,
+            PhaseType::PACK,
+            "Tile"
+        );
+        log_always("    Tile '%s'\n",logEntry2, tile->name.get());
+    }
 }
 
 void XC7Packer::constrain_gtp(CellInfo *pad_cell, CellInfo *gtp_cell)
@@ -113,16 +127,38 @@ void XC7Packer::constrain_gtp(CellInfo *pad_cell, CellInfo *gtp_cell)
             return;
         }
         gtp_cell->attrs[id_BEL] = gtp_bel;
-        log_info("    Constraining '%s' to site '%s'\n", gtp_cell->name.c_str(ctx), gtp_site.c_str());
+        if(ctx->verbose){
+            LogData logEntry3 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::PACK,
+                PhaseType::PACK,
+                "Constraining to site"
+            );
+            log_always("    Constraining '%s' to site '%s'\n", logEntry3 ,gtp_cell->name.c_str(ctx), gtp_site.c_str());
+        }
         std::string tile = get_tilename_by_sitename(ctx, gtp_site);
-        log_info("    Tile '%s'\n", tile.c_str());
+        if(ctx->verbose){
+            LogData logEntry4 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::PACK,
+                PhaseType::PACK,
+                "Tile"
+            );
+            log_always("    Tile '%s'\n", logEntry4,tile.c_str());
+        }
 
     } else log_error("Pad cell %s has not been placed\n", pad_cell->name.c_str(ctx));
 }
 
 void XC7Packer::pack_gt()
 {
-    log_info("Packing GTP Transceivers..\n");
+    LogData logEntry = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing GTP Transceivers"
+    );
+    log_info("Packing GTP Transceivers..\n",logEntry);
 
     std::vector<CellInfo *> all_plls;
 

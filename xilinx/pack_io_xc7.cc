@@ -106,7 +106,15 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
     std::vector<CellInfo *> subcells;
 
     if (is_se_ibuf || is_se_iobuf) {
-        log_info("Generating input buffer for '%s'\n", xil_iob->name.c_str(ctx));
+        if(ctx->verbose){
+            LogData logEntry0 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::PACK,
+                PhaseType::PACK,
+                "Generating input buffer"
+            );
+            log_always("Generating input buffer for '%s'\n",logEntry0, xil_iob->name.c_str(ctx));
+        }
         NetInfo *pad_net = get_net_or_empty(xil_iob, is_se_iobuf ? ctx->id("IO") : ctx->id("I"));
         NPNR_ASSERT(pad_net != nullptr);
         std::string site = pad_site(pad_net);
@@ -141,7 +149,15 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
     }
 
     if (is_se_obuf || is_se_iobuf) {
-        log_info("Generating output buffer for '%s'\n", xil_iob->name.c_str(ctx));
+        if(ctx->verbose){
+            LogData logEntry4 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::PACK,
+                PhaseType::PACK,
+                "Generating output buffer"
+            );
+            log_always("Generating output buffer for '%s'\n",logEntry4, xil_iob->name.c_str(ctx));
+        }
         NetInfo *pad_net = get_net_or_empty(xil_iob, is_se_iobuf ? ctx->id("IO") : ctx->id("O"));
         NPNR_ASSERT(pad_net != nullptr);
         std::string site = pad_site(pad_net);
@@ -472,8 +488,13 @@ void XC7Packer::pack_io()
     // get_tilename_by_sitename()
     // is initialized before we use it below
     ctx->setup_byname();
-
-    log_info("Inserting IO buffers..\n");
+    LogData logEntry2 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Inserting IO buffers.."
+    );
+    log_info("Inserting IO buffers..\n",logEntry2);
 
     get_top_level_pins(ctx, toplevel_ports);
     // Insert PAD cells on top level IO, and IO buffers where one doesn't exist already
@@ -499,9 +520,25 @@ void XC7Packer::pack_io()
             if (site.empty())
                 log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", pad->name.c_str(ctx),
                           loc.c_str());
-            log_info("    Constraining '%s' to site '%s'\n", pad->name.c_str(ctx), site.c_str());
+            if(ctx->verbose){
+                LogData logEntry = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::PACK,
+                    PhaseType::PACK,
+                    "Constraining site"
+                );
+                log_always("    Constraining '%s' to site '%s'\n",logEntry, pad->name.c_str(ctx), site.c_str());
+            }
             std::string tile = get_tilename_by_sitename(ctx, site);
-            log_info("    Tile '%s'\n", tile.c_str());
+            if(ctx->verbose){
+                LogData logEntry3 = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::PACK,
+                    PhaseType::PACK,
+                    "Tile"
+                );
+                log_always("    Tile '%s'\n",logEntry3, tile.c_str());
+            }
             if (boost::starts_with(tile, "GTP_COMMON") || boost::starts_with(tile, "GTP_CHANNEL")) {
                 auto pad_bel = std::string(site + "/PAD");
                 pad->attrs[id_BEL] = pad_bel;
@@ -1364,7 +1401,13 @@ void XC7Packer::pack_idelayctrl()
 
 void XC7Packer::pack_cfg()
 {
-    log_info("Packing cfg...\n");
+    LogData logEntry1 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing cfg..."
+    );
+    log_info("Packing cfg...\n",logEntry1);
     std::unordered_map<IdString, XFormRule> cfg_rules;
     cfg_rules[id_BSCANE2].new_type      = id_BSCAN;
     cfg_rules[id_DCIRESET].new_type     = id_DCIRESET_DCIRESET;

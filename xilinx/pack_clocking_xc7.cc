@@ -35,7 +35,13 @@ NEXTPNR_NAMESPACE_BEGIN
 
 void XC7Packer::prepare_clocking()
 {
-    log_info("Preparing clocking...\n");
+    LogData logEntry1 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Preparing clocking..."
+    );
+    log_info("Preparing clocking...\n",logEntry1);
     std::unordered_map<IdString, IdString> upgrade;
     upgrade[ctx->id("MMCME2_BASE")] = ctx->id("MMCME2_ADV");
     upgrade[ctx->id("PLLE2_BASE")] = ctx->id("PLLE2_ADV");
@@ -203,7 +209,13 @@ void XC7Packer::prepare_clocking()
 
 void XC7Packer::pack_plls()
 {
-    log_info("Packing PLLs...\n");
+    LogData logEntry2 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing PLLs"
+    );
+    log_info("Packing PLLs...\n",logEntry2);
 
     auto set_default = [](CellInfo *ci, IdString param, const Property &value) {
         if (!ci->params.count(param))
@@ -243,7 +255,13 @@ void XC7Packer::pack_plls()
 
 void XC7Packer::pack_gbs()
 {
-    log_info("Packing global buffers...\n");
+    LogData logEntry3 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing global buffers"
+    );
+    log_info("Packing global buffers...\n",logEntry3);
 
     // Make sure prerequisites are set up first
     for (auto cell : sorted(ctx->cells)) {

@@ -83,7 +83,13 @@ void XC7Packer::walk_dsp(CellInfo *root, CellInfo *current_cell, int constr_z,in
 
 void XC7Packer::pack_dsps()
 {
-    log_info("Packing DSPs..\n");
+    LogData logEntry = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing DSPs"
+    );
+    log_info("Packing DSPs..\n",logEntry);
 
     std::unordered_map<IdString, XFormRule> dsp_rules;
     dsp_rules[ctx->id("DSP48E1")].new_type = ctx->id("DSP48E1_DSP48E1");

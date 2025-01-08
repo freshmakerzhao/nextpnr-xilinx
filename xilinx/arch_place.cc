@@ -661,7 +661,13 @@ bool Arch::isBelAlignedWithCellRegion(CellInfo *cell, BelId bel) const
 
 void Arch::fixupPlacement()
 {
-    log_info("Running post-placement legalisation...\n");
+    LogData logEntry = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PlACE,
+        PhaseType::PLACE,
+        "Running post-placement legalisation"
+    );
+    log_info("Running post-placement legalisation...\n",logEntry);
     for (auto &ts : tileStatus) {
         if (ts.lts == nullptr)
             continue;
@@ -943,7 +949,13 @@ void Arch::fixupPlacement()
 
 void Arch::fixupRouting()
 {
-    log_info("Running post-routing legalisation...\n");
+    LogData logEntry1 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::ROUTE,
+        PhaseType::ROUTE,
+        "Running post-routing legalisation"
+    );
+    log_info("Running post-routing legalisation...\n",logEntry1);
     /*
      * Convert LUT permutation into correct physical connections (i.e. effectively eliminating the permutation pips),
      * then specifying the permutation as a new physical-to-logical mapping using X_ORIG_PORT. This keeps RapidWright
@@ -1130,6 +1142,20 @@ void Arch::fixupRouting()
             ci->params[id("OSERDES_T_BYPASS")] = std::string("TRUE");
         }
     }
+
+    nlohmann::json data_info;
+    data_info["pipe_type"] = PipeTypeToString(PipeType::DATA);
+    data_info["level_code"] = static_cast<int>(LevelCode::INFO_LOG);
+    data_info["message_content"] = "Implemntation Successed!!!";
+    data_info["phase"] = PhaseTypeToString(PhaseType::IMPLEMENTATION);
+    data_info["sub_phase"] = PhaseTypeToString(PhaseType::ROUTE);
+    data_info["category"] = "";
+    data_info["task_info"] = "ENDING IMPLEMENTATION TASK!!!";
+    nlohmann::json data = Common::CreateDataJson(StatusCode::SUCCESS, data_info, data_info["sub_phase"]);
+    #ifdef _WIN32
+        Common::ConnectAndSendJson(PipeType::DATA, data);
+    #endif
+
 }
 
 NEXTPNR_NAMESPACE_END

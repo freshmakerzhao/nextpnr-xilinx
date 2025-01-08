@@ -30,7 +30,7 @@
 #include <vector>
 #include "nextpnr.h"
 #include "logger_hybrdlink.h"
-#ifdef HYBRDLINK
+#ifdef _WIN32
 #include <windows.h>
 #endif
 

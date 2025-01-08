@@ -130,7 +130,7 @@ void logv(const char *format, va_list ap, LogData& logdata, LogLevel level = Log
     data["category"] = "";
     data["task_info"] = logdata.task_info;
     data["level_code"] = LevelCode::ALWAYS_LOG;
-    #ifdef HYBRDLINK
+    #ifdef _WIN32
         Common::ConnectAndSendJson(PipeType::LOG, data);
     #endif
 
@@ -180,7 +180,7 @@ void logv_prefixed(const char *prefix, const char *format, va_list ap, LogLevel 
     data["sub_phase"] = logdata.sub_phase;
     data["category"] = logdata.category;
     data["task_info"] = logdata.task_info;
-    #ifdef HYBRDLINK
+    #ifdef _WIN32
     try {
        if(level == LogLevel::INFO_MSG){
             data["level_code"] = LevelCode::INFO_LOG;

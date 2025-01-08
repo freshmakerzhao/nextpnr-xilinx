@@ -3,7 +3,6 @@
  * Copyright (C) 2023 Gwenhael Goavec-Merou <gwenhael.goavec-merou@trabucayre.com>
  */
 #include <iostream>
-#include <windows.h>
 #include "logger_hybrdlink.h"
 
 std::string StatusCodeToString(StatusCode code) {

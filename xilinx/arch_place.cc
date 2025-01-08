@@ -1152,7 +1152,9 @@ void Arch::fixupRouting()
     data_info["category"] = "";
     data_info["task_info"] = "ENDING IMPLEMENTATION TASK!!!";
     nlohmann::json data = Common::CreateDataJson(StatusCode::SUCCESS, data_info, data_info["sub_phase"]);
-    Common::ConnectAndSendJson(PipeType::DATA, data);
+    #ifdef _WIN32
+        Common::ConnectAndSendJson(PipeType::DATA, data);
+    #endif
 
 }
 

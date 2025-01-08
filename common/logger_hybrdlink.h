@@ -6,12 +6,12 @@
 #ifndef SRC_COMMON_HPP_
 #define SRC_COMMON_HPP_
 
-#include <sstream>
-#include <bitset>
 #include <string>
-#include <cstdlib>
 #include "json.hpp" // 引入 nlohmann/json
-#include <queue>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 
 // 日志等级
 enum class LevelCode {

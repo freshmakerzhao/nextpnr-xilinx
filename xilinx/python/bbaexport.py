@@ -77,13 +77,13 @@ def main():
 		bba.pre('NEXTPNR_NAMESPACE_BEGIN')
 		bba.post('NEXTPNR_NAMESPACE_END')
 		bba.push('chipdb_blob')
-		bba.offset32()
+		# bba.offset32()
 		bba.ref('chip_info', 'chip_info')
 
 		bba.label('extra_constid_strs')
 		for i in range(constid.num_base_ids, len(constid.constids)):
 			bba.str(constid.constids[i])
-		bba.align()
+		# bba.align()
 
 		bba.label('extra_constids')
 		bba.u32(constid.num_base_ids)

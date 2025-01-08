@@ -72,7 +72,13 @@ void print_utilisation(const Context *ctx)
         available_types[ctx->getBelType(bel)]++;
     }
     log_break();
-    log_info("Device utilisation:\n");
+    LogData logEntry0 = LogData::CreateLogStruct(
+        LevelCode::ALWAYS_LOG,
+        LogCategory::OPT,
+        PhaseType::PACK,
+        "Device utilisation:"
+    );
+    log_always("Device utilisation:\n",logEntry0);
     std::ofstream file("place_stat.json");
     json11::Json::object stat_data;
     for (auto type : available_types) {

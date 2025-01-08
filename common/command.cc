@@ -41,8 +41,8 @@
 #include "timing.h"
 #include "util.h"
 #include "version.h"
+#include "ArchiveTool.h"
 #include "logger_hybrdlink.h"
-
 NEXTPNR_NAMESPACE_BEGIN
 
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
@@ -103,6 +103,7 @@ po::options_description CommandHandler::getGeneralOptions()
     po::options_description general("General options");
     general.add_options()("process_number", po::value<std::string>(), "process_number");
     general.add_options()("help,h", "show help");
+    general.add_options()("U", "Enable encryption and decryption");
     general.add_options()("verbose,v", "verbose output");
     general.add_options()("quiet,q", "quiet mode, only errors and warnings displayed");
     general.add_options()("log,l", po::value<std::string>(),
@@ -179,6 +180,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("force")) {
         ctx->force = true;
+    }
+
+    if (vm.count("U")) {
+        ctx->secure = true;
     }
 
     if (vm.count("seed")) {
@@ -304,9 +309,19 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 #endif
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
-        std::ifstream f(filename);
-        if (!parse_json(f, filename, ctx.get()))
-            log_error("Loading design failed.\n");
+        bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
+        if(do_pack && ctx->secure){
+            Tool::ArchiveTool tool;
+            std::vector< Tool::byte_t > buffer;
+            tool.extractWithPassword(filename, buffer, KEY);
+            std::string buffer_str = tool.byte_to_string(buffer);
+            if (!extract_Modules(buffer_str, filename, ctx.get()))
+                log_error("Loading design failed.\n");
+        }else{
+            std::ifstream f(filename);
+            if (!parse_json(f, filename, ctx.get()))
+                log_error("Loading design failed.\n");
+        }
 
         customAfterLoad(ctx.get());
     }

@@ -146,43 +146,44 @@ namespace Common {
 			}
             else if (pipeType == PipeType::CONTROL)
                 pipeName = Common::g_control_pipe_name + Common::g_father_process_id;
-
-            // 将 std::string 转换为 std::wstring（Windows 使用宽字符）
-            std::wstring wpipeName = std::wstring(pipeName.begin(), pipeName.end());
-            // 尝试连接到指定名称的命名管道
-            HANDLE hPipe = CreateFileW(
-                wpipeName.c_str(),              // 命名管道名称
-                GENERIC_WRITE | GENERIC_READ,   // 读写权限
-                0,                              // 其他进程是否可以访问(0:不共享管道)
-                NULL,                           // 默认安全属性
-                OPEN_EXISTING,                  // 打开现有管道
-                FILE_ATTRIBUTE_NORMAL,          // 同步模式
-                NULL                            // 无模板
-            );
-            // 处理异常
-            if (hPipe == INVALID_HANDLE_VALUE) {
-                DWORD errorCode = GetLastError();
-                if (errorCode == ERROR_FILE_NOT_FOUND) { // 管道不存在
-                    // std::cerr << "Pipe not found: " << pipeName << std::endl;
-                } else if (errorCode == ERROR_ACCESS_DENIED) { // 访问被拒绝
-                    // std::cerr << "Access denied to pipe: " << pipeName << std::endl;
-                } else {
-                    // std::cerr << "Failed to connect to pipe: " << pipeName << " Error: " << errorCode << std::endl;
+            #ifdef _WIN32
+                // 将 std::string 转换为 std::wstring（Windows 使用宽字符）
+                std::wstring wpipeName = std::wstring(pipeName.begin(), pipeName.end());
+                // 尝试连接到指定名称的命名管道
+                HANDLE hPipe = CreateFileW(
+                    wpipeName.c_str(),              // 命名管道名称
+                    GENERIC_WRITE | GENERIC_READ,   // 读写权限
+                    0,                              // 其他进程是否可以访问(0:不共享管道)
+                    NULL,                           // 默认安全属性
+                    OPEN_EXISTING,                  // 打开现有管道
+                    FILE_ATTRIBUTE_NORMAL,          // 同步模式
+                    NULL                            // 无模板
+                );
+                // 处理异常
+                if (hPipe == INVALID_HANDLE_VALUE) {
+                    DWORD errorCode = GetLastError();
+                    if (errorCode == ERROR_FILE_NOT_FOUND) { // 管道不存在
+                        // std::cerr << "Pipe not found: " << pipeName << std::endl;
+                    } else if (errorCode == ERROR_ACCESS_DENIED) { // 访问被拒绝
+                        // std::cerr << "Access denied to pipe: " << pipeName << std::endl;
+                    } else {
+                        // std::cerr << "Failed to connect to pipe: " << pipeName << " Error: " << errorCode << std::endl;
+                    }
+                    return;
                 }
-                return;
-            }
-            std::string jsonString = jsonData.dump();
+                std::string jsonString = jsonData.dump();
 
-			// 发送 JSON 数据到命名管道
-			DWORD bytesWritten = 0;
-			if (WriteFile(hPipe, jsonString.c_str(), static_cast<DWORD>(jsonString.length()), &bytesWritten, NULL)) {
-				// std::cout << "JSON message sent to pipe: "<< pipeName << " (" << std::to_string(bytesWritten) << " bytes written)" << std::endl;
-			} else {
-				DWORD errorCode = GetLastError();
-				// std::cerr << "Failed to write to pipe: "<< pipeName << " Error: " << std::to_string(errorCode) << std::endl;
-			}
-			// // 关闭管道句柄
-			CloseHandle(hPipe);
+                // 发送 JSON 数据到命名管道
+                DWORD bytesWritten = 0;
+                if (WriteFile(hPipe, jsonString.c_str(), static_cast<DWORD>(jsonString.length()), &bytesWritten, NULL)) {
+                    // std::cout << "JSON message sent to pipe: "<< pipeName << " (" << std::to_string(bytesWritten) << " bytes written)" << std::endl;
+                } else {
+                    DWORD errorCode = GetLastError();
+                    // std::cerr << "Failed to write to pipe: "<< pipeName << " Error: " << std::to_string(errorCode) << std::endl;
+                }
+                // // 关闭管道句柄
+                CloseHandle(hPipe);
+            #endif
         }
     }
 

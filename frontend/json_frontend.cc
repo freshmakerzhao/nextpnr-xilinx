@@ -186,11 +186,11 @@ bool parse_json(std::istream &in, const std::string &filename, Context *ctx)
     if (!in)
         log_error("Failed to open JSON file '%s'.\n", filename.c_str());
     std::string json_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    bool is_extract = extract_Modules(json_str,filename,ctx);
+    bool is_extract = extract_modules(json_str,filename,ctx);
     return is_extract;
 }
 
-bool extract_Modules(std::string &in, const std::string &filename, Context *ctx)
+bool extract_modules(std::string &in, const std::string &filename, Context *ctx)
 {
     Json root;
     {

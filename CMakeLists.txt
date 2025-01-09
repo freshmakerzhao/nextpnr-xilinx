@@ -15,16 +15,18 @@ set(Boost_NO_BOOST_CMAKE ON)
 
 
 # ================ hybrdlink ===============
+option(COMPRESS_MODE "Never build chipdb in parallel to reduce peak memory use" OFF)
+if(COMPRESS_MODE)
 # 添加子项目
 add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/)
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/bit7z/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/api)
-set(HYBRDLINK_LIBS "")  # 初始化变量
+set(COMPRESS_LIBS "")  # 初始化变量
 if (WIN32)
     # Windows-specific设置
-    list(APPEND HYBRDLINK_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/win/libSecuArc64.a oleaut32 uuid)
+    list(APPEND COMPRESS_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/win/libSecuArc64.a oleaut32 uuid)
 elseif (UNIX)
     # Linux/Unix-specific设置
-    list(APPEND HYBRDLINK_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/linux/libSecuArc64.a dl)
+    list(APPEND COMPRESS_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/linux/libSecuArc64.a dl)
 endif()
 # 如果 build 文件夹存在，将指定文件夹内容复制到 build 文件夹
 if (EXISTS "${CMAKE_BINARY_DIR}")
@@ -34,6 +36,7 @@ else()
     message(WARNING "Build folder does not exist. Skipping file copy.")
 endif()
 add_definitions(-DKEY="lwh123456")
+endif()
 
 option(HYBRDLINK "Encrption Option" OFF)
 if (HYBRDLINK)
@@ -272,7 +275,7 @@ foreach (family ${ARCH})
     endif()
 
     # 在目标被定义后，链接 HYBRDLINK 库
-    target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE ${HYBRDLINK_LIBS})
+    target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE ${COMPRESS_LIBS})
 
     install(TARGETS ${PROGRAM_PREFIX}nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE MAIN_EXECUTABLE)

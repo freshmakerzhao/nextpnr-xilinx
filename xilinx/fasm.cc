@@ -37,24 +37,11 @@ struct FasmBackend
     std::unordered_map<int, std::vector<PipId>> pips_by_tile;
 
     std::unordered_map<IdString, std::unordered_set<IdString>> invertible_pins;
-    std::ostream *out;
-    std::vector<Tool::byte_t>* buffer;
-    FasmBackend(Context *ctx, std::vector<Tool::byte_t>* buffer,std::ostream *out = nullptr) : ctx(ctx), buffer(buffer){
-        if (!buffer) {
-            throw std::invalid_argument("Buffer pointer cannot be null");
-        }
-    };
+    std::vector<Tool::byte_t> buffer;
+    FasmBackend(Context *ctx) : ctx(ctx){};
     void append_to_buffer(const std::string &data) {
-        if(buffer){
-            buffer->insert(buffer->end(), data.begin(), data.end());
-        }
+            buffer.insert(buffer.end(), data.begin(), data.end());
     }
-
-    FasmBackend(Context *ctx, std::ostream *out) : ctx(ctx), out(out){
-        if (!out) {
-            throw std::invalid_argument("Output stream pointer cannot be null");
-        }
-    };
 
     void push(const std::string &x) { fasm_ctx.push_back(x); }
 
@@ -70,11 +57,7 @@ struct FasmBackend
     void blank()
     {
         if (!last_was_blank){
-            if(ctx->secure){
-                append_to_buffer("\n");   
-            }else{
-                *out << std::endl;
-            }
+            append_to_buffer("\n");   
         }      
         last_was_blank = true;
     }
@@ -82,11 +65,7 @@ struct FasmBackend
     void write_prefix()
     {
         for (auto &x : fasm_ctx){
-            if(ctx->secure){
-                append_to_buffer(x+".");
-            }else{
-                *out << x << ".";
-            }
+            append_to_buffer(x+".");
         }
         last_was_blank = false;
     }
@@ -95,44 +74,24 @@ struct FasmBackend
     {
         if (value) {
             write_prefix();
-            if(ctx->secure){
-                append_to_buffer(name+"\n");
-            }else{
-                *out << name << std::endl;
-            }
+            append_to_buffer(name+"\n");
         }
     }
 
     void write_vector(const std::string &name, const std::vector<bool> &value, bool invert = false, bool reverse = true)
     {
         write_prefix();
-        if(ctx->secure){
-            append_to_buffer(name+"="+std::to_string(value.size())+"'b");
-        }else{
-            *out << name << " = " << int(value.size()) << "'b";
-        }
+        append_to_buffer(name+"="+std::to_string(value.size())+"'b");
         if (reverse) {
             for (auto bit : boost::adaptors::reverse(value)){
-                if(ctx->secure){
-                    append_to_buffer(std::string(1,(bit ^ invert) ? '1' : '0'));
-                }else{
-                    *out << ((bit ^ invert) ? '1' : '0');
-                }
+                append_to_buffer(std::string(1,(bit ^ invert) ? '1' : '0'));
             }
         } else {
             for (auto bit : value){
-                if(ctx->secure){
-                    append_to_buffer(std::string(1,(bit ^ invert) ? '1' : '0'));
-                }else{
-                    *out << ((bit ^ invert) ? '1' : '0');
-                }
+                append_to_buffer(std::string(1,(bit ^ invert) ? '1' : '0'));
             }
         }
-        if(ctx->secure){
-            append_to_buffer("\n");
-        }else{
-            *out << std::endl;
-        }
+        append_to_buffer("\n");
 
     }
     void write_int_vector(const std::string &name, uint64_t value, int width, bool invert = false)
@@ -349,11 +308,7 @@ struct FasmBackend
                             c.replace(y0pos, 2, "Y1");
                     }
                 }
-                if(ctx->secure){
-                    append_to_buffer(tile_name+"."+c+"\n");
-                }else{
-                    *out << tile_name << "." << c << std::endl;
-                }
+                append_to_buffer(tile_name+"."+c+"\n");
             }
             if (!pp.empty())
                 last_was_blank = false;
@@ -402,15 +357,9 @@ struct FasmBackend
                     return; // missing, not sure if really a ppip?
             }
 
-            if(ctx->secure){
-                append_to_buffer(tile_name+".");
-                append_to_buffer(dst_name+".");
-                append_to_buffer(src_name+"\n");
-            }else{
-                *out << tile_name << ".";
-                *out << dst_name << ".";
-                *out << src_name << std::endl;
-            }
+            append_to_buffer(tile_name+".");
+            append_to_buffer(dst_name+".");
+            append_to_buffer(src_name+"\n");
 
             if (boost::contains(tile_name, "IOI") && boost::starts_with(dst_name, "IOI_OCLK_")) {
                 dst_name.insert(dst_name.find("OCLK") + 4, 1, 'M');
@@ -419,15 +368,9 @@ struct FasmBackend
                 WireId w = ctx->getWireByName(ctx->id(tile_name + "/" + orig_dst_name));
                 NPNR_ASSERT(w != WireId());
                 if (ctx->getBoundWireNet(w) == nullptr) {
-                    if(ctx->secure){
-                        append_to_buffer(tile_name+".");
-                        append_to_buffer(dst_name+".");
-                        append_to_buffer(src_name+"\n");
-                    }else{
-                        *out << tile_name << ".";
-                        *out << dst_name << ".";
-                        *out << src_name << std::endl;
-                    }
+                    append_to_buffer(tile_name+".");
+                    append_to_buffer(dst_name+".");
+                    append_to_buffer(src_name+"\n");
                 }
             }
 
@@ -601,17 +544,10 @@ struct FasmBackend
                 }
 
                 write_prefix();
-                if(ctx->secure){
-                    append_to_buffer(belname);
-                    if (!skip_pinname)
-                        append_to_buffer("."+pinname);
-                    append_to_buffer("\n");
-                }else{
-                    *out << belname;
-                    if (!skip_pinname)
-                        *out << "." << pinname;
-                    *out << std::endl;
-                }
+                append_to_buffer(belname);
+                if (!skip_pinname)
+                    append_to_buffer("."+pinname);
+                append_to_buffer("\n");
             }
         }
     }
@@ -3477,32 +3413,35 @@ struct FasmBackend
         write_ip();
         write_xadc();
     }
+
+    void compress_buffer(const std::string &filename)
+    {
+        Tool::ArchiveTool tool;
+
+        size_t lastSlash = filename.find_last_of("/\\");
+        // 获取文件名部分
+        std::string use_filename = filename.substr(lastSlash + 1);
+        tool.compressWithPassword(buffer,filename,use_filename,KEY);
+    }
+    void out_buffer(const std::string &filename)
+    {
+        std::ofstream out(filename);
+        if (!out)
+            log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
+        out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+    }
 };
 
 } // namespace
 
 void Arch::writeFasm(const std::string &filename)
 {
-    if(getCtx()->secure){
-        std::ofstream out(filename,std::ofstream::trunc|std::ofstream::binary);
-        if (!out)
-            log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
-        std::vector<Tool::byte_t> mbuffer;
-        FasmBackend be(getCtx(), &mbuffer);
-        be.write_fasm();
-
-        Tool::ArchiveTool tool;
-
-        size_t lastSlash = filename.find_last_of("/\\");
-        // 获取文件名部分
-        std::string use_filename = filename.substr(lastSlash + 1);
-        tool.compressWithPassword(mbuffer,out,use_filename,KEY);
+    FasmBackend be(getCtx());
+    be.write_fasm();
+    if(getCtx()->compress_mode){
+        be.compress_buffer(filename);
     }else{
-        std::ofstream out(filename);
-        if (!out)
-            log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
-        FasmBackend be(getCtx(), &out);
-        be.write_fasm();
+        be.out_buffer(filename);
     }
 }
 

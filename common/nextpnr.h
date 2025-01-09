@@ -866,7 +866,7 @@ struct Context : Arch, DeterministicRNG
     bool verbose = false;
     bool debug = false;
     bool force = false;
-    bool secure = false;
+    bool compress_mode = false;
 
     Context(ArchArgs args) : Arch(args) {}
 

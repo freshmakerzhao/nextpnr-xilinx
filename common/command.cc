@@ -181,7 +181,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("U")) {
-        ctx->secure = true;
+        ctx->compress_mode = true;
     }
 
     if (vm.count("seed")) {
@@ -305,12 +305,12 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
         bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
-        if(do_pack && ctx->secure){
+        if(do_pack && ctx->compress_mode){
             Tool::ArchiveTool tool;
             std::vector< Tool::byte_t > buffer;
             tool.extractWithPassword(filename, buffer, KEY);
             std::string buffer_str = tool.byte_to_string(buffer);
-            if (!extract_Modules(buffer_str, filename, ctx.get()))
+            if (!extract_modules(buffer_str, filename, ctx.get()))
                 log_error("Loading design failed.\n");
         }else{
             std::ifstream f(filename);

@@ -15,7 +15,7 @@ set(Boost_NO_BOOST_CMAKE ON)
 
 
 # ================ hybrdlink ===============
-option(COMPRESS_MODE "Never build chipdb in parallel to reduce peak memory use" OFF)
+option(COMPRESS_MODE "Decompression and compression options" OFF)
 if(COMPRESS_MODE)
 # 添加子项目
 add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/)

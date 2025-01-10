@@ -41,7 +41,9 @@
 #include "timing.h"
 #include "util.h"
 #include "version.h"
+#ifdef COMPRESS_MODE
 #include "ArchiveTool.h"
+#endif
 NEXTPNR_NAMESPACE_BEGIN
 
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
@@ -306,12 +308,14 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         std::string filename = vm["json"].as<std::string>();
         bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
         if(do_pack && ctx->compress_mode){
+#ifdef COMPRESS_MODE
             Tool::ArchiveTool tool;
             std::vector< Tool::byte_t > buffer;
             tool.extractWithPassword(filename, buffer, KEY);
             std::string buffer_str = tool.byte_to_string(buffer);
             if (!extract_modules(buffer_str, filename, ctx.get()))
                 log_error("Loading design failed.\n");
+#endif
         }else{
             std::ifstream f(filename);
             if (!parse_json(f, filename, ctx.get()))

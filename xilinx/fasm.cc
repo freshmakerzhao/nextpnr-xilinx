@@ -26,7 +26,9 @@
 #include "pins.h"
 #include "util.h"
 #include "json.hpp"
+#ifdef COMPRESS_MODE
 #include "ArchiveTool.h"
+#endif
 NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct FasmBackend
@@ -37,7 +39,7 @@ struct FasmBackend
     std::unordered_map<int, std::vector<PipId>> pips_by_tile;
 
     std::unordered_map<IdString, std::unordered_set<IdString>> invertible_pins;
-    std::vector<Tool::byte_t> buffer;
+    std::vector<unsigned char> buffer;
     FasmBackend(Context *ctx) : ctx(ctx){};
     void append_to_buffer(const std::string &data) {
             buffer.insert(buffer.end(), data.begin(), data.end());
@@ -3416,12 +3418,13 @@ struct FasmBackend
 
     void compress_buffer(const std::string &filename)
     {
+#ifdef COMPRESS_MODE
         Tool::ArchiveTool tool;
-
         size_t lastSlash = filename.find_last_of("/\\");
         // 获取文件名部分
         std::string use_filename = filename.substr(lastSlash + 1);
         tool.compressWithPassword(buffer,filename,use_filename,KEY);
+#endif
     }
     void out_buffer(const std::string &filename)
     {

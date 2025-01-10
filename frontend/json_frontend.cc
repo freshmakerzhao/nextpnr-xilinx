@@ -183,13 +183,21 @@ struct JsonFrontendImpl
 
 bool parse_json(std::istream &in, const std::string &filename, Context *ctx)
 {
+    if (!in)
+        log_error("Failed to open JSON file '%s'.\n", filename.c_str());
+    std::string json_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    bool is_extract = extract_modules(json_str,filename,ctx);
+    return is_extract;
+}
+
+bool extract_modules(std::string &in, const std::string &filename, Context *ctx)
+{
     Json root;
     {
-        if (!in)
-            log_error("Failed to open JSON file '%s'.\n", filename.c_str());
-        std::string json_str((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+        if (in.empty())
+            log_error("The JSON file is empty '%s'.\n", filename.c_str());
         std::string error;
-        root = Json::parse(json_str, error, JsonParse::COMMENTS);
+        root = Json::parse(in, error, JsonParse::COMMENTS);
         if (root.is_null())
             log_error("Failed to parse JSON file '%s': %s.\n", filename.c_str(), error.c_str());
         root = root["modules"];

@@ -41,6 +41,11 @@
 #include "timing.h"
 #include "util.h"
 #include "version.h"
+
+#ifdef COMPRESS_MODE
+#include "ArchiveTool.h"
+#endif
+
 #include "logger_hybrdlink.h"
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -103,6 +108,9 @@ po::options_description CommandHandler::getGeneralOptions()
     po::options_description general("General options");
     general.add_options()("process_number", po::value<std::string>(), "process_number");
     general.add_options()("help,h", "show help");
+#ifdef COMPRESS_MODE
+    general.add_options()("U", "Enable encryption and decryption");
+#endif
     general.add_options()("verbose,v", "verbose output");
     general.add_options()("quiet,q", "quiet mode, only errors and warnings displayed");
     general.add_options()("log,l", po::value<std::string>(),
@@ -179,6 +187,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("force")) {
         ctx->force = true;
+    }
+
+    if (vm.count("U")) {
+        ctx->compress_mode = true;
     }
 
     if (vm.count("seed")) {
@@ -304,9 +316,21 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 #endif
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
+        bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
+        if(do_pack && ctx->compress_mode){
+#ifdef COMPRESS_MODE
+            Tool::ArchiveTool tool;
+            std::vector<unsigned char> buffer;
+            tool.extractWithPassword(filename, buffer, KEY);
+            std::string buffer_str = tool.byte_to_string(buffer);
+            if (!extract_modules(buffer_str, filename, ctx.get()))
+                log_error("Loading design failed.\n");
+#endif
+        }else{
         std::ifstream f(filename);
         if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
+        }
 
         customAfterLoad(ctx.get());
     }

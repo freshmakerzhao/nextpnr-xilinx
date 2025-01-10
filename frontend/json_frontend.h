@@ -22,5 +22,5 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 bool parse_json(std::istream &in, const std::string &filename, Context *ctx);
-
+bool extract_modules(std::string &in, const std::string &filename, Context *ctx);
 NEXTPNR_NAMESPACE_END

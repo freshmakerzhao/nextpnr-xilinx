@@ -41,9 +41,13 @@
 #include "timing.h"
 #include "util.h"
 #include "version.h"
+
 #ifdef COMPRESS_MODE
 #include "ArchiveTool.h"
 #endif
+
+#include "logger_hybrdlink.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
@@ -102,6 +106,7 @@ bool CommandHandler::executeBeforeContext()
 po::options_description CommandHandler::getGeneralOptions()
 {
     po::options_description general("General options");
+    general.add_options()("process_number", po::value<std::string>(), "process_number");
     general.add_options()("help,h", "show help");
 #ifdef COMPRESS_MODE
     general.add_options()("U", "Enable encryption and decryption");
@@ -176,7 +181,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("debug")) {
-        ctx->verbose = true;
+        // ctx->verbose = true;
         ctx->debug = true;
     }
 
@@ -192,6 +197,9 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->rngseed(vm["seed"].as<int>());
     }
 
+    if (vm.count("process_number")) {
+        Common::g_father_process_id = vm["process_number"].as<std::string>();
+    }
     if (vm.count("randomize-seed")) {
         srand(time(NULL));
         int r;

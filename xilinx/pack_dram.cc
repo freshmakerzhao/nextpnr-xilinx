@@ -147,8 +147,13 @@ void XilinxPacker::create_muxf_tree(CellInfo *base, const std::string &name_base
 
 void XilinxPacker::pack_dram()
 {
-
-    log_info("Packing DRAM..\n");
+    LogData logEntry = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing DRAM"
+    );
+    log_info("Packing DRAM..\n",logEntry);
 
     std::unordered_map<DRAMControlSet, std::vector<CellInfo *>, DRAMControlSetHash> dram_groups;
     std::unordered_map<IdString, DRAMType> dram_types;

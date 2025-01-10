@@ -103,7 +103,9 @@ po::options_description CommandHandler::getGeneralOptions()
 {
     po::options_description general("General options");
     general.add_options()("help,h", "show help");
+#ifdef COMPRESS_MODE
     general.add_options()("U", "Enable encryption and decryption");
+#endif
     general.add_options()("verbose,v", "verbose output");
     general.add_options()("quiet,q", "quiet mode, only errors and warnings displayed");
     general.add_options()("log,l", po::value<std::string>(),
@@ -310,16 +312,16 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         if(do_pack && ctx->compress_mode){
 #ifdef COMPRESS_MODE
             Tool::ArchiveTool tool;
-            std::vector< Tool::byte_t > buffer;
+            std::vector<unsigned char> buffer;
             tool.extractWithPassword(filename, buffer, KEY);
             std::string buffer_str = tool.byte_to_string(buffer);
             if (!extract_modules(buffer_str, filename, ctx.get()))
                 log_error("Loading design failed.\n");
 #endif
         }else{
-            std::ifstream f(filename);
-            if (!parse_json(f, filename, ctx.get()))
-                log_error("Loading design failed.\n");
+        std::ifstream f(filename);
+        if (!parse_json(f, filename, ctx.get()))
+            log_error("Loading design failed.\n");
         }
 
         customAfterLoad(ctx.get());

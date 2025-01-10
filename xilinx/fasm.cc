@@ -1381,6 +1381,9 @@ struct FasmBackend
                 write_bit("CFG_EFUSE_CTRL.CFG_EFUSE_DNA_EN_TMR2");
                 write_bit("CFG_EFUSE_CTRL.CFG_EFUSE_DNA_EN_TMR1");
             }
+            if (ci->type == id_CAPTURE_CAPTURE) {
+                ctx->settings[ctx->id("capture_head_value")] = std::string("0x02803FE5");
+            }
 
             if (ci->type == id_ICAP_ICAP) {
                 push("ICAP");
@@ -1393,33 +1396,8 @@ struct FasmBackend
                 std::string icap_location ="ICAP_Y" +  std::to_string(xy.y);
                 // 将使用icap的信息存入order.json文件，用来判断是否需要在头文件插入数据
                 if(icap_location == "ICAP_Y0"){
-                    nlohmann::json order_data;
-                    std::string file_path = "order.json";
-                    // 读取 order.json 文件
-                    std::ifstream file_in(file_path);
-                    if(file_in.is_open()){
-                        try {
-                            // 将json文件内容回读到json对象实现追加内容操作
-					        file_in >> order_data;
-					    } catch (nlohmann::detail::exception& e) {
-                            log_error("[Implementation_fasm_hybrd]：order.json file content append error: %s", e.what());
-					    }
-                        file_in.close();
-                    }
-                    // 向 JSON 对象中添加数据
-                    order_data["icap"] = {
-                        {"icap_head_value_1", "0x40000401"},
-                        {"icap_head_value_2", "0x40000501"}
-                    };
-                   // 将更新后的 JSON 对象写回文件
-                    std::ofstream file_out(file_path);
-                    if (file_out.is_open()) {
-                        file_out << order_data.dump(4); // 格式化输出，缩进 4 个空格
-                        file_out.close();
-                    } else {
-                        log_error("[Implementation_fasm_hybrd]：Unable to open order.file for writing");
-                        return;
-                    }
+                    ctx->settings[ctx->id("icap_head_value_1")] = std::string("0x40000401");
+                    ctx->settings[ctx->id("icap_head_value_2")] = std::string("0x40000501");
                     write_bit("CFG_ICAP_BOTM_EN_TMR0");
                     write_bit("CFG_ICAP_BOTM_EN_TMR1");
                     write_bit("CFG_ICAP_BOTM_EN_TMR2");

@@ -17,6 +17,7 @@ set(Boost_NO_BOOST_CMAKE ON)
 # ================ hybrdlink ===============
 option(COMPRESS_MODE "Decompression and compression options" OFF)
 if(COMPRESS_MODE)
+add_definitions(-DCOMPRESS_MODE)
 # 添加子项目
 add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/)
 include_directories(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/bit7z/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/api)
@@ -42,7 +43,7 @@ option(HYBRDLINK "Encrption Option" OFF)
 if (HYBRDLINK)
     add_definitions(-DHYBRDLINK)
 endif()
-
+message(STATUS "COMPRESS_MODE option is ${COMPRESS_MODE}")
 message(STATUS "HYBRDLINK option is ${HYBRDLINK}")
 # ================ hybrdlink ===============
 

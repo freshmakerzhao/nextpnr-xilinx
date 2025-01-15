@@ -230,9 +230,14 @@ bool write_json_file(std::ostream &f, std::string &filename, Context *ctx)
             write_context(os_buffer, ctx);
             std::istringstream inStream(os_buffer.str());
             Tool::ArchiveTool tool;
+            std::string use_filename;
             size_t lastSlash = filename.find_last_of("/\\");
-            // 获取文件名部分
-            std::string use_filename = filename.substr(lastSlash + 1);
+            if(lastSlash == std::string::npos){
+                use_filename = filename;
+            }else{
+                // 获取文件名部分
+                use_filename = filename.substr(lastSlash + 1);
+            }
             tool.compressWithPassword(inStream,f,use_filename,KEY);
 #endif
         }else{

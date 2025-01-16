@@ -380,7 +380,11 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 
     if (vm.count("write")) {
         std::string filename = vm["write"].as<std::string>();
-        std::ofstream f(filename);
+        std::ios::openmode mode = std::ios::trunc;
+        if(ctx->compress_mode){
+            mode = std::ios::trunc|std::ios::binary;
+        }
+        std::ofstream f(filename,mode);
         if (!write_json_file(f, filename, ctx.get()))
             log_error("Saving design failed.\n");
     }

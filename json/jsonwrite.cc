@@ -27,6 +27,9 @@
 #include <string>
 #include "nextpnr.h"
 #include "version.h"
+#ifdef COMPRESS_MODE
+#include "ArchiveTool.h"
+#endif
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -221,7 +224,25 @@ bool write_json_file(std::ostream &f, std::string &filename, Context *ctx)
         using namespace JsonWriter;
         if (!f)
             log_error("failed to open JSON file.\n");
-        write_context(f, ctx);
+        if(ctx->compress_mode){
+#ifdef COMPRESS_MODE
+            std::ostringstream os_buffer;
+            write_context(os_buffer, ctx);
+            std::istringstream inStream(os_buffer.str());
+            Tool::ArchiveTool tool;
+            std::string use_filename;
+            size_t lastSlash = filename.find_last_of("/\\");
+            if(lastSlash == std::string::npos){
+                use_filename = filename;
+            }else{
+                // 获取文件名部分
+                use_filename = filename.substr(lastSlash + 1);
+            }
+            tool.compressWithPassword(inStream,f,use_filename,KEY);
+#endif
+        }else{
+            write_context(f, ctx);
+        }
         log_break();
         return true;
     } catch (log_execution_error_exception) {

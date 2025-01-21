@@ -35,6 +35,8 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/thread.hpp>
 
+#include "power.h"
+
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
 
@@ -309,8 +311,8 @@ enum ClkStatus
     CLK_STATUS_CLKINV = 2
 };
 
-// Port info store in NetInfo
-// used to reference the source/sink ports of a net; 
+// Port info stored in NetInfo
+// used to refer the source/sink ports of a net; 
 // refers back to a cell and a port name
 struct PortRef
 {
@@ -700,6 +702,9 @@ struct BaseCtx
 
     // Context meta data
     std::unordered_map<IdString, Property> attrs;
+
+    // Power Analysis Result
+    PowerResult power_result;
 
     BaseCtx()
     {

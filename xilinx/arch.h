@@ -219,6 +219,7 @@ NPNR_PACKED_STRUCT(struct TileTypeInfoPOD {
 
 NPNR_PACKED_STRUCT(struct SiteInstInfoPOD {
     RelPtr<char> name;
+    int32_t type;
     RelPtr<char> pin;
     int32_t site_x, site_y;
     int32_t rel_x, rel_y;
@@ -1532,6 +1533,12 @@ struct Arch : BaseCtx
     const IdString getTileType(const TileInstInfoPOD &tile_inst) const
     {
         return IdString(chip_info->tile_types[tile_inst.type].type);
+    }
+
+    // 根据bel拿到SiteType
+    const IdString getSiteType(const  BelId &bel) const
+    {
+        return IdString(chip_info->tile_insts[bel.tile].site_insts[locInfo(bel).bel_data[bel.index].site].type);
     }
 
     // -------------------------------------------------

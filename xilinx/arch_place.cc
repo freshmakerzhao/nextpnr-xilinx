@@ -630,9 +630,16 @@ bool Arch::isBelLocationValid(BelId bel) const
 
 bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
+    // 判断SRL16E是否放置在了SliceL上，如果是则 return false
+    if (str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "SRL16E" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "SRL32E") {
+        auto site_type = getCtx()->getSiteType(bel);
+        if(site_type!= getCtx()->id("SLICEM")){
+            return false;
+        }
+    }
     if (usp_bel_hard_unavail(bel))
         return false;
-
+    
     // 检查时钟反向
     std::string cell_clk_status = str_or_default(cell->attrs, id_CLK_STATUS, "NONE");
     if (cell_clk_status != "NONE") {

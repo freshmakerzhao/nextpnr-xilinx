@@ -35,6 +35,7 @@ def main():
 	# Import tile types
 	seen_tiletypes = set()
 	seen_clockregion = {}
+	seen_site_type = {}
 	tile_types = []
 	tile_type_index = {}
 	timing = NextpnrTimingData()
@@ -64,8 +65,12 @@ def main():
 				tile_type=tile_type_index[t.tile_type()], 
 				clock_region=seen_clockregion[t.clock_region])
 			for s in t.sites():
+				# store site type
+				if s.data.site_type not in seen_site_type:
+					site_type_id = constid.make(s.data.site_type)
+					seen_site_type[s.data.site_type] = site_type_id
 				nsi = NextpnrSiteInst(name=s.name, package_pin="." if s.package_pin is None else s.package_pin,
-					site_xy=s.grid_xy, rel_xy=s.rel_xy(), inter_xy=t.interconn_xy)
+					site_xy=s.grid_xy, rel_xy=s.rel_xy(), inter_xy=t.interconn_xy, type=seen_site_type[s.data.site_type])
 				nti.sites.append(nsi)
 			nti.tilewire_to_node = [-1] * tile_types[nti.tile_type].tile_wire_count
 			tile_insts.append(nti)
@@ -271,6 +276,7 @@ def main():
 			bba.label("ti{}_sites".format(ti.index))
 			for si in ti.sites:
 				bba.str(si.name) # site name char*
+				bba.u32(si.type)
 				bba.str(si.package_pin) # site package pin char*
 				bba.u32(si.site_xy[0]) # site X grid coord
 				bba.u32(si.site_xy[1]) # site Y grid coord

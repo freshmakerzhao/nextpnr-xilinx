@@ -125,7 +125,7 @@ struct TileTypeInfoPOD {
 struct SiteInstInfoPOD {
     offset name [[hidden]]; // char
     String Name @ RelPtr(addressof(name));
-
+    s32 type;
     offset pin [[hidden]]; // char
     String Pin @ RelPtr(addressof(pin));
 

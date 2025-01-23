@@ -62,8 +62,9 @@ class NextpnrBel:
 		self.belports = []
 
 class NextpnrSiteInst:
-	def __init__(self, name, package_pin, site_xy, rel_xy, inter_xy):
+	def __init__(self, name, package_pin, site_xy, rel_xy, inter_xy, type):
 		self.name = name
+		self.type = type
 		self.package_pin = package_pin
 		self.site_xy = site_xy
 		self.rel_xy = rel_xy

@@ -632,7 +632,7 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 {
     if (usp_bel_hard_unavail(bel))
         return false;
-
+    
     // 检查时钟反向
     std::string cell_clk_status = str_or_default(cell->attrs, id_CLK_STATUS, "NONE");
     if (cell_clk_status != "NONE") {
@@ -647,6 +647,19 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
 
     if (!isBelAlignedWithCellRegion(cell, bel))
         return false;
+
+    // 判断SRL16E是否放置在了SliceL上，如果是则 return false
+    std::string origin_bel_type = str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "");
+     // 判断SRL16E是否放置在了SliceL上，如果是则 return false
+    if (origin_bel_type == "SRL16E" || origin_bel_type == "SRL32E" || origin_bel_type == "CFGLUT5" || origin_bel_type == "RAM128X1D" ||
+        origin_bel_type == "RAM128X1S" || origin_bel_type == "RAM256X1S" || origin_bel_type == "RAM32M" || origin_bel_type == "RAM32X1D" ||
+        origin_bel_type == "RAM32X1S" || origin_bel_type == "RAM32X1S_1" || origin_bel_type == "RAM32X2S" || origin_bel_type == "RAM64M" ||
+        origin_bel_type == "RAM64X1D" || origin_bel_type == "RAM64X1S" || origin_bel_type == "RAM64X1S_1") {
+        auto site_type = getCtx()->getSiteType(bel);
+        if(site_type!= getCtx()->id("SLICEM")){
+            return false;
+        }
+    }
 
     return true;
 }

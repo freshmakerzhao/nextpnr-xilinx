@@ -649,14 +649,12 @@ bool Arch::isValidBelForCell(CellInfo *cell, BelId bel) const
         return false;
 
     // 判断SRL16E是否放置在了SliceL上，如果是则 return false
-    if (str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "SRL16E" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "SRL32E" ||
-        str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "CFGLUT5" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM128X1D" ||
-        str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM128X1S" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM256X1S" ||
-        str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM32M" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM32X1D" ||
-        str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM32X1S" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM32X1S_1" ||
-        str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM32X2S" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM64M" ||
-        str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM64X1D" || str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM64X1S" ||
-        str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "") == "RAM64X1S_1") {
+    std::string origin_bel_type = str_or_default(cell->attrs, getCtx()->id("X_ORIG_TYPE"), "");
+     // 判断SRL16E是否放置在了SliceL上，如果是则 return false
+    if (origin_bel_type == "SRL16E" || origin_bel_type == "SRL32E" || origin_bel_type == "CFGLUT5" || origin_bel_type == "RAM128X1D" ||
+        origin_bel_type == "RAM128X1S" || origin_bel_type == "RAM256X1S" || origin_bel_type == "RAM32M" || origin_bel_type == "RAM32X1D" ||
+        origin_bel_type == "RAM32X1S" || origin_bel_type == "RAM32X1S_1" || origin_bel_type == "RAM32X2S" || origin_bel_type == "RAM64M" ||
+        origin_bel_type == "RAM64X1D" || origin_bel_type == "RAM64X1S" || origin_bel_type == "RAM64X1S_1") {
         auto site_type = getCtx()->getSiteType(bel);
         if(site_type!= getCtx()->id("SLICEM")){
             return false;

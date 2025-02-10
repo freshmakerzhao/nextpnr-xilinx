@@ -29,7 +29,11 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "pins.h"
+#include "power_parse_json.h"
+#include "json11.hpp"
+#include "power.h"
 
+using json = json11::Json;
 NEXTPNR_NAMESPACE_BEGIN
 
 // Process the contents of packed_cells and new_cells
@@ -521,6 +525,15 @@ void XilinxPacker::check(){
             }
         }
     }
+    // PowerJsonReader jsonreader("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
+    // bool p = jsonreader.loadData();
+    PowerJsonReader data_parser("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
+    json jsonData;
+    if (!data_parser.loadData(jsonData)) {
+        log_error("Failed to estimate power data to power analyzer.\n");
+    }
+    PowerAnalyzer p(ctx,11.0,900);
+    p.loadPowerData("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
 }
 
 bool XilinxPacker::is_constrained(const CellInfo *cell)

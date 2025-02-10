@@ -27,7 +27,7 @@ bool BelDynamicComsumption::add_mux_consumption(int load, float consumption) {
         return false;
     }
     mux_consumption_[load] = consumption;
-    return true
+    return true;
 }
 
 float BelDynamicComsumption::get_mux_consumption(int load, bool &success) {
@@ -42,7 +42,7 @@ float BelDynamicComsumption::get_mux_consumption(int load, bool &success) {
     }
 }
 
-float BelDynamicComsumption::get_bel_consumption(IdString pin_name, bool &success) {
+float BelDynamicComsumption::get_bel_consumption(Context *ctx, IdString pin_name, bool &success) {
     if (bel_consumption_.find(pin_name) == bel_consumption_.end()) {
         success = false;
         log_warning("Failed to get bel consumption of pin '%s'.\n", pin_name.c_str(ctx));
@@ -54,7 +54,7 @@ float BelDynamicComsumption::get_bel_consumption(IdString pin_name, bool &succes
     }
 }
 
-float DynamicPowerDB::get_bell_power_data(IdString &bel_type, int v_ddc, bool &success) {
+float DynamicPowerDB::get_bel_power_data(Context *ctx, IdString &bel_type, IdString pin_name, int v_ddc, bool &success) {
 
     if (dynamic_power_DB_.find(bel_type) == dynamic_power_DB_.end()) {
         success = false;
@@ -69,11 +69,10 @@ float DynamicPowerDB::get_bell_power_data(IdString &bel_type, int v_ddc, bool &s
     }
     
     BelDynamicComsumption bel_data = dynamic_power_DB_[bel_type][v_ddc];
-    if (bel_data.is_mux_)  // To-do: add support for mux
+    if (bel_data.IsMux())  // To-do: add support for mux
         return 0;
 
-    bool success = false;
-    float bel_consumption = bel_data.get_bel_consumption("pin_name", success);
+    float bel_consumption = bel_data.get_bel_consumption(ctx, pin_name, success);
     if (success)
         return bel_consumption;
     else {

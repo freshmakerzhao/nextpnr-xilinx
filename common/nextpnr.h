@@ -35,8 +35,6 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/thread.hpp>
 
-#include "power.h"
-
 #ifndef NEXTPNR_H
 #define NEXTPNR_H
 
@@ -920,6 +918,24 @@ struct DeterministicRNG
         shuffle(a);
     }
 };
+
+class PowerResult {
+    private:
+        float static_power_; // in nW
+        float dynamic_power_; // in nW
+        float total_power_; // in nW
+        float junction_temp_; // in celcius
+
+        std::unordered_map<IdString, float> resource_powers_; // in nW
+        std::unordered_map<IdString, float> net_powers_; // in nW
+
+    // Refert to original NextPNR's report.cc for data dump.
+
+    public:
+        void set_junction_temp(float temp) { junction_temp_ = temp; }
+        void set_static_power(float power) { static_power_ = power; }
+};
+
 
 struct BaseCtx
 {

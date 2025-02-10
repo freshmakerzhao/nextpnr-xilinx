@@ -27,9 +27,9 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-typedef std::unordered_map<IdString, std::map<int, std::tuple<float, float, float>> BelStaticPowerMap; // <temperature, <voltage, (base_power, low_power, high_power)>>
+typedef std::unordered_map<IdString, std::map<int, std::tuple<float, float, float>>> BelStaticPowerMap; // <temperature, <voltage, (base_power, low_power, high_power)>>
                                                                                                         // To convert string to IdString: ctx->id("content");
-typedef std::unordered_map<IdString, BelStaticPowerMap>> StaticPowerMap; // <BelType, BelStaticPowerMap>
+typedef std::unordered_map<IdString, BelStaticPowerMap> StaticPowerMap; // <BelType, BelStaticPowerMap>
 
 class StaticPowerDB {
     private:
@@ -44,24 +44,25 @@ class StaticPowerDB {
     public:
         StaticPowerDB() = default;
         ~StaticPowerDB() =default;
-        bool insert_to_preset_temp(short temp, int valtage, float power);
+        bool insert_to_preset_temp(short temp, float power_low_volt, float power_high_volt);
         void init_temperature_power_slopes();
         void set_chip_base_power(float base_power) { chip_base_power_ = base_power; }
         float get_chip_base_power() const { return chip_base_power_; }
-        std::map<std::pair<short, short>, float>& get_power_slopes() { return &temperature_power_slopes_; }
+        std::map<short, std::pair<float, float>> get_preset_temp_to_base_power () const { return preset_temp_to_total_base_power_;}
+        std::map<std::pair<short, short>, float>& get_power_slopes() { return temperature_power_slopes_; }
 
-        bool is_preset() const { return is_preset; }
+        bool IsPreset() const { return is_preset; }
+        StaticPowerMap& getStaticPowerMap() { return static_power_DB_; }
 
 
 
 
-
-        void set_bel_power_data(IdString bel_type, IdString temp, float low_power, float high_power) {
-            static_power_DB_[bel_type][temp] = std::make_tuple(base_power, low_power, high_power);
+        void set_bel_power_data(IdString bel_type, IdString temp, int voltage, float base_power, float low_power, float high_power) {
+            static_power_DB_[bel_type][temp][voltage] = std::make_tuple(base_power, low_power, high_power);
         }
-        bool get_bel_base_power(IdString bel_type, short temp, float &base_power);
-        bool get_bel_low_power(IdString bel_type, short temp, float &low_power);
-        bool get_bel_high_power(IdString bel_type, short temp, float &high_power);
+        bool get_bel_base_power(IdString bel_type, short temp, int voltage, float &base_power);
+        bool get_bel_low_power(IdString bel, short temp, int voltage, float &low_power);
+        bool get_bel_high_power(IdString bel, short temp, int voltage, float &high_power);
 };
 
 NEXTPNR_NAMESPACE_END

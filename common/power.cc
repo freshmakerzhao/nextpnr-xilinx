@@ -17,15 +17,48 @@
  *
  */
 
-
+#include <algorithm>
 #include "nextpnr.h"
 #include "power.h"
+#include "power_parse_json.h"
+#include "util.h"
 
 NEXTPNR_NAMESPACE_BEGIN
+// using json = json11::Json;
+bool PowerAnalyzer::loadPowerData(const std::string &path) {
+    PowerJsonReader data_parser(path);
+    json jsonData;
+    if (!data_parser.loadData(jsonData)) {
+        log_error("Failed to estimate power data to power analyzer.\n");
+        return false;
+    }
+
+    // Get voltage standard
+    int v_ddc = static_power_analyzer_.get_vddc();
+    std::string v_ddc_str = std::to_string(v_ddc);
+    
+
+    // Save power data based on voltage
+    json v_ddc_jsonData = jsonData[v_ddc_str];
+    for (auto &bel_entry: v_ddc_jsonData["bels"].object_items()) {
+            IdString bel_type = ctx_->id(bel_entry.first);
+            for (auto &temp_entry : bel_entry.second["static_power"].object_items()) {
+                IdString temperature = ctx_->id(temp_entry.first); 
+                float base_power = temp_entry.second["base"].number_value();
+                float low_power = temp_entry.second["low"].number_value();
+                float high_power = temp_entry.second["high"].number_value();
+
+                // 存储到 StaticPowerMap
+                static_power_analyzer_.getStaticPowerDB().getStaticPowerMap()[bel_type][temperature][v_ddc] = std::make_tuple(base_power, low_power, high_power);
+            }
+        
+    }
+    return true;
+}
 
 bool StaticPowerAnalyzer::run() {
     // Static base power calculation based on preset whole chip power
-    if (static_power_DB_.is_preset()) {
+    if (static_power_DB_.IsPreset()) {
         static_power_DB_.init_temperature_power_slopes();
         calculate_temperature_power_slopes();
         if (estimate_base_power_from_preset_temp())
@@ -39,15 +72,14 @@ bool StaticPowerAnalyzer::run() {
     
     // Static power calculation
     // IdString pad_id = ctx->xc7 ? ctx->id("PAD") : ctx->id("IOB_PAD");
-    for (auto bel : ctx->getBels()) {
-        auto bel_type = ctx->getBelType(bel);  // IdString. bel_type->str(ctx);
+    for (auto bel : ctx_->getBels()) {
+        auto bel_type = ctx_->getBelType(bel);  // IdString. bel_type->str(ctx);
     }
 
     return true;;
 }
 
 void StaticPowerAnalyzer::calculate_temperature_power_slopes() {
-    static_power_DB_.init_temperature_power_slopes();
     auto &temperature_power_slopes = static_power_DB_.get_power_slopes(); //<temperature_range<a,b>, power_slope>
     for (auto &data : temperature_power_slopes) {
         short lower_temp = data.first.first;
@@ -55,7 +87,7 @@ void StaticPowerAnalyzer::calculate_temperature_power_slopes() {
         float lower_power = -1.0;
         float upper_power = -1.0;
 
-        for (auto &preset_power : preset_temp_to_total_base_power_) {
+        for (auto &preset_power : static_power_DB_.get_preset_temp_to_base_power()) {
             if (preset_power.first == lower_temp)
                 lower_power = v_ddc_ == 900? preset_power.second.first : preset_power.second.second;
             else if (preset_power.first == upper_temp)
@@ -70,20 +102,21 @@ void StaticPowerAnalyzer::calculate_temperature_power_slopes() {
 bool StaticPowerAnalyzer::estimate_base_power_from_preset_temp() {
     // Estimate chip_base_power_ at junction_temp_
     auto &temperature_power_slopes = static_power_DB_.get_power_slopes();
+    auto preset_temp_to_total_base_power = static_power_DB_.get_preset_temp_to_base_power();
     for (auto &data : temperature_power_slopes) {
         if (junction_temp_ <= data.first.second && junction_temp_ >= data.first.first) {
             // extract power based on v_ddc_
-            auto temp_power = v_ddc_ == 900? preset_temp_to_total_base_power_[data.first.first].first : preset_temp_to_total_base_power_[data.first.first].second;
+            auto temp_power = v_ddc_ == 900? preset_temp_to_total_base_power[data.first.first].first : preset_temp_to_total_base_power[data.first.first].second;
             float chip_base_power = data.second * (junction_temp_ - data.first.first) + temp_power;  // y = ax + b
-            static_power_DB_.set_chip_base_power(chip_base_power)
+            static_power_DB_.set_chip_base_power(chip_base_power);
             break;
         }
     }
     // Save chip_base_power_ to PowerResult
     float base_power = static_power_DB_.get_chip_base_power();
     if (base_power > 0) {
-        ctx->power_result.set_static_power(base_power);
-        ctx->power_result.set_junction_temp(junction_temp);
+        ctx_->power_result.set_static_power(base_power);
+        ctx_->power_result.set_static_power(junction_temp_);
         return true;
     }
     else {
@@ -93,7 +126,7 @@ bool StaticPowerAnalyzer::estimate_base_power_from_preset_temp() {
 }
 
 bool DynamicPowerAnalyzer::run() {
-    for (auto net : sorted(ctx->nets)) {
+    for (auto net : sorted(ctx_->nets)) {
         NetInfo *ni = net.second;
         if (ni->driver.cell == nullptr)
             continue;
@@ -104,10 +137,11 @@ bool DynamicPowerAnalyzer::run() {
             CellInfo *ci = user.cell;
             if (ci->bel == BelId())
                 continue;
-            IdString bel_type = ctx->getBelType(ci->bel);
+            IdString bel_type = ctx_->getBelType(ci->bel);
 
             // get dynamic power based on bel_type
-            float usage = get_bel_usage(bel_type, v_ddc_);
+            IdString bel_pin = ci->pins[user.port];
+            float usage = get_bel_usage(bel_type, bel_pin, v_ddc_);
 
             // get clock cycle in ns
             
@@ -132,20 +166,20 @@ bool DynamicPowerAnalyzer::run() {
             // }
 
 
-            float dynamic_power = base_power + low_power + high_power;
-            ctx->power_result.net_powers[net.first] += dynamic_power;
-            ctx->power_result.resource_powers[bel_type] += dynamic_power;
+            // float dynamic_power = base_power + low_power + high_power;
+            // ctx->power_result.net_powers[net.first] += dynamic_power;
+            // ctx->power_result.resource_powers[bel_type] += dynamic_power;
         }
     }
 }
 
-float DynamicPowerAnalyzer::get_bel_usage(IdString bel_type, int v_ddc) {
+float DynamicPowerAnalyzer::get_bel_usage(IdString bel_type, IdString pin_name, int v_ddc) {
     bool success = false;
-    float usage = dynamic_power_DB_.get_bell_power_data(bel_type, v_ddc, success)
+    float usage = dynamic_power_DB_.get_bel_power_data(ctx_, bel_type, pin_name, v_ddc, success);
     if (success)
         return usage;
     else {
-        log_warning("Failed to get power data of bel '%s' at voltage '%d'.\n", bel_type.c_str(ctx), v_ddc);
+        log_warning("Failed to get power data of bel '%s' at voltage '%d'.\n", bel_type.c_str(ctx_), v_ddc);
         return 0;
     }
 }

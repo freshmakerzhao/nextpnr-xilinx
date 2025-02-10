@@ -27,41 +27,6 @@
 #include <memory>
 
 NEXTPNR_NAMESPACE_BEGIN
-class DynamicPowerAnalyzer;
-class StaticPowerAnalyzer;
-
-class PowerResult {
-    private:
-        float static_power_; // in nW
-        float dynamic_power_; // in nW
-        float total_power_; // in nW
-        float junction_temp_; // in celcius
-
-        std::unordered_map<IdString, float> resource_powers_; // in nW
-        std::unordered_map<IdString, float> net_powers; // in nW
-
-    // Refert to original NextPNR's report.cc for data dump.
-
-    public:
-        void set_junction_temp(float temp) { junction_temp_ = temp; }
-        void set_static_power(float power) { static_power_ = power; }
-};
-
-class PowerAnalyzer {
-    private:
-        Context *ctx_;
-        DynamicPowerAnalyzer dynamic_power_analyzer_;
-        StaticPowerAnalyzer static_power_analyzer_;
-
-    public:
-        PowerAnalyzer(Context *ctx, float junction_temp, int v_ddc) 
-            : ctx_(ctx){
-                dynamic_power_analyzer_ = DynamicPowerAnalyzer(ctx_, junction_temp);
-                static_power_analyzer_ = StaticPowerAnalyzer(ctx_, junction_temp, v_ddc);
-            };
-        bool run();
-        void write_power_report(std::ostream &out);
-};
 
 class StaticPowerAnalyzer{
     private:
@@ -72,14 +37,18 @@ class StaticPowerAnalyzer{
         StaticPowerDB static_power_DB_;
 
     public:
+        StaticPowerAnalyzer() = default;
         StaticPowerAnalyzer(Context *ctx, float junction_temp, int v_ddc) 
-            : ctx_(ctx), junction_temp_(junction_temp), v_ddc_(v_ddc){};
+            : ctx_(ctx), junction_temp_(junction_temp), v_ddc_(v_ddc){}
+        ~StaticPowerAnalyzer() = default;
+
         bool run();
         void calculate_temperature_power_slopes();
         bool estimate_base_power_from_preset_temp();
-
+        StaticPowerDB& getStaticPowerDB() { return static_power_DB_; }
 
         float get_bel_base_static_power(IdString bel);
+        int get_vddc () const { return v_ddc_; }
         // void write_power_report(std::ostream &out);
 };
 
@@ -90,13 +59,32 @@ class DynamicPowerAnalyzer{
         int v_ddc_ = 0;  // unit: mV
 
     public:
+        DynamicPowerAnalyzer() = default;
         DynamicPowerAnalyzer(Context *ctx, int v_ddc) 
-            : ctx_(ctx), v_ddc_(v_ddc) {};
+            : ctx_(ctx), v_ddc_(v_ddc) {}
+        ~DynamicPowerAnalyzer() = default;
 
         bool run();
-        float get_bel_usage(IdString bel_type, int v_ddc);
+        float get_bel_usage(IdString bel_type, IdString pin_name, int v_ddc);
 
         // missing function for getting MUX usage
+};
+
+class PowerAnalyzer {
+    private:
+        Context *ctx_;
+        DynamicPowerAnalyzer dynamic_power_analyzer_;
+        StaticPowerAnalyzer static_power_analyzer_;
+
+    public:
+        PowerAnalyzer(Context *ctx, float junction_temp, int v_ddc) 
+            : ctx_(ctx) {
+                dynamic_power_analyzer_ = DynamicPowerAnalyzer(ctx_, junction_temp);
+                static_power_analyzer_ = StaticPowerAnalyzer(ctx_, junction_temp, v_ddc);
+            }
+        bool run();
+        void write_power_report(std::ostream &out);
+        bool loadPowerData(const std::string &path);
 };
 
 

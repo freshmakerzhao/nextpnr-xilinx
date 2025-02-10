@@ -36,28 +36,29 @@ class BelDynamicComsumption {
     bool is_mux_ = false;
 
     public:
-        BelComsumption() = default;
-        ~BelComsumption() = default;
+        BelDynamicComsumption() = default;
+        ~BelDynamicComsumption() = default;
 
         bool add_mux_consumption(int load, float consumption);
         bool add_bel_consumption(IdString pin_name, float consumption);
 
         float get_mux_consumption(int load, bool &success);
-        float get_bel_consumption(IdString pin_name, bool &success);
-}
+        float get_bel_consumption(Context *ctx, IdString pin_name, bool &success);
+        bool IsMux() const { return is_mux_;}
+};
 
 class DynamicPowerDB {
     private:
         DynamicPowerMap dynamic_power_DB_;  // Contains dynamic power data of bels and muxes in sites at each temperature
                                             // <bel_type, BelDynamicPowerMap>
     public:
-        DynamicPowerDB = default;
-        ~DynamicPowerDB = default;
+        DynamicPowerDB() = default;
+        ~DynamicPowerDB() = default;
 
         void set_power_data(IdString &bel_name, int v_ddc, BelDynamicComsumption &consumption) {
             dynamic_power_DB_[bel_name][v_ddc] = consumption;
         }
-        float get_bell_power_data(IdString &bel_name, int v_ddc, bool &success);
+        float get_bel_power_data(Context *ctx, IdString &bel_name, IdString pin_name, int v_ddc, bool &success);
 };
 NEXTPNR_NAMESPACE_END
 

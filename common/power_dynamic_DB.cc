@@ -21,7 +21,7 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
-bool BelDynamicComsumption::add_mux_consumption(int load, float consumption) {
+bool BelDynamicComsumption::AddMuxConsumption(int load, float consumption) {
     if (bel_consumption_.size() != 0) {
         log_error("Conflicting bel type. Tried to save bel data, but Mux data already exists.\n");
         return false;
@@ -30,7 +30,7 @@ bool BelDynamicComsumption::add_mux_consumption(int load, float consumption) {
     return true;
 }
 
-float BelDynamicComsumption::get_mux_consumption(int load, bool &success) {
+float BelDynamicComsumption::GetMuxConsumption(int load, bool &success) {
     if (mux_consumption_.find(load) != mux_consumption_.end()){
         success = false;
         log_warning("Failed to get mux consumption of load '%d'.\n", load);
@@ -42,7 +42,7 @@ float BelDynamicComsumption::get_mux_consumption(int load, bool &success) {
     }
 }
 
-float BelDynamicComsumption::get_bel_consumption(Context *ctx, IdString pin_name, bool &success) {
+float BelDynamicComsumption::GetBelConsumption(Context *ctx, IdString pin_name, bool &success) {
     if (bel_consumption_.find(pin_name) == bel_consumption_.end()) {
         success = false;
         log_warning("Failed to get bel consumption of pin '%s'.\n", pin_name.c_str(ctx));
@@ -54,7 +54,7 @@ float BelDynamicComsumption::get_bel_consumption(Context *ctx, IdString pin_name
     }
 }
 
-float DynamicPowerDB::get_bel_power_data(Context *ctx, IdString &bel_type, IdString pin_name, int v_ddc, bool &success) {
+float DynamicPowerDB::GetBelPowerData(Context *ctx, IdString &bel_type, IdString pin_name, int v_ddc, bool &success) {
 
     if (dynamic_power_DB_.find(bel_type) == dynamic_power_DB_.end()) {
         success = false;
@@ -72,7 +72,7 @@ float DynamicPowerDB::get_bel_power_data(Context *ctx, IdString &bel_type, IdStr
     if (bel_data.IsMux())  // To-do: add support for mux
         return 0;
 
-    float bel_consumption = bel_data.get_bel_consumption(ctx, pin_name, success);
+    float bel_consumption = bel_data.GetBelConsumption(ctx, pin_name, success);
     if (success)
         return bel_consumption;
     else {
@@ -80,4 +80,18 @@ float DynamicPowerDB::get_bel_power_data(Context *ctx, IdString &bel_type, IdStr
         return 0;
     }
 }
+
+void DynamicPowerDB::SetTransitionDensity(IdString net_name, float density) {
+    if (net_name != IdString())
+        net_swtich_densities_[net_name] = density;
+}
+
+float DynamicPowerDB::GetTransitionDensity(Context *ctx, IdString net_name) { 
+    if (net_swtich_densities_.find(net_name) == net_swtich_densities_.end()) {
+        log_warning("Failed to get transition density of net '%s'.\n", net_name.c_str(ctx));
+        return 0.2; // return default swtiching rate
+    }
+    return net_swtich_densities_[net_name]; 
+}
+
 NEXTPNR_NAMESPACE_END

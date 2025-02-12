@@ -427,6 +427,8 @@ struct NetInfo : ArchNetInfo
 {
     IdString name, hierpath;
     int32_t udata = 0;
+    bool is_clk = false;
+    bool is_direved_clk = false;
 
     PortRef driver;  // source of net
     std::vector<PortRef> users; // sinks of net
@@ -661,21 +663,30 @@ struct DeterministicRNG
     }
 };
 
+// PowerResult is initialized in ctx: ctx->power_result
 class PowerResult {
     private:
-        float static_power_; // in nW
-        float dynamic_power_; // in nW
-        float total_power_; // in nW
-        float junction_temp_; // in celcius
+        float static_power_ = 0.0; // in nW
+        float dynamic_power_ = 0.0; // in nW
+        float total_power_ = 0.0; // in nW
+        float junction_temp_ = 0.0; // in celcius
 
-        std::unordered_map<IdString, float> resource_powers_; // in nW
+        std::unordered_map<IdString, float> resource_powers_; // in nW, dynamic power of each resource type
         std::unordered_map<IdString, float> net_powers_; // in nW
 
     // Refert to original NextPNR's report.cc for data dump.
 
     public:
-        void set_junction_temp(float temp) { junction_temp_ = temp; }
-        void set_static_power(float power) { static_power_ = power; }
+        PowerResult() = default;
+        ~PowerResult() = default;
+
+        void SetJunctionTemp(float temp) { junction_temp_ = temp; }
+        void SetStaticPower(float power) { static_power_ = power; }
+        void AddNetPower(IdString net_name, float power);
+        void AddResourcePower(IdString resource_name, float power);
+        void AddDynamicPower(float power) { dynamic_power_ += power; }
+        void AddStaticPower(float power) { static_power_ += power; }
+        void AddTotalPower(float power) { total_power_ += power; }
 };
 
 

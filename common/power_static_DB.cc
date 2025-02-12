@@ -22,7 +22,7 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 
-bool StaticPowerDB::insert_to_preset_temp(short temp, float power_low_volt, float power_high_volt) {
+bool StaticPowerDB::InsertToPresetTemp(short temp, float power_low_volt, float power_high_volt) {
     if (power_low_volt >= 0 && power_high_volt >= 0) {
         std::pair<float, float> powers = std::make_pair(power_low_volt, power_high_volt);
         std::pair<short, std::pair<float, float>> temp_to_watts = std::make_pair(temp, powers);
@@ -35,7 +35,7 @@ bool StaticPowerDB::insert_to_preset_temp(short temp, float power_low_volt, floa
     }
 }
 
-void StaticPowerDB::init_temperature_power_slopes() {
+void StaticPowerDB::InitTemperaturePowerSlopes() {
     // Initialize temperature_power_slopes_ with temperature ranges and power slope
     temperature_power_slopes_.clear();
     std::map<std::pair<short, short>, float>().swap(temperature_power_slopes_);
@@ -45,7 +45,7 @@ void StaticPowerDB::init_temperature_power_slopes() {
     temperature_power_slopes_[std::make_pair(80, 125)] = 0.0;
 }
 
-bool StaticPowerDB::get_bel_base_power(IdString bel, short temp, int voltage, float &base_power) {
+bool StaticPowerDB::GetBelBasePower(IdString bel, short temp, int voltage, float &base_power) {
     
     if (static_power_DB_.find(bel) == static_power_DB_.end())
         return false;
@@ -56,7 +56,7 @@ bool StaticPowerDB::get_bel_base_power(IdString bel, short temp, int voltage, fl
     return true;
 }
 
-bool StaticPowerDB::get_bel_low_power(IdString bel, short temp, int voltage, float &low_power) {
+bool StaticPowerDB::GetBelLowPower(IdString bel, short temp, int voltage, float &low_power) {
     if (static_power_DB_.find(bel) == static_power_DB_.end())
         return false;
     else if (static_power_DB_[bel].find(temp) == static_power_DB_[bel].end())
@@ -66,7 +66,7 @@ bool StaticPowerDB::get_bel_low_power(IdString bel, short temp, int voltage, flo
     return true;
 }
 
-bool StaticPowerDB::get_bel_high_power(IdString bel, short temp, int voltage, float &high_power) {
+bool StaticPowerDB::GetBelHighPower(IdString bel, short temp, int voltage, float &high_power) {
     if (static_power_DB_.find(bel) == static_power_DB_.end())
         return false;
     else if (static_power_DB_[bel].find(temp) == static_power_DB_[bel].end())

@@ -16,10 +16,10 @@ public:
     ~PowerJsonReader() = default;
 
     // 设置文件路径
-    void setFilePath(const std::string &filePath);
+    void SetFilePath(const std::string &filePath);
 
     // 加载 JSON 数据到项目结构
-    bool loadData(json &json_data);
+    bool LoadData(json &json_data);
 
 private:
     std::string filePath;  // JSON 文件路径

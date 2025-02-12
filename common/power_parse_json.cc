@@ -6,12 +6,12 @@
 PowerJsonReader::PowerJsonReader(const std::string &filePath) : filePath(filePath){}
 
 // 设置文件路径
-void PowerJsonReader::setFilePath(const std::string &filePath) {
+void PowerJsonReader::SetFilePath(const std::string &filePath) {
     this->filePath = filePath;
 }
 
 // 加载 JSON 数据到项目数据结构
-bool PowerJsonReader::loadData(json &json_data) {
+bool PowerJsonReader::LoadData(json &json_data) {
     // 检查文件路径是否为空
     if (filePath.empty()) {
         std::cerr << "Error: File path is empty." << std::endl;

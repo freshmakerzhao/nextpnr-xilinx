@@ -28,6 +28,8 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+float GenerateRandomNumber(float lower_limit, float upper_limit);
+
 class StaticPowerAnalyzer{
     private:
         Context *ctx_;
@@ -42,14 +44,13 @@ class StaticPowerAnalyzer{
             : ctx_(ctx), junction_temp_(junction_temp), v_ddc_(v_ddc){}
         ~StaticPowerAnalyzer() = default;
 
-        bool run();
-        void calculate_temperature_power_slopes();
-        bool estimate_base_power_from_preset_temp();
-        StaticPowerDB& getStaticPowerDB() { return static_power_DB_; }
+        bool Run();
+        void CalculateTemperaturePowerSlopes();
+        bool EstimateBasePowerFromPresetTemp();
+        StaticPowerDB& GetStaticPowerDB() { return static_power_DB_; }
+        int GetVddc() const { return v_ddc_; }
 
-        float get_bel_base_static_power(IdString bel);
-        int get_vddc () const { return v_ddc_; }
-        // void write_power_report(std::ostream &out);
+        // float get_bel_base_static_power(IdString bel);
 };
 
 class DynamicPowerAnalyzer{
@@ -57,15 +58,19 @@ class DynamicPowerAnalyzer{
         Context *ctx_;
         DynamicPowerDB dynamic_power_DB_;
         int v_ddc_ = 0;  // unit: mV
+        float transition_density_ = 0.0;
+        float signal_probability_ = 0.0;
 
     public:
         DynamicPowerAnalyzer() = default;
-        DynamicPowerAnalyzer(Context *ctx, int v_ddc) 
-            : ctx_(ctx), v_ddc_(v_ddc) {}
+        DynamicPowerAnalyzer(Context *ctx, int v_ddc, float signal_probability, float transition_density) 
+            : ctx_(ctx), v_ddc_(v_ddc), signal_probability_(signal_probability), transition_density_(transition_density) {};
         ~DynamicPowerAnalyzer() = default;
 
-        bool run();
-        float get_bel_usage(IdString bel_type, IdString pin_name, int v_ddc);
+        bool Run(StaticPowerDB &static_power_DB, float temperature);
+        float GetBelUsage(IdString bel_type, IdString pin_name, int v_ddc);
+        void TransitionDensityGenerator();
+        float GetTransitionDensity(Context *ctx, IdString net_name) { return dynamic_power_DB_.GetTransitionDensity(ctx, net_name);}
 
         // missing function for getting MUX usage
 };
@@ -77,14 +82,15 @@ class PowerAnalyzer {
         StaticPowerAnalyzer static_power_analyzer_;
 
     public:
-        PowerAnalyzer(Context *ctx, float junction_temp, int v_ddc) 
+        PowerAnalyzer(Context *ctx, float junction_temp, int v_ddc, float signal_probability, float transition_density) 
             : ctx_(ctx) {
-                dynamic_power_analyzer_ = DynamicPowerAnalyzer(ctx_, junction_temp);
+                dynamic_power_analyzer_ = DynamicPowerAnalyzer(ctx_, junction_temp, signal_probability, transition_density);
                 static_power_analyzer_ = StaticPowerAnalyzer(ctx_, junction_temp, v_ddc);
-            }
-        bool run();
-        void write_power_report(std::ostream &out);
-        bool loadPowerData(const std::string &path);
+        }
+
+        bool Run();
+        void WritePowerReport(std::ostream &out);
+        bool LoadPowerData(const std::string &path);
 };
 
 

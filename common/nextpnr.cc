@@ -73,6 +73,20 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
 }
 
+void PowerResult::AddNetPower(IdString net_name, float power) {
+    if (net_powers_.find(net_name) != net_powers_.end()) 
+        net_powers_[net_name] += power;
+    else 
+        net_powers_[net_name] = power;
+}
+
+void PowerResult::AddResourcePower(IdString resource_name, float power) {
+    if (resource_powers_.find(resource_name) != resource_powers_.end()) 
+        resource_powers_[resource_name] += power;
+    else 
+        resource_powers_[resource_name] = power;
+}
+
 TimingConstrObjectId BaseCtx::timingWildcardObject()
 {
     TimingConstrObjectId id;

@@ -48,7 +48,7 @@ class StaticPowerDB {
         void InitTemperaturePowerSlopes();
         void SetChipBasePower(float base_power) { chip_base_power_ = base_power; }
         float GetChipBasePower() const { return chip_base_power_; }
-        std::map<short, std::pair<float, float>> GetPresetTempToBasePower () const { return preset_temp_to_total_base_power_;}
+        std::map<short, std::pair<float, float>>& GetPresetTempToBasePower () { return preset_temp_to_total_base_power_;}
         std::map<std::pair<short, short>, float>& GetPowerSlopes() { return temperature_power_slopes_; }
 
         bool IsPreset() const { return is_preset; }

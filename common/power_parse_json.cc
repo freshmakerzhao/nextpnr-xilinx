@@ -35,13 +35,13 @@ bool PowerJsonReader::LoadData(json &json_data) {
         std::cerr << "JSON 解析错误: " << err << std::endl;
         return false;
     }
-    std::ofstream out_file("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/test_parse.json");
-    if (!out_file.is_open()) {
-        std::cerr << "Failed to open output file for writing." << std::endl;
-        return false;
-    }
-    out_file << json_data.dump() << std::endl;
-    out_file.close();
+    // std::ofstream out_file("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/test_parse.json");
+    // if (!out_file.is_open()) {
+    //     std::cerr << "Failed to open output file for writing." << std::endl;
+    //     return false;
+    // }
+    // out_file << json_data.dump() << std::endl;
+    // out_file.close();
     // 成功读取数据
     return true;
 }

@@ -525,15 +525,10 @@ void XilinxPacker::check(){
             }
         }
     }
-        // PowerJsonReader jsonreader("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
-    // bool p = jsonreader.loadData();
-    // PowerJsonReader data_parser("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
-    // json jsonData;
-    // if (!data_parser.loadData(jsonData)) {
-    //     log_error("Failed to estimate power data to power analyzer.\n");
-    // }
-    // PowerAnalyzer p(ctx,11.0,900);
-    // p.loadPowerData("C:/msys64/home/DELL/Source/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
+
+    // For testing
+    // PowerAnalyzer p(ctx,25.0,1000,0.5,0.2);
+    // p.LoadPowerData("/home/liwenhao/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
 }
 
 bool XilinxPacker::is_constrained(const CellInfo *cell)

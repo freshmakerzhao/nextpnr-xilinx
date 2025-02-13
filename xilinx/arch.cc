@@ -89,6 +89,18 @@ Arch::Arch(ArchArgs args) : args(args)
     else
         xc7 = false;
 
+    std::string sub_name = std::string(chip_info->name.get()).substr(4,4);
+
+    if (sub_name == "100t") {
+        device_name = this->id("MC7F100");
+    } else if (sub_name == "160t") {
+        device_name = this->id("MC7F160");
+    } else if (sub_name == "200t") {
+        device_name = this->id("MC7F200");
+    } else {
+        device_name = this->id("UNKNOWN");
+    }
+
     tileStatus.resize(chip_info->num_tiles);
     for (int i = 0; i < chip_info->num_tiles; i++) {
         tileStatus[i].boundcells.resize(chip_info->tile_types[chip_info->tile_insts[i].type].num_bels);

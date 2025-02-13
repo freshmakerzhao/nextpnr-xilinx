@@ -63,6 +63,54 @@ bool PowerAnalyzer::LoadPowerData(const std::string &path) {
             }
         
     }
+
+    if (jsonData[v_ddc_str][ctx_->device_name.str(ctx_)].is_object()){
+        for(auto& value : jsonData[v_ddc_str][ctx_->device_name.str(ctx_)].object_items()){
+            short temperature = static_cast<short>(std::stoi(value.first));
+            if(v_ddc == 1000){
+                static_power_analyzer_.GetStaticPowerDB().GetPresetTempToBasePower()[temperature] = {0.0f,static_cast<float>(value.second.number_value())};
+            }
+        }
+    }
+
+    // for testing
+    // auto& static_db = static_power_analyzer_.GetStaticPowerDB().GetStaticPowerMap();
+    // for (const auto& outer_entry : static_db) {  // 遍历 StaticPowerMap
+    //     const IdString& outer_key = outer_entry.first;   // 这是 IdString
+    //     const BelStaticPowerMap& bel_static_power_map = outer_entry.second; // 获取每个 BelStaticPowerMap
+
+    //     // 输出外部 IdString 的值
+    //     std::cout << "BelType: " << outer_key.str(ctx_) << std::endl;
+
+    //     // 遍历 BelStaticPowerMap 中的每个条目
+    //     for (const auto& inner_entry : bel_static_power_map) {
+    //         const IdString& inner_key = inner_entry.first; // 这是 IdString
+    //         const std::map<int, std::tuple<float, float, float>>& power_map = inner_entry.second;
+
+    //         // 输出内部 IdString 的值
+    //         std::cout << "  温度: " << inner_key.str(ctx_) << std::endl;
+
+    //         // 遍历 std::map<int, std::tuple<float, float, float>>
+    //         for (const auto& voltage_entry : power_map) {
+    //             int voltage = voltage_entry.first;  // 电压
+    //             const auto& power_tuple = voltage_entry.second; // 获取元组 (base_power, low_power, high_power)
+    //             float base_power = std::get<0>(power_tuple);
+    //             float low_power = std::get<1>(power_tuple);
+    //             float high_power = std::get<2>(power_tuple);
+
+    //             // 输出温度和功率信息
+    //             std::cout << "    电压: " << voltage 
+    //                     << ", Base Power: " << base_power
+    //                     << ", Low Power: " << low_power
+    //                     << ", High Power: " << high_power << std::endl;
+    //         }
+    //     }
+    // }
+
+    // auto& map = static_power_analyzer_.GetStaticPowerDB().GetPresetTempToBasePower();
+    // for(auto it : map){
+    //     std::cout <<"温度：" << it.first << "    对应值： " << "900mv: "<<it.second.first <<"   1000mv:" << it.second.second << std::endl; 
+    // }
     return true;
 }
 

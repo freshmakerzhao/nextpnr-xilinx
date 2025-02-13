@@ -740,6 +740,7 @@ struct Arch : BaseCtx
     Arch(ArchArgs args);
 
     bool xc7;
+    IdString device_name;
 
     std::string getChipName() const;
 

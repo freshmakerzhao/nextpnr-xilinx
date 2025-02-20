@@ -159,6 +159,9 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct NetInfo;
+NetInfo *GetFastGlobelClk(const BaseCtx *ctx);
+
 struct GraphicElement
 {
     enum type_t

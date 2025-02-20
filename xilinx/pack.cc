@@ -1396,8 +1396,8 @@ bool Arch::pack()
     if (xc7) {
         XC7Packer packer;
         packer.ctx = getCtx();
-        packer.constrains_bel_loc();
-        packer.pack_constants();
+        packer.constrains_bel_loc();  // Constrain BEL locations based on xdc content
+        packer.pack_constants();  // Pack Vcc GND
         packer.pack_inverters();
         packer.pack_io();
         // packer.prepare_iologic();

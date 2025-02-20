@@ -27,7 +27,7 @@ typedef int delay_t;
 
 struct DelayInfo
 {
-    delay_t delay = 0;
+    delay_t delay = 0;  // in ps. (1e-12)
 
     delay_t minRaiseDelay() const { return delay; }
     delay_t maxRaiseDelay() const { return delay; }

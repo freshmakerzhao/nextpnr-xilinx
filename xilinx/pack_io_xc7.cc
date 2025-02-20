@@ -267,8 +267,8 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
                                         (is_diff_iobuf || (xil_iob->type == ctx->id("OBUFTDS")))
                                                 ? (has_dci ? ctx->id("OBUFT_DCIEN") : ctx->id("OBUFT"))
                                                 : ctx->id("OBUF"),
-                                        get_net_or_empty(xil_iob, ctx->id("I")), pad_p_net,
-                                        get_net_or_empty(xil_iob, ctx->id("T")));
+                                                get_net_or_empty(xil_iob, ctx->id("I")), pad_p_net,
+                                                get_net_or_empty(xil_iob, ctx->id("T")));
 
             if (is_riob18) {
                 obuf_p->attrs[ctx->id("BEL")] = site_p + "/IOB18M/OUTBUF_DCIEN";

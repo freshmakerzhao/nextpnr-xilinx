@@ -145,6 +145,9 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct NetInfo;
+NetInfo *GetFastGlobelClk(const BaseCtx *ctx);
+
 struct GraphicElement
 {
     enum type_t
@@ -444,6 +447,8 @@ struct NetInfo : ArchNetInfo
     TimingConstrObjectId tmg_id;
 
     Region *region = nullptr;
+
+    NetInfo *cupturing_clk = nullptr;
 };
 
 enum PortType
@@ -712,6 +717,9 @@ struct BaseCtx
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    // Collection of global clk nets
+    std::vector<NetInfo*> global_clks;
 
     // Hierarchical (non-leaf) cells by full path
     std::unordered_map<IdString, HierarchicalCell> hierarchy;

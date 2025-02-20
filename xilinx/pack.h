@@ -233,7 +233,6 @@ struct XC7Packer : public XilinxPacker
     void update_usr_ibufdisable(Context *ctx,CellInfo *inbuf);
     // Call before packing constants
     void prepare_iologic();
-
     void pack_iologic();
     void pack_idelayctrl();
     void pack_cmt_fifo();
@@ -262,6 +261,7 @@ struct XC7Packer : public XilinxPacker
     void constrain_ibufds_gtp_site(CellInfo *buf_cell, const std::string &io_bel);
     void constrain_bufhce_gtp_common(CellInfo *bufhce_cell, CellInfo *gtp_common);
     void pack_gt();
+    void link_clk_to_net();
 
 private:
     void walk_dsp(CellInfo *root, CellInfo *ci, int constr_z,int index);

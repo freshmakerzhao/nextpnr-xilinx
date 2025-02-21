@@ -35,8 +35,8 @@ class StaticPowerDB {
     private:
         float chip_base_power_ = 0.0;
 
-        bool is_preset = false;
-        std::map<short, std::pair<float, float>> preset_temp_to_total_base_power_; // <temperature, <base_power_0.9v, base_power_1v>>
+        bool is_preset_ = false;
+        std::map<short, float> preset_temp_to_total_base_power_; // <temperature, <base_power_0.9v, base_power_1v>>
         std::map<std::pair<short, short>, float> temperature_power_slopes_; // <temperature_range, power_slope>
         StaticPowerMap static_power_DB_; // Contains static power data of bels and muxes in sites
                                          // std::tuple<base_power, low_power, high_power>, in nW
@@ -44,14 +44,15 @@ class StaticPowerDB {
     public:
         StaticPowerDB() = default;
         ~StaticPowerDB() =default;
-        bool InsertToPresetTemp(short temp, float power_low_volt, float power_high_volt);
+        bool InsertToPresetTemp(short temp, float power);
         void InitTemperaturePowerSlopes();
         void SetChipBasePower(float base_power) { chip_base_power_ = base_power; }
+        void SetPreset(bool val) { is_preset_ = val; }
         float GetChipBasePower() const { return chip_base_power_; }
-        std::map<short, std::pair<float, float>>& GetPresetTempToBasePower () { return preset_temp_to_total_base_power_;}
+        std::map<short, float>& GetPresetTempToBasePower () { return preset_temp_to_total_base_power_;}
         std::map<std::pair<short, short>, float>& GetPowerSlopes() { return temperature_power_slopes_; }
 
-        bool IsPreset() const { return is_preset; }
+        bool IsPreset() const { return is_preset_; }
         StaticPowerMap& GetStaticPowerMap() { return static_power_DB_; }
 
 

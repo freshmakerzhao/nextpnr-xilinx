@@ -692,6 +692,9 @@ class PowerResult {
         void AddDynamicPower(float power) { dynamic_power_ += power; }
         void AddStaticPower(float power) { static_power_ += power; }
         void AddTotalPower(float power) { total_power_ += power; }
+
+        float GetStaticPowerResult() { return static_power_; }
+        float GetJunctionTemp() { return junction_temp_; }
 };
 
 

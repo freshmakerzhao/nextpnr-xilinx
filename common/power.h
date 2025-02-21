@@ -47,6 +47,7 @@ class StaticPowerAnalyzer{
         bool Run();
         void CalculateTemperaturePowerSlopes();
         bool EstimateBasePowerFromPresetTemp();
+        void SetPreset(bool val) { static_power_DB_.SetPreset(val); }
         StaticPowerDB& GetStaticPowerDB() { return static_power_DB_; }
         int GetVddc() const { return v_ddc_; }
 
@@ -71,7 +72,7 @@ class DynamicPowerAnalyzer{
         float GetBelUsage(IdString bel_type, IdString pin_name, int v_ddc);
         void TransitionDensityGenerator();
         float GetTransitionDensity(Context *ctx, IdString net_name) { return dynamic_power_DB_.GetTransitionDensity(ctx, net_name);}
-
+        DynamicPowerDB& GetDynamicPowerDB() { return dynamic_power_DB_;}
         // missing function for getting MUX usage
 };
 

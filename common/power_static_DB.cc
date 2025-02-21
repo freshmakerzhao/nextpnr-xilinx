@@ -22,15 +22,14 @@
 NEXTPNR_NAMESPACE_BEGIN
 
 
-bool StaticPowerDB::InsertToPresetTemp(short temp, float power_low_volt, float power_high_volt) {
-    if (power_low_volt >= 0 && power_high_volt >= 0) {
-        std::pair<float, float> powers = std::make_pair(power_low_volt, power_high_volt);
-        std::pair<short, std::pair<float, float>> temp_to_watts = std::make_pair(temp, powers);
-        preset_temp_to_total_base_power_.insert(temp_to_watts);
+bool StaticPowerDB::InsertToPresetTemp(short temp, float power) {
+    if (power >= 0) {
+        std::pair<short, float> temp_to_power = std::make_pair(temp, power);
+        preset_temp_to_total_base_power_.insert(temp_to_power);
         return true;
     }
     else {
-        log_error("Invalid power value: %f\n", power_low_volt >= 0 ? power_high_volt : power_low_volt);
+        log_error("Invalid power value: %f\n", power);
         return false;
     }
 }

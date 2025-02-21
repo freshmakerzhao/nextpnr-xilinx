@@ -50,67 +50,49 @@ bool PowerAnalyzer::LoadPowerData(const std::string &path) {
 
     // Save power data based on voltage
     json v_ddc_jsonData = jsonData[v_ddc_str];
-    for (auto &bel_entry: v_ddc_jsonData["bels"].object_items()) {
-            IdString bel_type = ctx_->id(bel_entry.first);
-            for (auto &temp_entry : bel_entry.second["static_power"].object_items()) {
-                IdString temperature = ctx_->id(temp_entry.first); 
-                float base_power = temp_entry.second["base"].number_value();
-                float low_power = temp_entry.second["low"].number_value();
-                float high_power = temp_entry.second["high"].number_value();
+    for (const auto& bel_key : {"bels", "routing_resources"}) {
+        for (auto &bel_entry: v_ddc_jsonData[bel_key].object_items()) {
+                IdString bel_type = ctx_->id(bel_entry.first);
+                for (auto &temp_entry : bel_entry.second["static_power"].object_items()) {
+                    IdString temperature = ctx_->id(temp_entry.first); 
+                    float base_power = temp_entry.second["base"].number_value();
+                    float low_power = temp_entry.second["low"].number_value();
+                    float high_power = temp_entry.second["high"].number_value();
 
-                // 存储到 StaticPowerMap
-                static_power_analyzer_.GetStaticPowerDB().GetStaticPowerMap()[bel_type][temperature][v_ddc] = std::make_tuple(base_power, low_power, high_power);
-            }
-        
-    }
+                    // 存储到 StaticPowerMap
+                    static_power_analyzer_.GetStaticPowerDB().GetStaticPowerMap()[bel_type][temperature][v_ddc] = std::make_tuple(base_power, low_power, high_power);
+                }
+                for (auto &voltage_entry : bel_entry.second["dynamic_comsumption"].object_items()) {
+                    
+                    float falling = voltage_entry.second["falling"].number_value();
+                    float rising = voltage_entry.second["rising"].number_value();
 
-    if (jsonData[v_ddc_str][ctx_->device_name.str(ctx_)].is_object()){
-        for(auto& value : jsonData[v_ddc_str][ctx_->device_name.str(ctx_)].object_items()){
-            short temperature = static_cast<short>(std::stoi(value.first));
-            if(v_ddc == 1000){
-                static_power_analyzer_.GetStaticPowerDB().GetPresetTempToBasePower()[temperature] = {0.0f,static_cast<float>(value.second.number_value())};
-            }
+                    std::unordered_map<IdString, std::map<int, BelDynamicComsumption>>& dynamic_power = dynamic_power_analyzer_.GetDynamicPowerDB().GetDynamicPowerMap();
+                    
+                    // 存储到 DynamicPowerMap
+                    if(bel_key == "bels"){
+                        IdString value = ctx_->id(voltage_entry.first); 
+                        dynamic_power[bel_type][v_ddc].GetBelConsumptionMap().emplace(value,(falling+rising)/2);
+                    }
+                    else if(bel_key == "routing_resources"){
+                        int value = std::stoi(voltage_entry.first);
+                        dynamic_power[bel_type][v_ddc].GetMuxConsumptionMap().emplace(value,(falling+rising)/2);
+                        dynamic_power[bel_type][v_ddc].SetMux(true);
+                    }
+
+                }
+            
         }
     }
 
-    // for testing
-    // auto& static_db = static_power_analyzer_.GetStaticPowerDB().GetStaticPowerMap();
-    // for (const auto& outer_entry : static_db) {  // 遍历 StaticPowerMap
-    //     const IdString& outer_key = outer_entry.first;   // 这是 IdString
-    //     const BelStaticPowerMap& bel_static_power_map = outer_entry.second; // 获取每个 BelStaticPowerMap
-
-    //     // 输出外部 IdString 的值
-    //     std::cout << "BelType: " << outer_key.str(ctx_) << std::endl;
-
-    //     // 遍历 BelStaticPowerMap 中的每个条目
-    //     for (const auto& inner_entry : bel_static_power_map) {
-    //         const IdString& inner_key = inner_entry.first; // 这是 IdString
-    //         const std::map<int, std::tuple<float, float, float>>& power_map = inner_entry.second;
-
-    //         // 输出内部 IdString 的值
-    //         std::cout << "  温度: " << inner_key.str(ctx_) << std::endl;
-
-    //         // 遍历 std::map<int, std::tuple<float, float, float>>
-    //         for (const auto& voltage_entry : power_map) {
-    //             int voltage = voltage_entry.first;  // 电压
-    //             const auto& power_tuple = voltage_entry.second; // 获取元组 (base_power, low_power, high_power)
-    //             float base_power = std::get<0>(power_tuple);
-    //             float low_power = std::get<1>(power_tuple);
-    //             float high_power = std::get<2>(power_tuple);
-
-    //             // 输出温度和功率信息
-    //             std::cout << "    电压: " << voltage 
-    //                     << ", Base Power: " << base_power
-    //                     << ", Low Power: " << low_power
-    //                     << ", High Power: " << high_power << std::endl;
-    //         }
-    //     }
-    // }
-
-    // auto& map = static_power_analyzer_.GetStaticPowerDB().GetPresetTempToBasePower();
-    // for(auto it : map){
-    //     std::cout <<"温度：" << it.first << "    对应值： " << "900mv: "<<it.second.first <<"   1000mv:" << it.second.second << std::endl; 
-    // }
+    // Save preset static power data
+    if (jsonData[v_ddc_str][ctx_->device_name.str(ctx_)].is_object()){
+        for(auto& value : jsonData[v_ddc_str][ctx_->device_name.str(ctx_)].object_items()){
+            short temperature = static_cast<short>(std::stoi(value.first));
+            static_power_analyzer_.GetStaticPowerDB().GetPresetTempToBasePower()[temperature] = static_cast<float>(value.second.number_value());
+        }
+        static_power_analyzer_.SetPreset(true);
+    }
     return true;
 }
 
@@ -130,13 +112,26 @@ bool StaticPowerAnalyzer::Run() {
     
     // Static power calculation
     // IdString pad_id = ctx->xc7 ? ctx->id("PAD") : ctx->id("IOB_PAD");
-    for (auto bel : ctx_->getBels()) {
-        auto bel_type = ctx_->getBelType(bel);  // IdString. bel_type->str(ctx);
-    }
+    // for (auto bel : ctx_->getBels()) {
+    //     auto bel_type = ctx_->getBelType(bel);  // IdString. bel_type->str(ctx);
+    // }
 
     return true;;
 }
 
+
+
+//                 *  power value
+//                 |
+//                 |
+//             *   |
+//             |   |
+//         *   |   |
+// *   *   |   |   |
+// |   |   |   |   |
+// |   |   |   |   |
+// *---*---*---*---*  temperature value
+// The following function is to calculate the slope of each temperature domain
 void StaticPowerAnalyzer::CalculateTemperaturePowerSlopes() {
     auto &temperature_power_slopes = static_power_DB_.GetPowerSlopes(); //<temperature_range<a,b>, power_slope>
     for (auto &data : temperature_power_slopes) {
@@ -145,12 +140,13 @@ void StaticPowerAnalyzer::CalculateTemperaturePowerSlopes() {
         float lower_power = -1.0;
         float upper_power = -1.0;
 
-        for (auto &preset_power : static_power_DB_.GetPresetTempToBasePower()) {
+        std::map<short, float>& preset_power_map = static_power_DB_.GetPresetTempToBasePower();
+        for (auto &preset_power : preset_power_map) {
             if (preset_power.first == lower_temp)
-                lower_power = v_ddc_ == 900? preset_power.second.first : preset_power.second.second;
+                lower_power = preset_power.second;
             else if (preset_power.first == upper_temp)
-                upper_power = v_ddc_ == 900? preset_power.second.first : preset_power.second.second;
-            if (lower_power * upper_power > 0) // if upper and lower values are set, then break.
+                upper_power =preset_power.second;
+            if (lower_power > 0 && upper_power > 0 ) // if upper and lower values are set, then break.
                 break;
         }
         data.second = (upper_power - lower_power) / (upper_temp - lower_temp)*1.0;
@@ -164,7 +160,7 @@ bool StaticPowerAnalyzer::EstimateBasePowerFromPresetTemp() {
     for (auto &data : temperature_power_slopes) {
         if (junction_temp_ <= data.first.second && junction_temp_ >= data.first.first) {
             // extract power based on v_ddc_
-            auto temp_power = v_ddc_ == 900? preset_temp_to_total_base_power[data.first.first].first : preset_temp_to_total_base_power[data.first.first].second;
+            auto temp_power = preset_temp_to_total_base_power[data.first.first];
             float chip_base_power = data.second * (junction_temp_ - data.first.first) + temp_power;  // y = ax + b
             static_power_DB_.SetChipBasePower(chip_base_power);
             break;
@@ -274,6 +270,14 @@ void DynamicPowerAnalyzer::TransitionDensityGenerator() {
         else
             dynamic_power_DB_.SetTransitionDensity(ni->name, transition_density_ + shift);
     }
+}
+
+bool PowerAnalyzer::Run() {
+    return static_power_analyzer_.Run();
+    
+    // bool static_success = static_power_analyzer_.Run();
+    // bool dynamic_success = dynamic_power_analyzer_.Run();
+    // return static_success && dynamic_success;
 }
 
 NEXTPNR_NAMESPACE_END

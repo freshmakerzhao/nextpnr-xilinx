@@ -44,6 +44,9 @@ class BelDynamicComsumption {
 
         float GetMuxConsumption(int load, bool &success);
         float GetBelConsumption(Context *ctx, IdString pin_name, bool &success);
+        void SetMux(bool val){ is_mux_ = val;}
+        std::unordered_map<int, float>& GetMuxConsumptionMap() { return mux_consumption_;}
+        std::unordered_map<IdString, float>& GetBelConsumptionMap() { return bel_consumption_;}
         bool IsMux() const { return is_mux_;}
 };
 
@@ -62,6 +65,7 @@ class DynamicPowerDB {
         void SetTransitionDensity(IdString net_name, float density);
         float GetBelPowerData(Context *ctx, IdString &bel_name, IdString pin_name, int v_ddc, bool &success);
         float GetTransitionDensity(Context *ctx, IdString net_name);
+        std::unordered_map<IdString, std::map<int, BelDynamicComsumption>>& GetDynamicPowerMap(){ return dynamic_power_DB_;}
 };
 NEXTPNR_NAMESPACE_END
 

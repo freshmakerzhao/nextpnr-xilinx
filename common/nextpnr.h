@@ -448,7 +448,7 @@ struct NetInfo : ArchNetInfo
 
     Region *region = nullptr;
 
-    NetInfo *cupturing_clk = nullptr;
+    NetInfo *capturing_clk = nullptr;
 };
 
 enum PortType

@@ -1622,11 +1622,11 @@ void XC7Packer::pack_cmt_fifo()
 
 // Add capturing clk to nets
 void XC7Packer::link_clk_to_net() {
+    /***************************************************************************************
+    / Note:
+    / No internal clk source on existing devices, so no need to iterate through PLL or MMCM
+    /***************************************************************************************/
 
-    // TO-DO: PLL 晶振时钟所派生的时钟
-
-
-    /////////////////////////////////////////////////////////////////////////////
     // 统计所有时钟器件
     std::set<IdString> clk_cells = {id_IOB33M_INBUF_EN, id_IOB33_INBUF_EN, id_BUFGCTRL, id_BUFHCE_BUFHCE, id_BUFIO_BUFIO, id_BUFMRCE_BUFMRCE, id_BUFR_BUFR, id_PLLE2_ADV_PLLE2_ADV, id_MMCME2_ADV_MMCME2_ADV};
 
@@ -1701,8 +1701,31 @@ void XC7Packer::link_clk_to_net() {
         }
     }
 
-    // Iterate all nets/cells
-    
+    // Iterate all cells, and set input nets capturing_clk
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+
+        NetInfo *clk_in = nullptr;
+        for (auto port: ci->ports) {
+            if (port.second.net && port.second.type == PORT_IN && port.second.net->is_clk ){
+                clk_in = port.second.net;
+                std::cout << ci->name.str(ctx) << " -- " 
+                    << port.second.name.str(ctx) << std::endl;
+                break;
+            }
+        }
+        // If no clk input, use global clk
+        if (!clk_in) 
+            clk_in = GetFastGlobelClk(ctx);
+        std::cout << "net: " << clk_in->name.str(ctx) << std::endl;
+
+        // If found clk, set capturing clk on each input port
+        if (clk_in) 
+            for (auto port: ci->ports) 
+                if (port.second.net && port.second.type == PORT_IN && !port.second.net->is_clk)
+                    port.second.net->capturing_clk = clk_in;
+    }
+
 }
 
 NEXTPNR_NAMESPACE_END

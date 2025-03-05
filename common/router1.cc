@@ -24,6 +24,7 @@
 #include "log.h"
 #include "router1.h"
 #include "timing.h"
+#include "power.h"
 
 namespace {
 
@@ -956,6 +957,12 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         }
         if (ctx->do_timing_analysis)
         timing_analysis(ctx, true, true, true, true, true);
+
+        PowerAnalyzer power_analysis(ctx, 40, 1000, 0.5, 0.2); // (ctx, junction_temp, v_ddc, signal_probability, transition_density)
+                                                               // junction_temp can only be set to one of -55, 0, 40, 80, 125
+        if (!power_analysis.Run()) {
+            log_error("Power analysis failed.\n");
+        }
 
         ctx->unlock();
         return true;

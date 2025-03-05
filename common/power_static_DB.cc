@@ -34,44 +34,47 @@ bool StaticPowerDB::InsertToPresetTemp(short temp, float power) {
     }
 }
 
-void StaticPowerDB::InitTemperaturePowerSlopes() {
+void StaticPowerDB::InitTemperaturePowerSlopes(std::map<std::pair<short, short>, float> & temperature_power_slopes) {
     // Initialize temperature_power_slopes_ with temperature ranges and power slope
-    temperature_power_slopes_.clear();
-    std::map<std::pair<short, short>, float>().swap(temperature_power_slopes_);
-    temperature_power_slopes_[std::make_pair(-55, 0)] = 0.0;
-    temperature_power_slopes_[std::make_pair(0, 40)] = 0.0;
-    temperature_power_slopes_[std::make_pair(40, 80)] = 0.0;
-    temperature_power_slopes_[std::make_pair(80, 125)] = 0.0;
+    temperature_power_slopes.clear();
+    std::map<std::pair<short, short>, float>().swap(temperature_power_slopes);
+    temperature_power_slopes[std::make_pair(-55, 0)] = 0.0;
+    temperature_power_slopes[std::make_pair(0, 40)] = 0.0;
+    temperature_power_slopes[std::make_pair(40, 80)] = 0.0;
+    temperature_power_slopes[std::make_pair(80, 125)] = 0.0;
 }
 
-bool StaticPowerDB::GetBelBasePower(IdString bel, short temp, int voltage, float &base_power) {
+bool StaticPowerDB::GetBelBasePower(Context *ctx, IdString bel, short temp, int voltage, float &base_power) {
     
     if (static_power_DB_.find(bel) == static_power_DB_.end())
         return false;
-    else if (static_power_DB_[bel].find(temp) == static_power_DB_[bel].end())
+    std::string temp_str = std::to_string(temp);
+    if (static_power_DB_[bel].find(ctx->id(temp_str)) == static_power_DB_[bel].end())
         return false;
 
-    base_power = std::get<0>(static_power_DB_[bel][temp][voltage]);
+    base_power = std::get<0>(static_power_DB_[bel][ctx->id(temp_str)][voltage]);
     return true;
 }
 
-bool StaticPowerDB::GetBelLowPower(IdString bel, short temp, int voltage, float &low_power) {
+bool StaticPowerDB::GetBelLowPower(Context *ctx, IdString bel, short temp, int voltage, float &low_power) {
     if (static_power_DB_.find(bel) == static_power_DB_.end())
         return false;
-    else if (static_power_DB_[bel].find(temp) == static_power_DB_[bel].end())
+    std::string temp_str = std::to_string(temp);
+    if (static_power_DB_[bel].find(ctx->id(temp_str)) == static_power_DB_[bel].end())
         return false;
 
-    low_power = std::get<1>(static_power_DB_[temp][bel][voltage]);
+    low_power = std::get<1>(static_power_DB_[bel][ctx->id(temp_str)][voltage]);
     return true;
 }
 
-bool StaticPowerDB::GetBelHighPower(IdString bel, short temp, int voltage, float &high_power) {
+bool StaticPowerDB::GetBelHighPower(Context *ctx, IdString bel, short temp, int voltage, float &high_power) {
     if (static_power_DB_.find(bel) == static_power_DB_.end())
         return false;
-    else if (static_power_DB_[bel].find(temp) == static_power_DB_[bel].end())
+    std::string temp_str = std::to_string(temp);
+    if (static_power_DB_[bel].find(ctx->id(temp_str)) == static_power_DB_[bel].end())
         return false;
 
-    high_power = std::get<2>(static_power_DB_[temp][bel][voltage]);
+    high_power = std::get<2>(static_power_DB_[bel][ctx->id(temp_str)][voltage]);
     return true;
 }
 

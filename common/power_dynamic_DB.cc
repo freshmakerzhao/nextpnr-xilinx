@@ -86,10 +86,10 @@ void DynamicPowerDB::SetTransitionDensity(IdString net_name, float density) {
         net_swtich_densities_[net_name] = density;
 }
 
-float DynamicPowerDB::GetTransitionDensity(Context *ctx, IdString net_name) { 
+float DynamicPowerDB::GetTransitionDensity(Context *ctx, float default_density, IdString net_name) { 
     if (net_swtich_densities_.find(net_name) == net_swtich_densities_.end()) {
         log_warning("Failed to get transition density of net '%s'.\n", net_name.c_str(ctx));
-        return 0.2; // return default swtiching rate
+        return default_density; // return default swtiching rate
     }
     return net_swtich_densities_[net_name]; 
 }

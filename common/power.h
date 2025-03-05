@@ -24,7 +24,6 @@
 #include "json11.hpp"
 #include "power_static_DB.h"
 #include "power_dynamic_DB.h"
-#include <memory>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -45,11 +44,12 @@ class StaticPowerAnalyzer{
         ~StaticPowerAnalyzer() = default;
 
         bool Run();
-        void CalculateTemperaturePowerSlopes();
+        void CalculateTemperaturePowerSlopes(std::map<std::pair<short, short>, float>& temperature_power_slopes);
         bool EstimateBasePowerFromPresetTemp();
         void SetPreset(bool val) { static_power_DB_.SetPreset(val); }
         StaticPowerDB& GetStaticPowerDB() { return static_power_DB_; }
         int GetVddc() const { return v_ddc_; }
+        float GetJunctionTemp() const { return junction_temp_; }
 
         // float get_bel_base_static_power(IdString bel);
 };
@@ -71,7 +71,8 @@ class DynamicPowerAnalyzer{
         bool Run(StaticPowerDB &static_power_DB, float temperature);
         float GetBelUsage(IdString bel_type, IdString pin_name, int v_ddc);
         void TransitionDensityGenerator();
-        float GetTransitionDensity(Context *ctx, IdString net_name) { return dynamic_power_DB_.GetTransitionDensity(ctx, net_name);}
+        float GetTransitionDensity(Context *ctx, IdString net_name) { return dynamic_power_DB_.GetTransitionDensity(ctx, transition_density_, net_name);}
+        float GetUserDefinedTransitionDensity() const { return transition_density_;}
         DynamicPowerDB& GetDynamicPowerDB() { return dynamic_power_DB_;}
         // missing function for getting MUX usage
 };
@@ -85,7 +86,7 @@ class PowerAnalyzer {
     public:
         PowerAnalyzer(Context *ctx, float junction_temp, int v_ddc, float signal_probability, float transition_density) 
             : ctx_(ctx) {
-                dynamic_power_analyzer_ = DynamicPowerAnalyzer(ctx_, junction_temp, signal_probability, transition_density);
+                dynamic_power_analyzer_ = DynamicPowerAnalyzer(ctx_, v_ddc, signal_probability, transition_density);
                 static_power_analyzer_ = StaticPowerAnalyzer(ctx_, junction_temp, v_ddc);
         }
 

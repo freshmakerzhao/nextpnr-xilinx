@@ -22,7 +22,6 @@
 
 #include "nextpnr.h"
 #include <tuple>
-#include <unordered_map>
 #include <map>
 
 NEXTPNR_NAMESPACE_BEGIN
@@ -45,7 +44,7 @@ class StaticPowerDB {
         StaticPowerDB() = default;
         ~StaticPowerDB() =default;
         bool InsertToPresetTemp(short temp, float power);
-        void InitTemperaturePowerSlopes();
+        void InitTemperaturePowerSlopes(std::map<std::pair<short, short>, float> & temperature_power_slopes);
         void SetChipBasePower(float base_power) { chip_base_power_ = base_power; }
         void SetPreset(bool val) { is_preset_ = val; }
         float GetChipBasePower() const { return chip_base_power_; }
@@ -61,9 +60,9 @@ class StaticPowerDB {
         void SetBelPowerData(IdString bel_type, IdString temp, int voltage, float base_power, float low_power, float high_power) {
             static_power_DB_[bel_type][temp][voltage] = std::make_tuple(base_power, low_power, high_power);
         }
-        bool GetBelBasePower(IdString bel_type, short temp, int voltage, float &base_power);
-        bool GetBelLowPower(IdString bel, short temp, int voltage, float &low_power);
-        bool GetBelHighPower(IdString bel, short temp, int voltage, float &high_power);
+        bool GetBelBasePower(Context *ctx, IdString bel_type, short temp, int voltage, float &base_power);
+        bool GetBelLowPower(Context *ctx, IdString bel, short temp, int voltage, float &low_power);
+        bool GetBelHighPower(Context *ctx, IdString bel, short temp, int voltage, float &high_power);
 };
 
 NEXTPNR_NAMESPACE_END

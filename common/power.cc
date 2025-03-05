@@ -99,8 +99,8 @@ bool PowerAnalyzer::LoadPowerData(const std::string &path) {
 bool StaticPowerAnalyzer::Run() {
     // Static base power calculation based on preset whole chip power
     if (static_power_DB_.IsPreset()) {
-        static_power_DB_.InitTemperaturePowerSlopes();
-        CalculateTemperaturePowerSlopes();
+        static_power_DB_.InitTemperaturePowerSlopes(static_power_DB_.GetPowerSlopes());
+        CalculateTemperaturePowerSlopes(static_power_DB_.GetPowerSlopes());
         if (EstimateBasePowerFromPresetTemp())
             return true;
         else
@@ -132,8 +132,8 @@ bool StaticPowerAnalyzer::Run() {
 // |   |   |   |   |
 // *---*---*---*---*  temperature value
 // The following function is to calculate the slope of each temperature domain
-void StaticPowerAnalyzer::CalculateTemperaturePowerSlopes() {
-    auto &temperature_power_slopes = static_power_DB_.GetPowerSlopes(); //<temperature_range<a,b>, power_slope>
+void StaticPowerAnalyzer::CalculateTemperaturePowerSlopes(std::map<std::pair<short, short>, float>& temperature_power_slopes) {
+    // auto &temperature_power_slopes = static_power_DB_.GetPowerSlopes(); //<temperature_range<a,b>, power_slope>
     for (auto &data : temperature_power_slopes) {
         short lower_temp = data.first.first;
         short upper_temp = data.first.second;
@@ -180,6 +180,8 @@ bool StaticPowerAnalyzer::EstimateBasePowerFromPresetTemp() {
 }
 
 bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature) {
+    TransitionDensityGenerator();
+
     // Iterate all nets and calculate dynamic power on each user cell
     for (auto net : sorted(ctx_->nets)) {
         NetInfo *ni = net.second;
@@ -187,11 +189,19 @@ bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature
             continue;
         if (ni->users.empty())
             continue;
-        float clk_period = 0.0;  // in ns
-        if (ni->clkconstr != nullptr) 
+        if (ni->name.str(ctx_).find("GND") != std::string::npos || ni->name.str(ctx_).find("VCC") != std::string::npos)
+            continue;
+        
+        // 
+        float clk_period = 0.0;  // in ps, 1e10^-12
+        if (ni->is_clk)
             clk_period = ni->clkconstr->period.minDelay();
-        else
-            continue;  // skip if asynchroneous net
+        else if (ni->capturing_clk != nullptr) 
+            clk_period = ni->capturing_clk->clkconstr->period.minDelay();
+        else {
+            NetInfo *clk_virtual = GetFastGlobelClk(ctx_);
+            clk_period = clk_virtual->clkconstr->period.minDelay();
+        }
         
         for (auto user : ni->users) {
             CellInfo *ci = user.cell;
@@ -199,43 +209,46 @@ bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature
                 continue;
             IdString bel_type = ctx_->getBelType(ci->bel);
 
-            // get dynamic power based on bel_type
-            IdString bel_pin = ci->pins[user.port];
-            float usage = GetBelUsage(bel_type, bel_pin, v_ddc_);
+            // Get dynamic power based on bel_type
+            // IdString bel_pin = ci->pins[user.port];
+            // float usage = GetBelUsage(bel_type, bel_pin, v_ddc_);
+            float usage = GetBelUsage(bel_type, user.port, v_ddc_);
 
-            float clk_period = ni->clkconstr->period.minDelay(); // clock cycle in ns
-            float dens = GetTransitionDensity(ctx_, net.first); // net switch density
+            // Get net switch density
+            float dens = GetTransitionDensity(ctx_, net.first); 
 
-            // calculate single bel_pin's dynamic power and save result to PowerResult
-            float bel_dynamic_power = (usage * std::pow(10, -6)) * dens / clk_period;
+            // Calculate single bel_pin's dynamic power and save result to PowerResult
+            float bel_dynamic_power = (usage * std::pow(10, 6)) * dens / clk_period;
             ctx_->power_result.AddNetPower(net.first, bel_dynamic_power);
             ctx_->power_result.AddResourcePower(bel_type, bel_dynamic_power);
             ctx_->power_result.AddDynamicPower(bel_dynamic_power);
             ctx_->power_result.AddTotalPower(bel_dynamic_power);
 
-            // calculate working static power and save result to PowerResult
+            // Calculate working static power and save result to PowerResult
             float base_power = 0.0;
             float low_power = 0.0;
             float high_power = 0.0;
-            static_power_DB.GetBelBasePower(bel_type, temperature, v_ddc_, base_power);
-            static_power_DB.GetBelLowPower(bel_type, temperature, v_ddc_, low_power);
-            static_power_DB.GetBelHighPower(bel_type, temperature, v_ddc_, high_power);
+            static_power_DB.GetBelBasePower(ctx_, bel_type, temperature, v_ddc_, base_power);
+            static_power_DB.GetBelLowPower(ctx_, bel_type, temperature, v_ddc_, low_power);
+            static_power_DB.GetBelHighPower(ctx_, bel_type, temperature, v_ddc_, high_power);
 
             float working_static_power = 0.0;
             if (low_power < 0 && high_power < 0)
                 continue;
             else if (low_power < 0)
-                working_static_power = base_power * signal_probability_ + low_power * (1 - signal_probability_);
-            else if (high_power < 0)
-                working_static_power = high_power * signal_probability_ + low_power * (1 - signal_probability_);
-            else
                 working_static_power = high_power * signal_probability_ + base_power * (1 - signal_probability_);
+            else if (high_power < 0)
+                working_static_power = base_power * signal_probability_ + low_power * (1 - signal_probability_);
+            else
+                working_static_power = high_power * signal_probability_ + low_power * (1 - signal_probability_);
                 
             float static_power_diff = working_static_power - base_power;
             ctx_->power_result.AddStaticPower(static_power_diff);
             ctx_->power_result.AddTotalPower(static_power_diff);
         }
     }
+
+    return true;
 }
 
 float DynamicPowerAnalyzer::GetBelUsage(IdString bel_type, IdString pin_name, int v_ddc) {
@@ -258,11 +271,6 @@ void DynamicPowerAnalyzer::TransitionDensityGenerator() {
             continue;
         if (ni->users.empty())
             continue;
-        float clk_period = 0.0;  // in ns
-        if (ni->clkconstr != nullptr) 
-            clk_period = ni->clkconstr->period.minDelay();
-        else
-            continue;  // skip if asynchroneous net
 
         float shift = GenerateRandomNumber(-0.02, 0.02);
         if (ni->is_clk)
@@ -273,11 +281,20 @@ void DynamicPowerAnalyzer::TransitionDensityGenerator() {
 }
 
 bool PowerAnalyzer::Run() {
-    return static_power_analyzer_.Run();
+    if (!LoadPowerData("/home/liwenhao/my_nextpnr-xilinx/power_data/xilinx_power_data_template_100t.json")) {
+        log_warning("Failed to load power data.\n");
+        return false;
+    }
+    if (!static_power_analyzer_.Run()) {
+        log_warning("Failed to estimate static power.\n");
+        return false;
+    }
+    if (!dynamic_power_analyzer_.Run(static_power_analyzer_.GetStaticPowerDB(), static_power_analyzer_.GetJunctionTemp())) {
+        log_warning("Failed to estimate dynamic power.\n");
+        return false;
+    }
     
-    // bool static_success = static_power_analyzer_.Run();
-    // bool dynamic_success = dynamic_power_analyzer_.Run();
-    // return static_success && dynamic_success;
+    return true;
 }
 
 NEXTPNR_NAMESPACE_END

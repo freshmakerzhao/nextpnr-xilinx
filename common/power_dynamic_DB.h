@@ -22,7 +22,6 @@
 
 #include "nextpnr.h"
 #include <tuple>
-#include <unordered_map>
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -64,7 +63,7 @@ class DynamicPowerDB {
         }
         void SetTransitionDensity(IdString net_name, float density);
         float GetBelPowerData(Context *ctx, IdString &bel_name, IdString pin_name, int v_ddc, bool &success);
-        float GetTransitionDensity(Context *ctx, IdString net_name);
+        float GetTransitionDensity(Context *ctx, float default_density, IdString net_name);
         std::unordered_map<IdString, std::map<int, BelDynamicComsumption>>& GetDynamicPowerMap(){ return dynamic_power_DB_;}
 };
 NEXTPNR_NAMESPACE_END

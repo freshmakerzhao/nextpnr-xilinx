@@ -695,6 +695,7 @@ class PowerResult {
 
         float GetStaticPowerResult() { return static_power_; }
         float GetJunctionTemp() { return junction_temp_; }
+        float GetResourcePower(IdString resource_name);
 };
 
 

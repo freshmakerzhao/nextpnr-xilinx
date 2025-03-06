@@ -86,6 +86,12 @@ void PowerResult::AddResourcePower(IdString resource_name, float power) {
     else 
         resource_powers_[resource_name] = power;
 }
+float PowerResult::GetResourcePower(IdString resource_name){
+    if (resource_powers_.find(resource_name) != resource_powers_.end()) 
+        return resource_powers_[resource_name];
+    else 
+        return 0.0;
+}
 
 TimingConstrObjectId BaseCtx::timingWildcardObject()
 {

@@ -226,8 +226,8 @@ class SAPlacer
             if ((placed_cells - constr_placed_cells) % 500 != 0)
                 log_info("  initial placement placed %d/%d cells\n", int(placed_cells - constr_placed_cells),
                          int(autoplaced.size()));
-            if (cfg.budgetBased && cfg.slack_redist_iter > 0)
-                assign_budget(ctx);
+            // if (cfg.budgetBased && cfg.slack_redist_iter > 0)
+            //     assign_budget(ctx);
             ctx->yield();
             auto iplace_end = std::chrono::high_resolution_clock::now();
             log_info("Initial placement time %.02fs\n",
@@ -267,8 +267,8 @@ class SAPlacer
         auto saplace_start = std::chrono::high_resolution_clock::now();
 
         // Invoke timing analysis to obtain criticalities
-        if (!cfg.budgetBased)
-            get_criticalities(ctx, &net_crit);
+        // if (!cfg.budgetBased)
+        //     get_criticalities(ctx, &net_crit);
 
         // Calculate costs after initial placement
         setup_costs();
@@ -396,17 +396,17 @@ class SAPlacer
                     ctx->shuffle(autoplaced);
 
                     // Legalisation is a big change so force a slack redistribution here
-                    if (cfg.slack_redist_iter > 0 && cfg.budgetBased)
-                        assign_budget(ctx, true /* quiet */);
+                    // if (cfg.slack_redist_iter > 0 && cfg.budgetBased)
+                    //     assign_budget(ctx, true /* quiet */);
                 }
                 require_legal = false;
             } else if (cfg.budgetBased && cfg.slack_redist_iter > 0 && iter % cfg.slack_redist_iter == 0) {
-                assign_budget(ctx, true /* quiet */);
+                // assign_budget(ctx, true /* quiet */);
             }
 
             // Invoke timing analysis to obtain criticalities
-            if (!cfg.budgetBased && cfg.timing_driven)
-                get_criticalities(ctx, &net_crit);
+            // if (!cfg.budgetBased && cfg.timing_driven)
+            //     get_criticalities(ctx, &net_crit);
             // Need to rebuild costs after criticalities change
             setup_costs();
             // Reset incremental bounds
@@ -453,7 +453,7 @@ class SAPlacer
             if (get_constraints_distance(ctx, cell.second) != 0)
                 log_error("constraint satisfaction check failed for cell '%s' at Bel '%s'\n", cell.first.c_str(ctx),
                           ctx->getBelName(cell.second->bel).c_str(ctx));
-        timing_analysis(ctx);
+        // timing_analysis(ctx);
         ctx->unlock();
         return true;
     }
@@ -846,14 +846,16 @@ class SAPlacer
         if (ctx->getPortTimingClass(net->driver.cell, net->driver.port, cc) == TMG_IGNORE)
             return 0;
         if (cfg.budgetBased) {
-            double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
-            return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget) / 10));
+            // double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
+            // return std::min(10.0, std::exp(delay - ctx->getDelayNS(net->users.at(user).budget) / 10));
+            return 10;
         } else {
-            auto crit = net_crit.find(net->name);
-            if (crit == net_crit.end() || crit->second.criticality.empty())
-                return 0;
-            double delay = ctx->getDelayNS(ctx->predictDelay(net, net->users.at(user)));
-            return delay * std::pow(crit->second.criticality.at(user), crit_exp);
+            // auto crit = net_crit.find(net->name);
+            // if (crit == net_crit.end() || crit->second.criticality.empty())
+            //     return 0;
+            // double delay = ctx->getDelayNS(ctx->predictArcDelay(net, net->users.at(user)));
+            // return delay * std::pow(crit->second.criticality.at(user), crit_exp);
+            return 10;
         }
     }
 
@@ -865,9 +867,9 @@ class SAPlacer
             if (ignore_net(ni))
                 continue;
             net_bounds[ni->udata] = get_net_bounds(ni);
-            if (cfg.timing_driven && int(ni->users.size()) < cfg.timingFanoutThresh)
-                for (size_t i = 0; i < ni->users.size(); i++)
-                    net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
+            // if (cfg.timing_driven && int(ni->users.size()) < cfg.timingFanoutThresh)
+            //     for (size_t i = 0; i < ni->users.size(); i++)
+            //         net_arc_tcost[ni->udata][i] = get_timing_cost(ni, i);
         }
     }
 
@@ -1082,25 +1084,25 @@ class SAPlacer
                 }
             }
 
-            if (cfg.timing_driven && int(pn->users.size()) < cfg.timingFanoutThresh) {
-                // Output ports - all arcs change timing
-                if (port.second.type == PORT_OUT) {
-                    int cc;
-                    TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
-                    if (cls != TMG_IGNORE)
-                        for (size_t i = 0; i < pn->users.size(); i++)
-                            if (!mc.already_changed_arcs[pn->udata][i]) {
-                                mc.changed_arcs.emplace_back(std::make_pair(pn->udata, i));
-                                mc.already_changed_arcs[pn->udata][i] = true;
-                            }
-                } else if (port.second.type == PORT_IN) {
-                    auto usr = fast_port_to_user.at(&port.second);
-                    if (!mc.already_changed_arcs[pn->udata][usr]) {
-                        mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
-                        mc.already_changed_arcs[pn->udata][usr] = true;
-                    }
-                }
-            }
+            // if (cfg.timing_driven && int(pn->users.size()) < cfg.timingFanoutThresh) {
+            //     // Output ports - all arcs change timing
+            //     if (port.second.type == PORT_OUT) {
+            //         int cc;
+            //         TimingPortClass cls = ctx->getPortTimingClass(cell, port.first, cc);
+            //         if (cls != TMG_IGNORE)
+            //             for (size_t i = 0; i < pn->users.size(); i++)
+            //                 if (!mc.already_changed_arcs[pn->udata][i]) {
+            //                     mc.changed_arcs.emplace_back(std::make_pair(pn->udata, i));
+            //                     mc.already_changed_arcs[pn->udata][i] = true;
+            //                 }
+            //     } else if (port.second.type == PORT_IN) {
+            //         auto usr = fast_port_to_user.at(&port.second);
+            //         if (!mc.already_changed_arcs[pn->udata][usr]) {
+            //             mc.changed_arcs.emplace_back(std::make_pair(pn->udata, usr));
+            //             mc.already_changed_arcs[pn->udata][usr] = true;
+            //         }
+            //     }
+            // }
         }
     }
 
@@ -1122,15 +1124,15 @@ class SAPlacer
             if (md.already_bounds_changed_x[bc] == MoveChangeData::NO_CHANGE)
                 md.wirelen_delta += md.new_net_bounds[bc].hpwl(cfg) - net_bounds[bc].hpwl(cfg);
 
-        if (cfg.timing_driven) {
-            for (const auto &tc : md.changed_arcs) {
-                double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
-                double new_cost = get_timing_cost(net_by_udata.at(tc.first), tc.second);
-                md.new_arc_costs.emplace_back(std::make_pair(tc, new_cost));
-                md.timing_delta += (new_cost - old_cost);
-                md.already_changed_arcs[tc.first][tc.second] = false;
-            }
-        }
+        // if (cfg.timing_driven) {
+        //     for (const auto &tc : md.changed_arcs) {
+        //         double old_cost = net_arc_tcost.at(tc.first).at(tc.second);
+        //         double new_cost = get_timing_cost(net_by_udata.at(tc.first), tc.second);
+        //         md.new_arc_costs.emplace_back(std::make_pair(tc, new_cost));
+        //         md.timing_delta += (new_cost - old_cost);
+        //         md.already_changed_arcs[tc.first][tc.second] = false;
+        //     }
+        // }
     }
 
     void commit_cost_changes(MoveChangeData &md)
@@ -1230,7 +1232,7 @@ class SAPlacer
     double last_timing_cost, curr_timing_cost;
 
     // Criticality data from timing analysis
-    NetCriticalityMap net_crit;
+    // NetCriticalityMap net_crit;
 
     Context *ctx;
     float temp = 10;

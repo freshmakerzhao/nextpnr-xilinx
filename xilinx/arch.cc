@@ -33,6 +33,10 @@
 #include "timing.h"
 #include "util.h"
 
+#include "json11.hpp"
+#include <fstream>
+#include <cctype>
+
 NEXTPNR_NAMESPACE_BEGIN
 
 static std::pair<std::string, std::string> split_identifier_name(const std::string &name)
@@ -640,34 +644,142 @@ delay_t Arch::getWireRipupDelayPenalty(WireId wire) const
         return getRipupDelayPenalty();
 }
 
-delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
-{
-    if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
-        return 0;
-    int src_x = net_info->driver.cell->bel.tile % chip_info->width,
-        src_y = net_info->driver.cell->bel.tile / chip_info->width;
+// delay_t Arch::predictDelay(const NetInfo *net_info, const PortRef &sink) const
+// {
+//     if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
+//         return 0;
+//     int src_x = net_info->driver.cell->bel.tile % chip_info->width,
+//         src_y = net_info->driver.cell->bel.tile / chip_info->width;
 
-    int dst_x = sink.cell->bel.tile % chip_info->width, dst_y = sink.cell->bel.tile / chip_info->width;
+//     int dst_x = sink.cell->bel.tile % chip_info->width, dst_y = sink.cell->bel.tile / chip_info->width;
 
-    if (net_info->driver.cell->bel.tile == sink.cell->bel.tile) {
-        Loc dl = getBelLocation(net_info->driver.cell->bel), sl = getBelLocation(sink.cell->bel);
-        if ((dl.z >> 4) == (sl.z >> 4))
-            return 0;
-        else if ((dl.z & 0xF) == BEL_FF2)
-            return 700; // penalize FF2 as it makes routing harder
-        else
-            return 150;
-    } else {
-        delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
-                       60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
+//     if (net_info->driver.cell->bel.tile == sink.cell->bel.tile) {
+//         Loc dl = getBelLocation(net_info->driver.cell->bel), sl = getBelLocation(sink.cell->bel);
+//         if ((dl.z >> 4) == (sl.z >> 4))
+//             return 0;
+//         else if ((dl.z & 0xF) == BEL_FF2)
+//             return 700; // penalize FF2 as it makes routing harder
+//         else
+//             return 150;
+//     } else {
+//         delay_t base = 30 * std::min(std::abs(dst_x - src_x), 18) + 10 * std::max(std::abs(dst_x - src_x) - 18, 0) +
+//                        60 * std::min(std::abs(dst_y - src_y), 6) + 20 * std::max(std::abs(dst_y - src_y) - 6, 0) + 300;
 
-        if (xc7)
-            base = (base * 3) / 2;
-        return base;
+//         if (xc7)
+//             base = (base * 3) / 2;
+//         return base;
+//     }
+// }
+
+bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
+
+int32_t convertStringToInt32(const std::string& str) {
+    try {
+        // 将字符串转换为浮点数
+        float value = std::stof(str);
+        // 乘以 1000
+        float scaled = value * 1000.0f;
+        // 四舍五入并转换为 int32
+        return static_cast<int32_t>(std::round(scaled));
+    } catch (const std::exception& e) {
+        // std::cerr << "转换错误: " << e.what() << "，输入字符串: " << str << std::endl;
+        // return false;
+        return -1;
     }
 }
 
-bool Arch::getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const { return false; }
+/**
+ * 时序数据需要以下功能：
+ * 1. reg类型的需要有setup、hold等数据
+ * 2. comb类型的需要有delay
+ * 3. 需要判断是否为path
+ */
+bool Arch::loadTimingData(std::string filename) {
+    // 打开文件
+    std::ifstream file(filename);
+    // 读取文件内容到字符串
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string json_content = buffer.str();
+
+    // 解析 JSON
+    std::string err;
+    json11::Json json = json11::Json::parse(json_content, err);
+
+    auto timing_data = json["timing_data"];
+    for (const auto& cell_pair : timing_data.object_items()) {
+        std::string cell_name = cell_pair.first;
+        auto cell_data = cell_pair.second.object_items();
+        //如果存在pins属性
+        if (cell_data.find("pins")!=cell_data.end()) {
+            for (const auto& pin_pair: cell_data["pins"].object_items()) {
+                std::string pin_name = pin_pair.first;
+                TimingClockingInfo tci;
+                tci.edge = ClockEdge::RISING_EDGE;
+                auto pin_data = pin_pair.second.object_items();
+                tci.clock_port = id(pin_data["CLK"].string_value());
+                if (pin_data.find("setup") != pin_data.end()) {
+                    tci.setup = DelayPair(pin_data["setup"].array_items()[0].int_value(), pin_data["setup"].array_items()[3].int_value());
+                    tci.hold = DelayPair(pin_data["hold"].array_items()[0].int_value(), pin_data["hold"].array_items()[3].int_value());
+                }
+                if (pin_data.find("clk_q")!= pin_data.end()) {
+                    tci.clockToQ = DelayQuad(pin_data["clk_q"].array_items()[0].int_value(), pin_data["clk_q"].array_items()[3].int_value());
+                }
+                reg_timing_infos[id(cell_name)][id(pin_name)] = tci;
+            }
+        }
+        if (cell_data.find("paths") != cell_data.end()) {
+            for (const auto& input_pair: cell_data["paths"].object_items()) {
+                std::string input_pin_name = input_pair.first;
+                for (const auto& output_pair: input_pair.second.object_items()) {
+                    std::string output_pin_name = output_pair.first;
+                    auto value = output_pair.second.array_items();
+                    TimingValue tv;
+                    tv.fast_min = value[0].int_value();
+                    tv.fast_max = value[1].int_value();
+                    tv.slow_min = value[2].int_value();
+                    tv.slow_max = value[3].int_value();
+                    comb_paths[id(cell_name)][id(input_pin_name)][id(output_pin_name)] = tv;
+                }
+            }
+        }
+    }
+
+
+    
+    // for (const auto& tile_pair : json.object_items()) {
+    //     std::string tile_name = tile_pair.first;
+    //     for (const auto& site_pair : tile_pair.second.object_items()) {
+    //         std::string site_name = site_pair.first;
+    //         for (const auto& bel_pair : site_pair.second.object_items()) {
+    //             std::string bel_name = bel_pair.first;
+    //             for (const auto& bel_mode_pair : bel_pair.second.object_items()) {
+    //                 auto bel_obj = bel_mode_pair.second.object_items();
+    //                 std::string model = bel_obj["model"].string_value();
+    //                 if (timingArcClassMap.find(id(model)) != timingArcClassMap.end()) {
+    //                     continue;
+    //                 }
+    //                 TimingArcClass tac;
+    //                 tac.model = id(model);
+    //                 tac.fast_min = convertStringToInt32(bel_obj["FAST_MIN"].string_value());
+    //                 tac.fast_max = convertStringToInt32(bel_obj["FAST_MAX"].string_value());
+    //                 tac.slow_min = convertStringToInt32(bel_obj["SLOW_MIN"].string_value());
+    //                 tac.slow_max = convertStringToInt32(bel_obj["SLOW_MAX"].string_value());
+    //                 // 如果bel_obj有clock属性，则设置clk
+    //                 if (bel_obj.find("clock") != bel_obj.end()) {
+    //                     tac.clk = id(bel_obj["clock"].string_value());
+    //                 }
+    //                 timingArcClassMap[id(model)] = tac;
+    //             }
+                
+    //         }
+    //     }
+    // }
+
+
+
+    return true;
+}
 
 // -----------------------------------------------------------------------
 
@@ -1124,9 +1236,29 @@ void Arch::findSourceSinkLocations()
 #endif
 }
 
+void Arch::assignArchTimingInfo()
+{
+    int cell_idx = 0, net_idx = 0;
+    for (auto &cell : cells) {
+        CellInfo *ci = cell.second.get();
+        ci->flat_index = cell_idx++;
+        // if (speed_grade && ci->timing_index == -1)
+        //     ci->timing_index = get_cell_timing_idx(ci->type);
+        for (auto &port : ci->ports) {
+            // Default 1:1 cell:bel mapping
+            if (!ci->cell_bel_pins.count(port.first))
+                ci->cell_bel_pins[port.first].push_back(port.first);
+        }
+    }
+    for (auto &net : nets) {
+        net.second->flat_index = net_idx++;
+    }
+}
+
 bool Arch::route()
 {
-    assign_budget(getCtx(), true);
+    assignArchTimingInfo();
+    // assign_budget(getCtx(), true);
     std::string router = str_or_default(settings, id("router"), defaultRouter);
     if (router != "router2")
         routeVcc();
@@ -1298,7 +1430,24 @@ DecalXY Arch::getPipDecal(PipId pip) const { return {}; };
 DecalXY Arch::getGroupDecal(GroupId pip) const { return {}; };
 
 // -----------------------------------------------------------------------
-
+bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const
+{
+    // return cell->pseudo_cell ? cell->pseudo_cell->getDelay(fromPort, toPort, delay)
+    //                             : Arch::getCellDelay(cell, fromPort, toPort, delay);
+    const Context *ctx = getCtx();
+    if (cell->type == ctx->id("SLICE_FFX")) {
+        return false;
+    }
+    // 判断comb_paths里是否存在
+    if (comb_paths.count(cell->type) && comb_paths.at(cell->type).count(fromPort) && comb_paths.at(cell->type).at(fromPort).count(toPort)) {
+        auto tv = comb_paths.at(cell->type).at(fromPort).at(toPort);
+        delay.rise.max_delay = tv.fast_min;
+        delay.rise.min_delay = tv.slow_max;
+        return true;
+    }
+    return true;
+}
+/**
 bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const
 {
     int tt_id = -1, inst_id = -1;
@@ -1349,7 +1498,7 @@ bool Arch::getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort
     }
     return false;
 }
-
+ */
 TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const
 {
     if (cell->type == id_SLICE_LUTX) {
@@ -1367,6 +1516,8 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
         else if (port == id_Q) {
             clockInfoCount = 1;
             return TMG_REGISTER_OUTPUT;
+        } else if (port == id_SR) {
+            return TMG_IGNORE;
         } else {
             clockInfoCount = 1;
             return TMG_REGISTER_INPUT;
@@ -1377,11 +1528,11 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
             return TMG_COMB_OUTPUT;
         else
             return TMG_COMB_INPUT;
-    } else if (cell->type == id_IOB_IBUFCTRL) {
-        if (port == id("O"))
+    } else if (cell->type == id_IOB33_INBUF_EN) {
+        if (port == id("OUT"))
             return TMG_STARTPOINT;
-    } else if (cell->type == id_IOB_OUTBUF) {
-        if (port == id("I"))
+    } else if (cell->type == id_IOB33_OUTBUF) {
+        if (port == id("IN"))
             return TMG_ENDPOINT;
     } else if (cell->type == id_BUFGCTRL) {
         if (port == id("I0") || port == id("I1"))
@@ -1392,15 +1543,77 @@ TimingPortClass Arch::getPortTimingClass(const CellInfo *cell, IdString port, in
     return TMG_IGNORE;
 }
 
+// TODO:暂时不需要
+const RelSlice<CellPinRegArcPOD> *Arch::lookup_cell_seq_timings(int type_idx, IdString port) const
+{
+    // NPNR_ASSERT(type_idx != -1);
+    // const auto &ct = speed_grade->cell_types[type_idx];
+    // int pin_idx = db_binary_search(ct.pins, [](const CellPinTimingPOD &pd) { return pd.pin; }, port.index);
+    // if (pin_idx == -1)
+    //     return nullptr;
+    // return &ct.pins[pin_idx].reg_arcs;
+    return nullptr;
+}
+
 TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port, int index) const
 {
-    TimingClockingInfo info;
-    info.setup = getDelayFromNS(0.1);
-    info.hold = getDelayFromNS(0.1);
-    info.clockToQ = getDelayFromNS(0.1);
-    info.clock_port = xc7 ? id_CK : id_CLK;
-    info.edge = RISING_EDGE;
-    return info;
+    TimingClockingInfo result;
+    if (cell->type == id("SLICE_FFX")) {
+        return reg_timing_infos.at(cell->type).at(port);
+        // TimingArcClass clk2q_arc = timingArcClassMap.at(id("ff_init_clk_q:SLICEL"));
+        // // result.clock_port = timingArcClassMap.at(id("ff_init_clk_q:SLICEL")).clk;
+        // result.clock_port = id("CK");
+        // result.clockToQ = DelayQuad(timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_clk_q:SLICEL")).slow_max);
+        // result.edge = ClockEdge::RISING_EDGE;
+        // IdString setup_arc_name, hold_arc_name;
+        // if (port == id("CE")) {
+        //     setup_arc_name = id("ff_init_setup_ce_clk:SLICEL");
+        //     hold_arc_name = id("ff_init_hold_ce_clk:SLICEL");
+        // } else if (port == id("D")) {
+        //     setup_arc_name = id("ff_init_setup_din_clk:SLICEL");
+        //     hold_arc_name = id("ff_init_hold_din_clk:SLICEL");
+        // } else if (port == id("Q")) {
+        //     return result;
+        // } else if (port == id("SR")) {
+        //     return result;
+        // } else {
+        //     log_error("error getPortClockingInfo\n");
+        //     exit(1);
+        // }
+        // result.setup = DelayPair(timingArcClassMap.at(setup_arc_name).fast_min, timingArcClassMap.at(setup_arc_name).slow_max);
+        // result.hold = DelayPair(timingArcClassMap.at(hold_arc_name).fast_min, timingArcClassMap.at(hold_arc_name).slow_max);
+
+        // if (port == id("CE")) {
+        //     result.setup = DelayPair(timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).slow_max);
+        //     result.hold = DelayPair(timingArcClassMap.at(id("ff_init_hold_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_hold_ce_clk:SLICEL")).slow_max);
+        //     return result;
+        // } else if (port == id("D")) {
+        //     result.setup = DelayPair(timingArcClassMap.at(id("ff_init_setup_din_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_setup_din_clk:SLICEL")).slow_max);
+        //     result.hold = DelayPair(timingArcClassMap.at(id("ff_init_hold_din_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_hold_din_clk:SLICEL")).slow_max);
+        //     return result;
+        // } else if (port == id("Q")) {
+        //     result.clock_port = id("CK");
+        //     result.clockToQ = DelayQuad(timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_clk_q:SLICEL")).slow_max);
+        //     result.edge = ClockEdge::RISING_EDGE;
+        // }
+        // return result;
+    } else {
+        // 暂时填充假数据
+        TimingClockingInfo result;
+    }
+    
+    NPNR_ASSERT(cell->timing_index != -1);
+    auto reg_arcs = lookup_cell_seq_timings(cell->timing_index, port);
+    NPNR_ASSERT(reg_arcs);
+    const auto &arc = (*reg_arcs)[index];
+
+    result.clock_port = IdString(arc.clock);
+    result.edge = ClockEdge(arc.edge);
+    result.setup = DelayPair(arc.setup.fast_min, arc.setup.slow_max);
+    result.hold = DelayPair(arc.hold.fast_min, arc.hold.slow_max);
+    result.clockToQ = DelayQuad(arc.clk_q.fast_min, arc.clk_q.slow_max);
+
+    return result;
 }
 
 int Arch::getHclkForIob(BelId pad)

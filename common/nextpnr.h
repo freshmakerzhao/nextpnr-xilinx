@@ -99,6 +99,8 @@ inline void assert_fail_impl_str(std::string message, const char *expr_str, cons
 
 #include "hashlib.h"
 
+#include "sso_array.h"
+
 struct BaseCtx;
 struct Context;
 
@@ -129,6 +131,18 @@ struct IdString
     bool operator!=(const IdString &other) const { return index != other.index; }
 
     bool empty() const { return index == 0; }
+
+    unsigned int hash() const { return index; }
+
+    template <typename... Args> bool in(Args... args) const
+    {
+        // Credit: https://articles.emptycrate.com/2016/05/14/folds_in_cpp11_ish.html
+        bool result = false;
+        (void)std::initializer_list<int>{(result = result || in(args), 0)...};
+        return result;
+    }
+
+    bool in(const IdString &rhs) const { return *this == rhs; }
 };
 
 NEXTPNR_NAMESPACE_END
@@ -316,13 +330,44 @@ struct PortRef
 {
     CellInfo *cell = nullptr;
     IdString port;
-    delay_t budget = 0;
 };
 
 struct PipMap
 {
     PipId pip = PipId();
     PlaceStrength strength = STRENGTH_NONE;
+};
+
+
+// minimum and maximum delay
+struct DelayPair
+{
+    DelayPair() : min_delay(0), max_delay(0) {};
+    explicit DelayPair(delay_t delay) : min_delay(delay), max_delay(delay) {}
+    DelayPair(delay_t min_delay, delay_t max_delay) : min_delay(min_delay), max_delay(max_delay) {}
+    delay_t minDelay() const { return min_delay; }
+    delay_t maxDelay() const { return max_delay; }
+    delay_t min_delay, max_delay;
+    DelayPair operator+(const DelayPair &other) const
+    {
+        return {min_delay + other.min_delay, max_delay + other.max_delay};
+    }
+    DelayPair operator-(const DelayPair &other) const
+    {
+        return {min_delay - other.min_delay, max_delay - other.max_delay};
+    }
+    DelayPair &operator+=(const DelayPair &rhs)
+    {
+        min_delay += rhs.min_delay;
+        max_delay += rhs.max_delay;
+        return *this;
+    }
+    DelayPair &operator-=(const DelayPair &rhs)
+    {
+        min_delay -= rhs.min_delay;
+        max_delay -= rhs.max_delay;
+        return *this;
+    }
 };
 
 struct Property
@@ -442,6 +487,8 @@ struct NetInfo : ArchNetInfo
     TimingConstrObjectId tmg_id;
 
     Region *region = nullptr;
+    
+    int flat_index;
 };
 
 enum PortType
@@ -457,6 +504,170 @@ struct PortInfo
     NetInfo *net;
     PortType type;
     TimingConstrObjectId tmg_id;
+};
+
+
+// four-quadrant, min and max rise and fall delay
+struct DelayQuad
+{
+    DelayPair rise, fall;
+    DelayQuad() : rise(0), fall(0) {}
+    explicit DelayQuad(delay_t delay) : rise(delay), fall(delay) {}
+    DelayQuad(delay_t min_delay, delay_t max_delay) : rise(min_delay, max_delay), fall(min_delay, max_delay) {}
+    DelayQuad(DelayPair rise, DelayPair fall) : rise(rise), fall(fall) {}
+    DelayQuad(delay_t min_rise, delay_t max_rise, delay_t min_fall, delay_t max_fall)
+            : rise(min_rise, max_rise), fall(min_fall, max_fall)
+    {
+    }
+
+    delay_t minRiseDelay() const { return rise.minDelay(); }
+    delay_t maxRiseDelay() const { return rise.maxDelay(); }
+    delay_t minFallDelay() const { return fall.minDelay(); }
+    delay_t maxFallDelay() const { return fall.maxDelay(); }
+    delay_t minDelay() const { return std::min<delay_t>(rise.minDelay(), fall.minDelay()); }
+    delay_t maxDelay() const { return std::max<delay_t>(rise.maxDelay(), fall.maxDelay()); }
+
+    DelayPair delayPair() const { return DelayPair(minDelay(), maxDelay()); }
+
+    DelayQuad operator+(const DelayQuad &other) const { return {rise + other.rise, fall + other.fall}; }
+    DelayQuad operator-(const DelayQuad &other) const { return {rise - other.rise, fall - other.fall}; }
+    DelayQuad &operator+=(const DelayQuad &rhs)
+    {
+        rise += rhs.rise;
+        fall += rhs.fall;
+        return *this;
+    }
+
+    DelayQuad &operator-=(const DelayQuad &rhs)
+    {
+        rise -= rhs.rise;
+        fall -= rhs.fall;
+        return *this;
+    }
+};
+
+enum TimingPortClass
+{
+    TMG_CLOCK_INPUT,     // Clock input to a sequential cell
+    TMG_GEN_CLOCK,       // Generated clock output (PLL, DCC, etc)
+    TMG_REGISTER_INPUT,  // Input to a register, with an associated clock (may also have comb. fanout too)
+    TMG_REGISTER_OUTPUT, // Output from a register
+    TMG_COMB_INPUT,      // Combinational input, no paths end here
+    TMG_COMB_OUTPUT,     // Combinational output, no paths start here
+    TMG_STARTPOINT,      // Unclocked primary startpoint, such as an IO cell output
+    TMG_ENDPOINT,        // Unclocked primary endpoint, such as an IO cell input
+    TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
+};
+
+enum ClockEdge
+{
+    RISING_EDGE,
+    FALLING_EDGE
+};
+
+struct ClockEvent
+{
+    IdString clock;
+    ClockEdge edge;
+
+    bool operator==(const ClockEvent &other) const { return clock == other.clock && edge == other.edge; }
+    unsigned int hash() const { return mkhash(clock.hash(), int(edge)); }
+};
+
+struct ClockPair
+{
+    ClockEvent start, end;
+
+    bool operator==(const ClockPair &other) const { return start == other.start && end == other.end; }
+    unsigned int hash() const { return mkhash(start.hash(), end.hash()); }
+};
+
+struct TimingClockingInfo
+{
+    IdString clock_port; // Port name of clock domain
+    ClockEdge edge;
+    DelayPair setup, hold; // Input timing checks
+    DelayQuad clockToQ;    // Output clock-to-Q time
+};
+
+
+struct CriticalPath
+{
+    struct Segment
+    {
+
+        // Segment type
+        enum class Type
+        {
+            CLK_TO_CLK, // Clock to clock delay
+            CLK_SKEW,   // Clock skew
+            CLK_TO_Q,   // Clock-to-Q delay
+            SOURCE,     // Delayless source
+            LOGIC,      // Combinational logic delay
+            ROUTING,    // Routing delay
+            SETUP,      // Setup time in sink
+            HOLD        // Hold time in sink
+        };
+
+        [[maybe_unused]] static const std::string type_to_str(Type typ)
+        {
+            switch (typ) {
+            case Type::CLK_TO_CLK:
+                return "clk-to-clk";
+            case Type::CLK_SKEW:
+                return "clk-skew";
+            case Type::CLK_TO_Q:
+                return "clk-to-q";
+            case Type::SOURCE:
+                return "source";
+            case Type::LOGIC:
+                return "logic";
+            case Type::ROUTING:
+                return "routing";
+            case Type::SETUP:
+                return "setup";
+            case Type::HOLD:
+                return "hold";
+            default:
+                NPNR_ASSERT_FALSE("Impossible Segment::Type");
+            }
+        }
+
+        // Type
+        Type type;
+        // Net name (routing only)
+        IdString net;
+        // From cell.port
+        std::pair<IdString, IdString> from;
+        // To cell.port
+        std::pair<IdString, IdString> to;
+        // Segment delay
+        delay_t delay;
+    };
+
+    // Clock pair
+    ClockPair clock_pair;
+
+    // if sum[segments.delay] < 0 this is a hold/min violation
+    // if sum[segments.delay] > max_delay this is a setup/max violation
+    delay_t max_delay;
+
+    // Individual path segments
+    std::vector<Segment> segments;
+
+    bool is_setup = true;
+    delay_t slack = std::numeric_limits<delay_t>::max();  // in ps units
+};
+
+struct PseudoCell
+{
+    virtual Loc getLocation() const = 0;
+    virtual WireId getPortWire(IdString port) const = 0;
+
+    virtual bool getDelay(IdString fromPort, IdString toPort, DelayQuad &delay) const = 0;
+    virtual TimingPortClass getPortTimingClass(IdString port, int &clockInfoCount) const = 0;
+    virtual TimingClockingInfo getPortClockingInfo(IdString port, int index) const = 0;
+    virtual ~PseudoCell() {};
 };
 
 struct CellInfo : ArchCellInfo
@@ -486,6 +697,13 @@ struct CellInfo : ArchCellInfo
     Region *region = nullptr;
     TimingConstrObjectId tmg_id;
 
+    int timing_index = -1;
+    int flat_index;
+    dict<IdString, std::vector<IdString>> cell_bel_pins;
+
+
+    std::unique_ptr<PseudoCell> pseudo_cell{};
+
     void addInput(IdString name);
     void addOutput(IdString name);
     void addInout(IdString name);
@@ -494,42 +712,76 @@ struct CellInfo : ArchCellInfo
     void unsetParam(IdString name);
     void setAttr(IdString name, Property value);
     void unsetAttr(IdString name);
+
+    bool isPseudo() const { return bool(pseudo_cell); }
+
+
+    NetInfo *getPort(IdString name)
+    {
+        auto found = ports.find(name);
+        return (found == ports.end()) ? nullptr : found->second.net;
+    }
 };
 
-enum TimingPortClass
+inline bool is_zero_delay(delay_t delay)
 {
-    TMG_CLOCK_INPUT,     // Clock input to a sequential cell
-    TMG_GEN_CLOCK,       // Generated clock output (PLL, DCC, etc)
-    TMG_REGISTER_INPUT,  // Input to a register, with an associated clock (may also have comb. fanout too)
-    TMG_REGISTER_OUTPUT, // Output from a register
-    TMG_COMB_INPUT,      // Combinational input, no paths end here
-    TMG_COMB_OUTPUT,     // Combinational output, no paths start here
-    TMG_STARTPOINT,      // Unclocked primary startpoint, such as an IO cell output
-    TMG_ENDPOINT,        // Unclocked primary endpoint, such as an IO cell input
-    TMG_IGNORE,          // Asynchronous to all clocks, "don't care", and should be ignored (false path) for analysis
+    if constexpr (std::is_floating_point<delay_t>::value) {
+        return std::fpclassify(delay) == FP_ZERO;
+    } else {
+        return delay == 0;
+    }
+}
+
+struct ClockFmax
+{
+    float achieved;
+    float constraint;
 };
 
-enum ClockEdge
+struct NetSinkTiming
 {
-    RISING_EDGE,
-    FALLING_EDGE
+    // Clock event pair
+    ClockPair clock_pair;
+    // Cell and port (the sink)
+    std::pair<IdString, IdString> cell_port;
+    // Delay
+    DelayPair delay;
 };
 
-struct TimingClockingInfo
+
+
+struct TimingResult
 {
-    IdString clock_port; // Port name of clock domain
-    ClockEdge edge;
-    DelayInfo setup, hold; // Input timing checks
-    DelayInfo clockToQ;    // Output clock-to-Q time
+    // Achieved and target Fmax for all clock domains
+    dict<IdString, ClockFmax> clock_fmax;
+    // Single domain critical paths
+    dict<IdString, CriticalPath> clock_paths;
+    // Cross-domain critical paths
+    std::vector<CriticalPath> xclock_paths;
+    // Domains with no interior paths
+    pool<IdString> empty_paths;
+
+    // Detailed net timing data
+    dict<IdString, std::vector<NetSinkTiming>> detailed_net_timings;
+
+    // Histogram of slack
+    dict<int, unsigned> slack_histogram;
+
+    // Min delay violations, only hold time for now
+    std::vector<CriticalPath> min_delay_violations;
+
+    // All single domain setup analysis
+    dict<IdString, std::vector<CriticalPath>> clock_paths_setup;
+    // All single domain hold analysis
+    dict<IdString, std::vector<CriticalPath>> clock_paths_hold;
 };
+
 
 struct ClockConstraint
 {
-    DelayInfo high;
-    DelayInfo low;
-    DelayInfo period;
-
-    TimingConstrObjectId domain_tmg_id;
+    DelayPair high;
+    DelayPair low;
+    DelayPair period;
 };
 
 struct TimingConstraintObject
@@ -701,6 +953,10 @@ struct BaseCtx
     // Context meta data
     std::unordered_map<IdString, Property> attrs;
 
+    // Fmax data post timing analysis
+    TimingResult timing_result;
+
+
     BaseCtx()
     {
         idstring_str_to_idx = new std::unordered_map<std::string, int>;
@@ -867,24 +1123,36 @@ struct Context : Arch, DeterministicRNG
     bool debug = false;
     bool force = false;
 
+    // Should we disable printing of the location of nets in the critical path?
+    bool disable_critical_path_source_print = false;
+    // True when detailed per-net timing is to be stored / reported
+    bool detailed_timing_report = false;
+    bool do_timing_analysis = false;
+
     Context(ArchArgs args) : Arch(args) {}
 
     // --------------------------------------------------------------
+    delay_t predictArcDelay(const NetInfo *net_info, const PortRef &sink) const;
 
     WireId getNetinfoSourceWire(const NetInfo *net_info) const;
     WireId getNetinfoSinkWire(const NetInfo *net_info, const PortRef &sink) const;
     delay_t getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &sink) const;
+    DelayQuad getNetinfoRouteDelayQuad(const NetInfo *net_info, const PortRef &sink) const;
 
     // provided by router1.cc
     bool checkRoutedDesign() const;
     bool getActualRouteDelay(WireId src_wire, WireId dst_wire, delay_t *delay = nullptr,
                              std::unordered_map<WireId, PipId> *route = nullptr, bool useEstimate = true);
-
+    SSOArray<WireId, 2> getNetinfoSinkWires(const NetInfo *net_info, const PortRef &sink) const;
     // --------------------------------------------------------------
     // call after changing hierpath or adding/removing nets and cells
     void fixupHierarchy();
 
     // --------------------------------------------------------------
+
+    // Timing
+    void log_timing_results(TimingResult &result, bool print_histogram, bool print_fmax, bool print_path, bool warn_on_failure);
+
 
     // provided by sdf.cc
     void writeSDF(std::ostream &out, bool cvc_mode = false) const;

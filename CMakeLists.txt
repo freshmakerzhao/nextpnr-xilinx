@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
 project(nextpnr CXX C)
 
-option(BUILD_GUI "Build GUI" ON)
-option(BUILD_PYTHON "Build Python Integration" ON)
+option(BUILD_GUI "Build GUI" OFF)
+option(BUILD_PYTHON "Build Python Integration" OFF)
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_HEAP "Build HeAP analytic placer" ON)
 option(USE_OPENMP "Use OpenMP to accelerate analytic placer" ON)

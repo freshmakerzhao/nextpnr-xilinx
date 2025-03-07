@@ -69,7 +69,7 @@ void Worker::budget(double freq)
     Q_EMIT taskStarted();
     try {
         ctx->settings[ctx->id("target_freq")] = std::to_string(freq);
-        assign_budget(ctx);
+        // assign_budget(ctx);
         Q_EMIT budget_finish(true);
     } catch (WorkerInterruptionRequested) {
         Q_EMIT taskCanceled();

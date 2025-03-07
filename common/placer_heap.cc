@@ -278,8 +278,8 @@ class HeAPPlacer
                          std::chrono::duration<double>(run_stopt - run_startt).count());
             }
 
-            if (cfg.timing_driven)
-                get_criticalities(ctx, &net_crit);
+            // if (cfg.timing_driven)
+            //     get_criticalities(ctx, &net_crit);
 
             if (legal_hpwl < best_hpwl) {
                 best_hpwl = legal_hpwl;
@@ -407,7 +407,7 @@ class HeAPPlacer
     // Performance counting
     double solve_time = 0, cl_time = 0, sl_time = 0;
 
-    NetCriticalityMap net_crit;
+    // NetCriticalityMap net_crit;
 
     // Place cells with the BEL attribute set to constrain them
     void place_constraints()
@@ -797,12 +797,12 @@ class HeAPPlacer
                                            std::max<double>(1, (yaxis ? cfg.hpwl_scale_y : cfg.hpwl_scale_x) *
                                                                        std::abs(o_pos - this_pos)));
 
-                    if (user_idx != -1 && net_crit.count(ni->name)) {
-                        auto &nc = net_crit.at(ni->name);
-                        if (user_idx < int(nc.criticality.size()))
-                            weight *= (1.0 + cfg.timingWeight *
-                                                     std::pow(nc.criticality.at(user_idx), cfg.criticalityExponent));
-                    }
+                    // if (user_idx != -1 && net_crit.count(ni->name)) {
+                    //     auto &nc = net_crit.at(ni->name);
+                    //     if (user_idx < int(nc.criticality.size()))
+                    //         weight *= (1.0 + cfg.timingWeight *
+                    //                                  std::pow(nc.criticality.at(user_idx), cfg.criticalityExponent));
+                    // }
 
                     // If cell 0 is not fixed, it will stamp +w on its equation and -w on the other end's equation,
                     // if the other end isn't fixed

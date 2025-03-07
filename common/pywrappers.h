@@ -181,7 +181,7 @@ template <typename Class, typename FuncT, FuncT fn, typename rv_conv, typename a
         Context *ctx = get_ctx<Class>(cls);
         Class &base = get_base<Class>(cls);
         try {
-            return object(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1))));
+            // return object(rv_conv()(ctx, (base.*fn)(arg1_conv()(ctx, arg1))));
         } catch (bad_wrap &) {
             return object();
         }

@@ -49,13 +49,13 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         CellInfo *load_cell = load.cell;
         if (load_cell->bel == BelId())
             continue;
-        if (timing_driven) {
-            delay_t net_delay = ctx->predictDelay(net, load);
-            auto slack = load.budget - net_delay;
-            if (slack < 0)
-                negative_slack += slack;
-            worst_slack = std::min(slack, worst_slack);
-        }
+        // if (timing_driven) {
+        //     delay_t net_delay = ctx->predictDelay(net, load);
+        //     auto slack = load.budget - net_delay;
+        //     if (slack < 0)
+        //         negative_slack += slack;
+        //     worst_slack = std::min(slack, worst_slack);
+        // }
 
         if (ctx->getBelGlobalBuf(load_cell->bel))
             continue;
@@ -66,12 +66,12 @@ wirelen_t get_net_metric(const Context *ctx, const NetInfo *net, MetricType type
         xmax = std::max(xmax, load_loc.x);
         ymax = std::max(ymax, load_loc.y);
     }
-    if (timing_driven) {
-        wirelength = wirelen_t(
-                (((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-ctx->getDelayNS(worst_slack) / 5)))));
-    } else {
+    // if (timing_driven) {
+    //     wirelength = wirelen_t(
+    //             (((ymax - ymin) + (xmax - xmin)) * std::min(5.0, (1.0 + std::exp(-ctx->getDelayNS(worst_slack) / 5)))));
+    // } else {
         wirelength = wirelen_t((ymax - ymin) + (xmax - xmin));
-    }
+    // }
 
     tns += ctx->getDelayNS(negative_slack);
     return wirelength;

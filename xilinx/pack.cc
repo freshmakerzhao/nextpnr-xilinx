@@ -115,11 +115,27 @@ void XilinxPacker::generic_xform(const std::unordered_map<IdString, XFormRule> &
     }
     if (print_summary) {
         for (auto &nt : new_types) {
-            log_info("    Created %d %s cells from:\n", nt.second, nt.first.c_str());
+            if(ctx->verbose){
+                LogData logEntry = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::PACK,
+                    PhaseType::PACK,
+                    "Created cells"
+                );
+                log_always("    Created %d %s cells from:\n",logEntry ,nt.second, nt.first.c_str());
+            }
             for (auto &cc : cell_count) {
                 if (rules.at(ctx->id(cc.first)).new_type != ctx->id(nt.first))
                     continue;
-                log_info("        %6dx %s\n", cc.second, cc.first.c_str());
+                if(ctx->verbose){
+                    LogData logEntry12 = LogData::CreateLogStruct(
+                        LevelCode::ALWAYS_LOG,
+                        LogCategory::PACK,
+                        PhaseType::PACK,
+                        "Created cells"
+                    );
+                    log_always("        %6dx %s\n",logEntry12, cc.second, cc.first.c_str());
+                }
             }
         }
     }
@@ -200,7 +216,13 @@ CellInfo *XilinxPacker::create_drom_lut(const std::string &name, CellInfo *base,
 
 void XilinxPacker::pack_rom()
 {
-    log_info("Packing ROM..\n");
+    LogData logEntry5 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing ROM"
+    );
+    log_info("Packing ROM..\n",logEntry5);
 
     std::unordered_map<IdString, XFormRule> rom_rules;
     rom_rules[ctx->id("ROM64X1")].new_type = id_SLICE_LUTX;
@@ -324,7 +346,13 @@ void XilinxPacker::pack_rom()
 
 void XilinxPacker::pack_luts()
 {
-    log_info("Packing LUTs..\n");
+    LogData logEntry7 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing LUTs"
+    );
+    log_info("Packing LUTs..\n",logEntry7);
 
     std::unordered_map<IdString, XFormRule> lut_rules;
     for (int k = 1; k <= 6; k++) {
@@ -340,7 +368,13 @@ void XilinxPacker::pack_luts()
 
 void XilinxPacker::pack_ffs()
 {
-    log_info("Packing flipflops..\n");
+    LogData logEntry9 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing flipflops"
+    );
+    log_info("Packing flipflops..\n",logEntry9);
 
     std::unordered_map<IdString, XFormRule> ff_rules;
     ff_rules[ctx->id("FDCE")].new_type = id_SLICE_FFX;
@@ -445,12 +479,26 @@ void XilinxPacker::pack_lutffs()
         
         ++pairs;
     }
-    log_info("Constrained %d LUTFF pairs.\n", pairs);
+    if(ctx->verbose){
+        LogData logEntry13 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PACK,
+            PhaseType::PACK,
+            "Constrained LUTFF pairs"
+        );
+        log_always("Constrained %d LUTFF pairs.\n", logEntry13,pairs);
+    }
 }
 
 // pack阶段最后合法性检查
 void XilinxPacker::check(){
-    log_info("Packing Check\n");
+    LogData logEntry11 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing Check"
+    );
+    log_info("Packing Check\n",logEntry11);
     // 检查chain中所有cell的clk状态是否一致
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -569,7 +617,13 @@ void XilinxPacker::constrain_muxf_tree(CellInfo *curr, CellInfo *base, int zoffs
 
 void XilinxPacker::pack_muxfs()
 {
-    log_info("Packing MUX[789]s..\n");
+    LogData logEntry4 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing MUX[789]s"
+    );
+    log_info("Packing MUX[789]s..\n",logEntry4);
     std::vector<CellInfo *> mux_roots;
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -728,7 +782,14 @@ void XilinxPacker::pack_srls()
 
 void XilinxPacker::pack_constants()
 {
-    log_info("Packing constants..\n");
+    LogData logEntry1 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing constants.."
+    );
+    log_info("Packing constants..\n",logEntry1);
+
     if (tied_pins.empty())
         get_tied_pins(ctx, tied_pins);
     if (invertible_pins.empty())
@@ -1010,7 +1071,13 @@ void USPacker::pack_bram()
 
 void XC7Packer::pack_bram()
 {
-    log_info("Packing BRAM..\n");
+    LogData logEntry6 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing BRAM"
+    );
+    log_info("Packing BRAM..\n",logEntry6);
 
     // Rules for normal TDP BRAM
     std::unordered_map<IdString, XFormRule> bram_rules;
@@ -1295,7 +1362,13 @@ void XilinxPacker::pack_inverters()
 }
 void XC7Packer::pack_xadc()
 {
-    log_info("Packing xadc..\n");
+    LogData logEntry8 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing xadc"
+    );
+    log_info("Packing xadc..\n",logEntry8);
 
     std::unordered_map<IdString, XFormRule> xadc_rules;
     xadc_rules[ctx->id("XADC")].new_type = id_XADC_XADC;
@@ -1455,7 +1528,13 @@ void Arch::assignArchInfo()
 
 void XC7Packer::pack_cmt_fifo()
 {
-    log_info("Packing cmt fifo..\n");
+    LogData logEntry10 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing cmt fifo"
+    );
+    log_info("Packing cmt fifo..\n",logEntry10);
 
     std::unordered_map<IdString, XFormRule> cmt_fifo_rules;
     cmt_fifo_rules[ctx->id("IN_FIFO")].new_type = id_IN_FIFO_IN_FIFO;

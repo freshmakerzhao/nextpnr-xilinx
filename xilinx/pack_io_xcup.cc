@@ -436,8 +436,16 @@ std::pair<CellInfo *, PortRef> XilinxPacker::insert_pad_and_buf(CellInfo *npnr_i
         ionet = pad_ionet.get();
         ctx->nets[npnr_io->name] = std::move(pad_ionet);
     } else {
-        log_info("    IO port '%s' driven by %s '%s'\n", npnr_io->name.c_str(ctx), iobuf.cell->type.c_str(ctx),
-                 iobuf.cell->name.c_str(ctx));
+        if(ctx->verbose){
+            LogData logEntry = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::PACK,
+                PhaseType::PACK,
+                "IO port"
+            );
+            log_always("    IO port '%s' driven by %s '%s'\n",logEntry, npnr_io->name.c_str(ctx), iobuf.cell->type.c_str(ctx),
+                    iobuf.cell->name.c_str(ctx));
+        }
     }
 
     NPNR_ASSERT(ionet != nullptr);

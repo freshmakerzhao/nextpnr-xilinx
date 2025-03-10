@@ -42,6 +42,12 @@
 #include "util.h"
 #include "version.h"
 
+#ifdef COMPRESS_MODE
+#include "ArchiveTool.h"
+#endif
+
+#include "logger_hybrdlink.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 CommandHandler::CommandHandler(int argc, char **argv) : argc(argc), argv(argv) { log_streams.clear(); }
@@ -100,7 +106,11 @@ bool CommandHandler::executeBeforeContext()
 po::options_description CommandHandler::getGeneralOptions()
 {
     po::options_description general("General options");
+    general.add_options()("process_number", po::value<std::string>(), "process_number");
     general.add_options()("help,h", "show help");
+#ifdef COMPRESS_MODE
+    general.add_options()("U", "Enable encryption and decryption");
+#endif
     general.add_options()("verbose,v", "verbose output");
     general.add_options()("quiet,q", "quiet mode, only errors and warnings displayed");
     general.add_options()("log,l", po::value<std::string>(),
@@ -173,7 +183,7 @@ void CommandHandler::setupContext(Context *ctx)
     }
 
     if (vm.count("debug")) {
-        ctx->verbose = true;
+        // ctx->verbose = true;
         ctx->debug = true;
     }
 
@@ -181,10 +191,17 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->force = true;
     }
 
+    if (vm.count("U")) {
+        ctx->compress_mode = true;
+    }
+
     if (vm.count("seed")) {
         ctx->rngseed(vm["seed"].as<int>());
     }
 
+    if (vm.count("process_number")) {
+        Common::g_father_process_id = vm["process_number"].as<std::string>();
+    }
     if (vm.count("randomize-seed")) {
         srand(time(NULL));
         int r;
@@ -303,9 +320,21 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 #endif
     if (vm.count("json")) {
         std::string filename = vm["json"].as<std::string>();
+        bool do_pack = vm.count("pack-only") != 0 || vm.count("no-pack") == 0;
+        if(do_pack && ctx->compress_mode){
+#ifdef COMPRESS_MODE
+            Tool::ArchiveTool tool;
+            std::vector<unsigned char> buffer;
+            tool.extractWithPassword(filename, buffer, KEY);
+            std::string buffer_str = tool.byte_to_string(buffer);
+            if (!extract_modules(buffer_str, filename, ctx.get()))
+                log_error("Loading design failed.\n");
+#endif
+        }else{
         std::ifstream f(filename);
         if (!parse_json(f, filename, ctx.get()))
             log_error("Loading design failed.\n");
+        }
 
         customAfterLoad(ctx.get());
     }
@@ -360,7 +389,11 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
 
     if (vm.count("write")) {
         std::string filename = vm["write"].as<std::string>();
-        std::ofstream f(filename);
+        std::ios::openmode mode = std::ios::trunc;
+        if(ctx->compress_mode){
+            mode = std::ios::trunc|std::ios::binary;
+        }
+        std::ofstream f(filename,mode);
         if (!write_json_file(f, filename, ctx.get()))
             log_error("Saving design failed.\n");
     }

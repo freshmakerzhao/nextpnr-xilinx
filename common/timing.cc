@@ -656,8 +656,16 @@ void assign_budget(Context *ctx, bool quiet)
 {
     if (!quiet) {
         log_break();
-        log_info("Annotating ports with timing budgets for target frequency %.2f MHz\n",
-                 ctx->setting<float>("target_freq") / 1e6);
+        if(ctx->verbose){
+            LogData logEntry = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::OPT,
+                PhaseType::PACK,
+                "Annotating ports with timing budgets for target frequency"
+            );
+            log_always("Annotating ports with timing budgets for target frequency %.2f MHz\n",logEntry,
+                    ctx->setting<float>("target_freq") / 1e6);
+        }
     }
 
     Timing timing(ctx, ctx->setting<int>("slack_redist_iter") > 0 , true);
@@ -667,16 +675,30 @@ void assign_budget(Context *ctx, bool quiet)
         for (auto &net : ctx->nets) {
             for (auto &user : net.second->users) {
                 // Post-update check
-                if (!ctx->setting<bool>("auto_freq") && user.budget < 0)
-                    log_info("port %s.%s, connected to net '%s', has negative "
+                if (!ctx->setting<bool>("auto_freq") && user.budget < 0){
+                    LogData logEntry1 = LogData::CreateLogStruct(
+                        LevelCode::ALWAYS_LOG,
+                        LogCategory::OPT,
+                        PhaseType::PLACE,
+                        "port connected to net has negative timing budget"
+                    );
+                    log_always("port %s.%s, connected to net '%s', has negative "
+                             "timing budget of %fns\n",logEntry1,
+                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
+                             ctx->getDelayNS(user.budget));
+                }
+                else if (ctx->debug){
+                    LogData logEntry2 = LogData::CreateLogStruct(
+                        LevelCode::ALWAYS_LOG,
+                        LogCategory::OPT,
+                        PhaseType::PLACE,
+                        "port connected to net has timing budget"
+                    );
+                    log_always("port %s.%s, connected to net '%s', has "
                              "timing budget of %fns\n",
                              user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
                              ctx->getDelayNS(user.budget));
-                else if (ctx->debug)
-                    log_info("port %s.%s, connected to net '%s', has "
-                             "timing budget of %fns\n",
-                             user.cell->name.c_str(ctx), user.port.c_str(ctx), net.first.c_str(ctx),
-                             ctx->getDelayNS(user.budget));
+                }
             }
         }
     }
@@ -693,8 +715,17 @@ void assign_budget(Context *ctx, bool quiet)
                      ctx->getDelayNS(timing.min_slack), ctx->setting<float>("target_freq") / 1e6);
     }
 
-    if (!quiet)
-        log_info("Checksum: 0x%08x\n", ctx->checksum());
+    if (!quiet){
+        if(ctx->verbose){
+            LogData logEntry3 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::OPT,
+                PhaseType::PACK,
+                "Checksum"
+            );
+            log_always("Checksum: 0x%08x\n", logEntry3,ctx->checksum());
+        }
+    }
 }
  */
 
@@ -800,8 +831,13 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     }
                 }
             }
-
-            log_info("curr total\n");
+            LogData logEntry5 = LogData::CreateLogStruct(
+                LevelCode::INFO_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "curr total"
+            );
+            log_info("curr total\n",logEntry5);
             for (auto sink : crit_path) {
                 auto sink_cell = sink->cell;
                 auto &port = sink_cell->ports.at(sink->port);
@@ -821,23 +857,23 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 }
                 total += comb_delay.maxDelay();
                 logic_total += comb_delay.maxDelay();
-                log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()), ctx->getDelayNS(total),
-                         driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
+                // log_info("%4.1f %4.1f  Source %s.%s\n", ctx->getDelayNS(comb_delay.maxDelay()), ctx->getDelayNS(total),
+                //          driver_cell->name.c_str(ctx), driver.port.c_str(ctx));
                 auto net_delay = ctx->getNetinfoRouteDelay(net, *sink);
                 total += net_delay;
                 route_total += net_delay;
                 auto driver_loc = ctx->getBelLocation(driver_cell->bel);
                 auto sink_loc = ctx->getBelLocation(sink_cell->bel);
-                log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(net_delay),
-                         ctx->getDelayNS(total), net->name.c_str(ctx), ctx->getDelayNS(sink->budget), driver_loc.x,
-                         driver_loc.y, sink_loc.x, sink_loc.y);
-                log_info("               Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
+                // log_info("%4.1f %4.1f    Net %s budget %f ns (%d,%d) -> (%d,%d)\n", ctx->getDelayNS(net_delay),
+                //          ctx->getDelayNS(total), net->name.c_str(ctx), ctx->getDelayNS(sink->budget), driver_loc.x,
+                //          driver_loc.y, sink_loc.x, sink_loc.y);
+                // log_info("               Sink %s.%s\n", sink_cell->name.c_str(ctx), sink->port.c_str(ctx));
                 if (ctx->verbose) {
                     auto driver_wire = ctx->getNetinfoSourceWire(net);
                     auto sink_wire = ctx->getNetinfoSinkWire(net, *sink);
-                    log_info("                 prediction: %f ns estimate: %f ns\n",
-                             ctx->getDelayNS(ctx->predictDelay(net, *sink)),
-                             ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
+                    // log_info("                 prediction: %f ns estimate: %f ns\n",
+                    //          ctx->getDelayNS(ctx->predictDelay(net, *sink)),
+                    //          ctx->getDelayNS(ctx->estimateDelay(driver_wire, sink_wire)));
                     auto cursor = sink_wire;
                     delay_t delay;
                     while (driver_wire != cursor) {
@@ -850,8 +886,8 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                         auto pip = it->second.pip;
                         NPNR_ASSERT(pip != PipId());
                         delay = ctx->getPipDelay(pip).maxDelay();
-                        log_info("                 %1.3f %s\n", ctx->getDelayNS(delay),
-                                 ctx->getPipName(pip).c_str(ctx));
+                        // log_info("                 %1.3f %s\n", ctx->getDelayNS(delay),
+                        //          ctx->getPipName(pip).c_str(ctx));
                         cursor = ctx->getPipSrcWire(pip);
                     }
                 }
@@ -864,10 +900,10 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 delay_t setup = sinkClockInfo.setup.maxDelay();
                 total += setup;
                 logic_total += setup;
-                log_info("%4.1f %4.1f  Setup %s.%s\n", ctx->getDelayNS(setup), ctx->getDelayNS(total),
-                         crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
+                // log_info("%4.1f %4.1f  Setup %s.%s\n", ctx->getDelayNS(setup), ctx->getDelayNS(total),
+                //          crit_path.back()->cell->name.c_str(ctx), crit_path.back()->port.c_str(ctx));
             }
-            log_info("%.1f ns logic, %.1f ns routing\n", ctx->getDelayNS(logic_total), ctx->getDelayNS(route_total));
+            // log_info("%.1f ns logic, %.1f ns routing\n", ctx->getDelayNS(logic_total), ctx->getDelayNS(route_total));
         };
 
         for (auto &clock : clock_reports) {
@@ -876,7 +912,13 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                     clock.second.first.start.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
             std::string end =
                     clock.second.first.end.edge == FALLING_EDGE ? std::string("negedge") : std::string("posedge");
-            log_info("Critical path report for clock '%s' (%s -> %s):\n", clock.first.c_str(ctx), start.c_str(),
+            LogData logEntry4 = LogData::CreateLogStruct(
+                LevelCode::INFO_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "Critical path report for clock"
+            );
+            log_info("Critical path report for clock '%s' (%s -> %s):\n", logEntry4,clock.first.c_str(ctx), start.c_str(),
                      end.c_str());
             auto &crit_path = clock.second.second.ports;
             print_path_report(clock.second.first, crit_path);
@@ -904,15 +946,15 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
                 target = 1000 / ctx->getDelayNS(ctx->nets.at(clock.first)->clkconstr->period.minDelay());
 
             bool passed = target < clock_fmax[clock.first];
-            if (!warn_on_failure || passed)
-                log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                         clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
-            else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
-                log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                            clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
-            else
-                log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
-                                   clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
+            // if (!warn_on_failure || passed)
+                // log_info("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
+                //          clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
+            // else if (bool_or_default(ctx->settings, ctx->id("timing/allowFail"), false))
+                // log_warning("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
+                //             clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
+            // else
+                // log_nonfatal_error("Max frequency for clock %*s'%s': %.02f MHz (%s at %.02f MHz)\n", width, "",
+                //                    clock_name.c_str(), clock_fmax[clock.first], passed ? "PASS" : "FAIL", target);
         }
         for (auto &eclock : empty_clocks) {
             if (eclock != ctx->id("$async$"))
@@ -952,13 +994,27 @@ void timing_analysis(Context *ctx, bool print_histogram, bool print_fmax, bool p
         bar_width = std::min(bar_width, max_freq);
 
         log_break();
-        log_info("Slack histogram:\n");
-        log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
-        log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
+        LogData logEntry6 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Slack histogram"
+        );
+        log_info("Slack histogram:\n",logEntry6);
+        // log_info(" legend: * represents %d endpoint(s)\n", max_freq / bar_width);
+        // log_info("         + represents [1,%d) endpoint(s)\n", max_freq / bar_width);
         for (unsigned i = 0; i < num_bins; ++i)
-            log_info("[%6d, %6d) |%s%c\n", min_slack + bin_size * i, min_slack + bin_size * (i + 1),
+            if(ctx->verbose){
+                LogData logEntry7 = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::PACK,
+                    PhaseType::PACK,
+                    ""
+                );
+                log_always("[%6d, %6d) |%s%c\n", logEntry7,min_slack + bin_size * i, min_slack + bin_size * (i + 1),
                      std::string(bins[i] * bar_width / max_freq, '*').c_str(),
                      (bins[i] * bar_width) % max_freq > 0 ? '+' : ' ');
+            }
     }
 }
 */

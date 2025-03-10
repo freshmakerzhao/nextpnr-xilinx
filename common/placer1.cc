@@ -199,7 +199,13 @@ class SAPlacer
                 }
             }
             int constr_placed_cells = placed_cells;
-            log_info("Placed %d cells based on constraints.\n", int(placed_cells));
+            LogData logEntry2 = LogData::CreateLogStruct(
+                LevelCode::INFO_LOG,
+                LogCategory::PlACE,
+                PhaseType::PLACE,
+                "Placed cells based on constraints"
+            );
+            log_info("Placed %d cells based on constraints.\n",logEntry2, int(placed_cells));
             ctx->yield();
 
             // Sort to-place cells for deterministic initial placement
@@ -1271,7 +1277,15 @@ bool placer1(Context *ctx, Placer1Cfg cfg)
     try {
         SAPlacer placer(ctx, cfg);
         placer.place();
-        log_info("Checksum: 0x%08x\n", ctx->checksum());
+        if(ctx->verbose){
+            LogData logEntry = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::PlACE,
+                PhaseType::PLACE,
+                "Checksum"
+            );
+            log_always("Checksum: 0x%08x\n", logEntry,ctx->checksum());
+        }
 #ifndef NDEBUG
         ctx->lock();
         ctx->check();
@@ -1291,7 +1305,15 @@ bool placer1_refine(Context *ctx, Placer1Cfg cfg)
     try {
         SAPlacer placer(ctx, cfg);
         placer.place(true);
-        log_info("Checksum: 0x%08x\n", ctx->checksum());
+        if(ctx->verbose){
+            LogData logEntry1 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::OPT,
+                PhaseType::PLACE,
+                "Checksum"
+            );
+            log_always("Checksum: 0x%08x\n",logEntry1 ,ctx->checksum());
+        }
 #ifndef NDEBUG
         ctx->lock();
         ctx->check();

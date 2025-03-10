@@ -26,18 +26,24 @@
 #include "pins.h"
 #include "util.h"
 #include "json.hpp"
+#ifdef COMPRESS_MODE
+#include "ArchiveTool.h"
+#endif
 NEXTPNR_NAMESPACE_BEGIN
 namespace {
 struct FasmBackend
 {
     Context *ctx;
-    std::ostream &out;
+
     std::vector<std::string> fasm_ctx;
     std::unordered_map<int, std::vector<PipId>> pips_by_tile;
 
     std::unordered_map<IdString, std::unordered_set<IdString>> invertible_pins;
-
-    FasmBackend(Context *ctx, std::ostream &out) : ctx(ctx), out(out){};
+    std::vector<unsigned char> buffer;
+    FasmBackend(Context *ctx) : ctx(ctx){};
+    void append_to_buffer(const std::string &data) {
+            buffer.insert(buffer.end(), data.begin(), data.end());
+    }
 
     void push(const std::string &x) { fasm_ctx.push_back(x); }
 
@@ -49,17 +55,20 @@ struct FasmBackend
             fasm_ctx.pop_back();
     }
     bool last_was_blank = true;
+
     void blank()
     {
-        if (!last_was_blank)
-            out << std::endl;
+        if (!last_was_blank){
+            append_to_buffer("\n");   
+        }      
         last_was_blank = true;
     }
 
     void write_prefix()
     {
-        for (auto &x : fasm_ctx)
-            out << x << ".";
+        for (auto &x : fasm_ctx){
+            append_to_buffer(x+".");
+        }
         last_was_blank = false;
     }
 
@@ -67,24 +76,26 @@ struct FasmBackend
     {
         if (value) {
             write_prefix();
-            out << name << std::endl;
+            append_to_buffer(name+"\n");
         }
     }
 
     void write_vector(const std::string &name, const std::vector<bool> &value, bool invert = false, bool reverse = true)
     {
         write_prefix();
-        out << name << " = " << int(value.size()) << "'b";
+        append_to_buffer(name+"="+std::to_string(value.size())+"'b");
         if (reverse) {
-            for (auto bit : boost::adaptors::reverse(value))
-                out << ((bit ^ invert) ? '1' : '0');
+            for (auto bit : boost::adaptors::reverse(value)){
+                append_to_buffer(std::string(1,(bit ^ invert) ? '1' : '0'));
+            }
         } else {
-            for (auto bit : value)
-                out << ((bit ^ invert) ? '1' : '0');
+            for (auto bit : value){
+                append_to_buffer(std::string(1,(bit ^ invert) ? '1' : '0'));
+            }
         }
-        out << std::endl;
-    }
+        append_to_buffer("\n");
 
+    }
     void write_int_vector(const std::string &name, uint64_t value, int width, bool invert = false)
     {
         std::vector<bool> bits(width, false);
@@ -299,7 +310,7 @@ struct FasmBackend
                             c.replace(y0pos, 2, "Y1");
                     }
                 }
-                out << tile_name << "." << c << std::endl;
+                append_to_buffer(tile_name+"."+c+"\n");
             }
             if (!pp.empty())
                 last_was_blank = false;
@@ -348,9 +359,9 @@ struct FasmBackend
                     return; // missing, not sure if really a ppip?
             }
 
-            out << tile_name << ".";
-            out << dst_name << ".";
-            out << src_name << std::endl;
+            append_to_buffer(tile_name+".");
+            append_to_buffer(dst_name+".");
+            append_to_buffer(src_name+"\n");
 
             if (boost::contains(tile_name, "IOI") && boost::starts_with(dst_name, "IOI_OCLK_")) {
                 dst_name.insert(dst_name.find("OCLK") + 4, 1, 'M');
@@ -359,9 +370,9 @@ struct FasmBackend
                 WireId w = ctx->getWireByName(ctx->id(tile_name + "/" + orig_dst_name));
                 NPNR_ASSERT(w != WireId());
                 if (ctx->getBoundWireNet(w) == nullptr) {
-                    out << tile_name << ".";
-                    out << dst_name << ".";
-                    out << src_name << std::endl;
+                    append_to_buffer(tile_name+".");
+                    append_to_buffer(dst_name+".");
+                    append_to_buffer(src_name+"\n");
                 }
             }
 
@@ -535,10 +546,10 @@ struct FasmBackend
                 }
 
                 write_prefix();
-                out << belname;
+                append_to_buffer(belname);
                 if (!skip_pinname)
-                    out << "." << pinname;
-                out << std::endl;
+                    append_to_buffer("."+pinname);
+                append_to_buffer("\n");
             }
         }
     }
@@ -1381,6 +1392,9 @@ struct FasmBackend
                 write_bit("CFG_EFUSE_CTRL.CFG_EFUSE_DNA_EN_TMR2");
                 write_bit("CFG_EFUSE_CTRL.CFG_EFUSE_DNA_EN_TMR1");
             }
+            if (ci->type == id_CAPTURE_CAPTURE) {
+                ctx->settings[ctx->id("capture_head_value")] = std::string("0x02803FE5");
+            }
 
             if (ci->type == id_ICAP_ICAP) {
                 push("ICAP");
@@ -1393,33 +1407,8 @@ struct FasmBackend
                 std::string icap_location ="ICAP_Y" +  std::to_string(xy.y);
                 // 将使用icap的信息存入order.json文件，用来判断是否需要在头文件插入数据
                 if(icap_location == "ICAP_Y0"){
-                    nlohmann::json order_data;
-                    std::string file_path = "order.json";
-                    // 读取 order.json 文件
-                    std::ifstream file_in(file_path);
-                    if(file_in.is_open()){
-                        try {
-                            // 将json文件内容回读到json对象实现追加内容操作
-					        file_in >> order_data;
-					    } catch (nlohmann::detail::exception& e) {
-                            log_error("[Implementation_fasm_hybrd]：order.json file content append error: %s", e.what());
-					    }
-                        file_in.close();
-                    }
-                    // 向 JSON 对象中添加数据
-                    order_data["icap"] = {
-                        {"icap_head_value_1", "0x40000401"},
-                        {"icap_head_value_2", "0x40000501"}
-                    };
-                   // 将更新后的 JSON 对象写回文件
-                    std::ofstream file_out(file_path);
-                    if (file_out.is_open()) {
-                        file_out << order_data.dump(4); // 格式化输出，缩进 4 个空格
-                        file_out.close();
-                    } else {
-                        log_error("[Implementation_fasm_hybrd]：Unable to open order.file for writing");
-                        return;
-                    }
+                    ctx->settings[ctx->id("icap_head_value_1")] = std::string("0x40000401");
+                    ctx->settings[ctx->id("icap_head_value_2")] = std::string("0x40000501");
                     write_bit("CFG_ICAP_BOTM_EN_TMR0");
                     write_bit("CFG_ICAP_BOTM_EN_TMR1");
                     write_bit("CFG_ICAP_BOTM_EN_TMR2");
@@ -3404,18 +3393,42 @@ struct FasmBackend
         write_ip();
         write_xadc();
     }
+
+    void compress_buffer(const std::string &filename)
+    {
+#ifdef COMPRESS_MODE
+        Tool::ArchiveTool tool;
+        std::string use_filename;
+        size_t lastSlash = filename.find_last_of("/\\");
+        if(lastSlash == std::string::npos){
+            use_filename = filename;
+        }else{
+            // 获取文件名部分
+            use_filename = filename.substr(lastSlash + 1);
+        }
+        tool.compressWithPassword(buffer,filename,use_filename,KEY);
+#endif
+    }
+    void out_buffer(const std::string &filename)
+    {
+        std::ofstream out(filename);
+        if (!out)
+            log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
+        out.write(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+    }
 };
 
 } // namespace
 
 void Arch::writeFasm(const std::string &filename)
 {
-    std::ofstream out(filename);
-    if (!out)
-        log_error("failed to open file %s for writing (%s)\n", filename.c_str(), strerror(errno));
-
-    FasmBackend be(getCtx(), out);
+    FasmBackend be(getCtx());
     be.write_fasm();
+    if(getCtx()->compress_mode){
+        be.compress_buffer(filename);
+    }else{
+        be.out_buffer(filename);
+    }
 }
 
 NEXTPNR_NAMESPACE_END

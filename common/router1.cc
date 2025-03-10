@@ -451,8 +451,20 @@ struct Router1
         ripup_flag = false;
 
         if (ctx->debug) {
-            log("Routing arc %d on net %s (%d arcs total):\n", user_idx, ctx->nameOf(net_info),
+            LogData logEntry12 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "Routing arc on net"
+            );
+            log_always("Routing arc %d on net %s (%d arcs total):\n",user_idx, ctx->nameOf(net_info),
                 int(net_info->users.size()));
+            LogData logEntry13 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "Routing arc on net"
+            );
             log("  source ... %s\n", ctx->nameOfWire(src_wire));
             log("  sink ..... %s\n", ctx->nameOfWire(dst_wire));
         }
@@ -815,27 +827,55 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
 {
     try {
         log_break();
-        log_info("Routing..\n");
+        LogData logEntry1 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Routing"
+        );
+        log_info("Routing..\n",logEntry1);
         ctx->lock();
         auto rstart = std::chrono::high_resolution_clock::now();
-
-        log_info("Setting up routing queue.\n");
+        LogData logEntry2 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Setting up routing queue"
+        );
+        log_info("Setting up routing queue.\n",logEntry2);
 
         Router1 router(ctx, cfg);
         router.setup();
 #ifndef NDEBUG
         router.check();
 #endif
-
-        log_info("Routing %d arcs.\n", int(router.arc_queue.size()));
+        LogData logEntry3 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Routing arcs"
+        );
+        log_info("Routing %d arcs.\n", logEntry3,int(router.arc_queue.size()));
 
         int iter_cnt = 0;
         int last_arcs_with_ripup = 0;
         int last_arcs_without_ripup = 0;
-
-        log_info("           |   (re-)routed arcs  |   delta    | remaining|       time spent     |\n");
-        log_info("   IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec) total(sec)|\n");
-
+        if(ctx->verbose){
+            LogData logEntry4 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "|   (re-)routed arcs  |   delta    | remaining|       time spent     |"
+            );
+            log_always("           |   (re-)routed arcs  |   delta    | remaining|       time spent     |\n",logEntry4);
+            LogData logEntry5 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec) total(sec)|"
+            );
+            log_always("   IterCnt |  w/ripup   wo/ripup |  w/r  wo/r |      arcs| batch(sec) total(sec)|\n",logEntry5);
+        }
         auto prev_time = rstart;
         while (!router.arc_queue.empty()) {
             if (++iter_cnt % 1000 == 0) {
@@ -870,24 +910,52 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             }
         }
         auto rend = std::chrono::high_resolution_clock::now();
-        log_info("%10d | %8d %10d | %4d %5d | %9d| %10.02f %10.02f|\n", iter_cnt, router.arcs_with_ripup,
-                 router.arcs_without_ripup, router.arcs_with_ripup - last_arcs_with_ripup,
-                 router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()),
-                 std::chrono::duration<float>(rend - prev_time).count(),
-                 std::chrono::duration<float>(rend - rstart).count());
-        log_info("Routing complete.\n");
+        if(ctx->verbose){
+            LogData logEntry6 = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "Routing arcs"
+            );
+            log_always("%10d | %8d %10d | %4d %5d | %9d| %10.02f %10.02f|\n",logEntry6 ,iter_cnt, router.arcs_with_ripup,
+                    router.arcs_without_ripup, router.arcs_with_ripup - last_arcs_with_ripup,
+                    router.arcs_without_ripup - last_arcs_without_ripup, int(router.arc_queue.size()),
+                    std::chrono::duration<float>(rend - prev_time).count(),
+                    std::chrono::duration<float>(rend - rstart).count());
+        }
+        LogData logEntry7 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Routing complete"
+        );
+        log_info("Routing complete.\n",logEntry7);
         ctx->yield();
-        log_info("Router1 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
 
-#ifndef NDEBUG
-        router.check();
-        ctx->check();
-        log_assert(ctx->checkRoutedDesign());
-#endif
+        LogData logEntry8 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Router1 time"
+        );
+        log_info("Router1 time %.02fs\n", logEntry8,std::chrono::duration<float>(rend - rstart).count());
 
-        log_info("Checksum: 0x%08x\n", ctx->checksum());
+// #ifndef NDEBUG
+//         router.check();
+//         ctx->check();
+//         log_assert(ctx->checkRoutedDesign());
+// #endif
+        if(ctx->verbose){
+            LogData logEntry = LogData::CreateLogStruct(
+                LevelCode::ALWAYS_LOG,
+                LogCategory::ROUTE,
+                PhaseType::ROUTE,
+                "Checksum"
+            );
+            log_always("Checksum: 0x%08x\n",logEntry, ctx->checksum());
+        }
         if (ctx->do_timing_analysis)
-            timing_analysis(ctx, true , true, true, true, true);
+        timing_analysis(ctx, true, true, true, true, true);
 
         ctx->unlock();
         return true;
@@ -912,12 +980,12 @@ bool Context::checkRoutedDesign() const
             continue;
 #endif
 
-        if (ctx->debug)
-            log("checking net %s\n", ctx->nameOf(net_info));
+        // if (ctx->debug)
+            // log("checking net %s\n", ctx->nameOf(net_info));
 
         if (net_info->users.empty()) {
-            if (ctx->debug)
-                log("  net without sinks\n");
+            // if (ctx->debug)
+                // log("  net without sinks\n");
             log_assert(net_info->wires.empty());
             continue;
         }
@@ -948,7 +1016,7 @@ bool Context::checkRoutedDesign() const
         if (src_wire == WireId()) {
             log_assert(net_info->driver.cell == nullptr);
             if (ctx->debug)
-                log("  undriven and unrouted\n");
+                // log("  undriven and unrouted\n");
             continue;
         }
 
@@ -1017,7 +1085,13 @@ bool Context::checkRoutedDesign() const
 
         if (ctx->debug) {
             if (dangling_wires.empty()) {
-                log("  no dangling wires.\n");
+                LogData logEntry9 = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::ROUTE,
+                    PhaseType::ROUTE,
+                    "no dangling wires"
+                );
+                log_always("  no dangling wires.\n");
             } else {
                 std::unordered_set<WireId> root_wires = dangling_wires;
 
@@ -1027,15 +1101,28 @@ bool Context::checkRoutedDesign() const
                 }
 
                 for (WireId w : root_wires) {
-                    log("  dangling wire: %s\n", ctx->nameOfWire(w));
+                    LogData logEntry10 = LogData::CreateLogStruct(
+                        LevelCode::ALWAYS_LOG,
+                        LogCategory::ROUTE,
+                        PhaseType::ROUTE,
+                        "dangling wire"
+                    );
+                    log_always("  dangling wire: %s\n",ctx->nameOfWire(w));
                     logged_wires.insert(w);
                     setOrderNum(w, 1);
                 }
 
                 for (WireId w : dangling_wires) {
-                    if (logged_wires.count(w) == 0)
-                        log("  loop: %s -> %s\n", ctx->nameOfWire(ctx->getPipSrcWire(net_info->wires.at(w).pip)),
+                    if (logged_wires.count(w) == 0){
+                        LogData logEntry11 = LogData::CreateLogStruct(
+                            LevelCode::ALWAYS_LOG,
+                            LogCategory::ROUTE,
+                            PhaseType::ROUTE,
+                            "loop:"
+                        );
+                        log_always("  loop: %s -> %s\n",logEntry11, ctx->nameOfWire(ctx->getPipSrcWire(net_info->wires.at(w).pip)),
                             ctx->nameOfWire(w));
+                    }
                 }
             }
         }

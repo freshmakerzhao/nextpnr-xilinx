@@ -106,7 +106,13 @@ void XilinxPacker::split_carry4s()
 
 void XC7Packer::pack_carries()
 {
-    log_info("Packing carries..\n");
+    LogData logEntry4 = LogData::CreateLogStruct(
+        LevelCode::INFO_LOG,
+        LogCategory::PACK,
+        PhaseType::PACK,
+        "Packing carries"
+    );
+    log_info("Packing carries..\n",logEntry4);
     split_carry4s();
     std::vector<CellInfo *> root_muxcys;
     // Find MUXCYs
@@ -212,8 +218,15 @@ void XC7Packer::pack_carries()
         groups.push_back(group);
     }
     flush_cells();
-
-    log_info("   Grouped %d MUXCYs and %d XORCYs into %d chains.\n", muxcy_count, xorcy_count, int(root_muxcys.size()));
+    if(ctx->verbose){
+        LogData logEntry0 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PACK,
+            PhaseType::PACK,
+            "Grouped MUXCYs and XORCYs into chains"
+        );
+        log_always("   Grouped %d MUXCYs and %d XORCYs into %d chains.\n",logEntry0 ,muxcy_count, xorcy_count, int(root_muxcys.size()));
+    }
 
     // N.B. LUT6 is not a valid type here, as CARRY requires dual outputs
     std::unordered_set<IdString> lut_types{ctx->id("LUT1"), ctx->id("LUT2"), ctx->id("LUT3"), ctx->id("LUT4"),
@@ -396,8 +409,16 @@ void XC7Packer::pack_carries()
     softlogic_rules[ctx->id("XORCY")].set_params.emplace_back(ctx->id("INIT"), Property(0x6));
 
     generic_xform(softlogic_rules, false);
-    log_info("   Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", remaining_muxcy,
+    if(ctx->verbose){
+        LogData logEntry1 = LogData::CreateLogStruct(
+            LevelCode::ALWAYS_LOG,
+            LogCategory::PACK,
+            PhaseType::PACK,
+            "Blasted non-chain MUXCYs and non-chain XORCYs to soft logic"
+        );
+        log_always("   Blasted %d non-chain MUXCYs and %d non-chain XORCYs to soft logic\n", logEntry1,remaining_muxcy,
              remaining_xorcy);
+    }
 
     // Finally, use generic_xform to remove the [] from bus ports; and set up the logical-physical mapping for
     // RapidWright

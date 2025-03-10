@@ -1122,6 +1122,7 @@ struct Context : Arch, DeterministicRNG
     bool verbose = false;
     bool debug = false;
     bool force = false;
+    bool compress_mode = false;
 
     // Should we disable printing of the location of nets in the critical path?
     bool disable_critical_path_source_print = false;

@@ -190,9 +190,9 @@ struct Router2
             nets.at(i).cx /= int(ni->users.size() + 1);
             nets.at(i).cy /= int(ni->users.size() + 1);
             if (ctx->debug)
-                log_info("%s: bb=(%d, %d)->(%d, %d) c=(%d, %d) hpwl=%d\n", ctx->nameOf(ni), nets.at(i).bb.x0,
-                         nets.at(i).bb.y0, nets.at(i).bb.x1, nets.at(i).bb.y1, nets.at(i).cx, nets.at(i).cy,
-                         nets.at(i).hpwl);
+                // log_info("%s: bb=(%d, %d)->(%d, %d) c=(%d, %d) hpwl=%d\n", ctx->nameOf(ni), nets.at(i).bb.x0,
+                //          nets.at(i).bb.y0, nets.at(i).bb.x1, nets.at(i).bb.y1, nets.at(i).cx, nets.at(i).cy,
+                //          nets.at(i).hpwl);
             nets.at(i).bb.x0 = std::max(nets.at(i).bb.x0 - cfg.bb_margin_x, 0);
             nets.at(i).bb.y0 = std::max(nets.at(i).bb.y0 - cfg.bb_margin_y, 0);
             nets.at(i).bb.x1 = std::min(nets.at(i).bb.x1 + cfg.bb_margin_x, ctx->getGridDimX());
@@ -437,11 +437,11 @@ struct Router2
         WireId cursor = sink;
         bool done = false;
         if (ctx->debug)
-            log("reserving wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
+            // log("reserving wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
         while (!done) {
             auto &wd = wire_data(cursor);
             if (ctx->debug)
-                log("      %s\n", ctx->nameOfWire(cursor));
+                // log("      %s\n", ctx->nameOfWire(cursor));
             did_something |= (wd.reserved_net != net->udata);
             wd.reserved_net = net->udata;
             if (cursor == src)
@@ -627,7 +627,7 @@ struct Router2
             }
             int dst_wire_idx = wire_to_idx.at(dst_wire);
             if (was_visited(src_wire_idx)) {
-                ROUTE_LOG_DBG("   Routed (backwards): ");
+                // ROUTE_LOG_DBG("   Routed (backwards): ");
                 int cursor_fwd = src_wire_idx;
                 bind_pip_internal(net, i, src_wire_idx, PipId());
                 while (was_visited(cursor_fwd)) {
@@ -636,8 +636,8 @@ struct Router2
                     bind_pip_internal(net, i, cursor_fwd, v.pip);
                     if (ctx->debug) {
                         auto &wd = flat_wires.at(cursor_fwd);
-                        ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(wd.w),
-                                      int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
+                        // ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(wd.w),
+                        //               int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
                     }
                 }
                 NPNR_ASSERT(cursor_fwd == dst_wire_idx);
@@ -658,8 +658,8 @@ struct Router2
         auto &nd = nets[net->udata];
         auto &ad = nd.arcs[i];
         auto &usr = net->users.at(i);
-        ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", int(i), ctx->nameOf(net), ad.bb.x0, ad.bb.y0,
-                      ad.bb.x1, ad.bb.y1);
+        // ROUTE_LOG_DBG("Routing arc %d of net '%s' (%d, %d) -> (%d, %d)\n", int(i), ctx->nameOf(net), ad.bb.x0, ad.bb.y0,
+        //               ad.bb.x1, ad.bb.y1);
         WireId src_wire = ctx->getNetinfoSourceWire(net), dst_wire = ctx->getNetinfoSinkWire(net, usr);
         if (src_wire == WireId())
             ARC_LOG_ERR("No wire found for port %s on source cell %s.\n", ctx->nameOf(net->driver.port),
@@ -756,7 +756,7 @@ struct Router2
         }
         // Check if backwards routing succeeded in reaching source
         if (was_visited(src_wire_idx)) {
-            ROUTE_LOG_DBG("   Routed (backwards): ");
+            // ROUTE_LOG_DBG("   Routed (backwards): ");
             int cursor_fwd = src_wire_idx;
             bind_pip_internal(net, i, src_wire_idx, PipId());
             while (was_visited(cursor_fwd)) {
@@ -765,8 +765,8 @@ struct Router2
                 bind_pip_internal(net, i, cursor_fwd, v.pip);
                 if (ctx->debug) {
                     auto &wd = flat_wires.at(cursor_fwd);
-                    ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(wd.w),
-                                  int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
+                    // ROUTE_LOG_DBG("      wire: %s (curr %d hist %f)\n", ctx->nameOfWire(wd.w),
+                    //               int(wd.bound_nets.size()) - 1, wd.hist_cong_cost);
                 }
             }
             NPNR_ASSERT(cursor_fwd == dst_wire_idx);
@@ -869,23 +869,23 @@ struct Router2
             }
         }
         if (was_visited(dst_wire_idx)) {
-            ROUTE_LOG_DBG("   Routed (explored %d wires): ", explored);
+            // ROUTE_LOG_DBG("   Routed (explored %d wires): ", explored);
             int cursor_bwd = dst_wire_idx;
             while (was_visited(cursor_bwd)) {
                 auto &v = flat_wires.at(cursor_bwd).visit;
                 bind_pip_internal(net, i, cursor_bwd, v.pip);
                 if (ctx->debug) {
                     auto &wd = flat_wires.at(cursor_bwd);
-                    ROUTE_LOG_DBG("      wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
-                                  int(wd.bound_nets.size()) - 1, wd.hist_cong_cost,
-                                  wd.bound_nets.count(net->udata) ? wd.bound_nets.at(net->udata).first : 0);
+                    // ROUTE_LOG_DBG("      wire: %s (curr %d hist %f share %d)\n", ctx->nameOfWire(wd.w),
+                    //               int(wd.bound_nets.size()) - 1, wd.hist_cong_cost,
+                    //               wd.bound_nets.count(net->udata) ? wd.bound_nets.at(net->udata).first : 0);
                 }
                 if (v.pip == PipId()) {
                     NPNR_ASSERT(cursor_bwd == src_wire_idx);
                     break;
                 }
-                ROUTE_LOG_DBG("         pip: %s (%d, %d)\n", ctx->nameOfPip(v.pip), ctx->getPipLocation(v.pip).x,
-                              ctx->getPipLocation(v.pip).y);
+                // ROUTE_LOG_DBG("         pip: %s (%d, %d)\n", ctx->nameOfPip(v.pip), ctx->getPipLocation(v.pip).x,
+                //               ctx->getPipLocation(v.pip).y);
                 cursor_bwd = wire_to_idx.at(ctx->getPipSrcWire(v.pip));
             }
             t.processed_sinks.insert(dst_wire);
@@ -907,7 +907,7 @@ struct Router2
             return true;
 #endif
 
-        ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
+        // ROUTE_LOG_DBG("Routing net '%s'...\n", ctx->nameOf(net));
 
         auto rstart = std::chrono::high_resolution_clock::now();
 
@@ -1166,8 +1166,8 @@ struct Router2
             accum_y += p.second;
         }
         if (ctx->verbose) {
-            log_info("    x splitpoint: %d\n", mid_x);
-            log_info("    y splitpoint: %d\n", mid_y);
+            // log_info("    x splitpoint: %d\n", mid_x);
+            // log_info("    y splitpoint: %d\n", mid_y);
         }
         std::vector<int> bins(5, 0);
         for (auto &n : nets) {
@@ -1182,9 +1182,9 @@ struct Router2
             else
                 ++bins[4]; // cross-boundary
         }
-        if (ctx->verbose)
-            for (int i = 0; i < 5; i++)
-                log_info("        bin %d N=%d\n", i, bins[i]);
+        // if (ctx->verbose)
+            // for (int i = 0; i < 5; i++)
+                // log_info("        bin %d N=%d\n", i, bins[i]);
     }
 
     void router_thread(ThreadContext &t)
@@ -1325,8 +1325,20 @@ struct Router2
 
     void operator()()
     {
-        log_info("Running router2...\n");
-        log_info("Setting up routing resources...\n");
+        LogData logEntry = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Running router2"
+        );
+        log_info("Running router2...\n",logEntry);
+        LogData logEntry1 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Setting up routing resources"
+        );
+        log_info("Setting up routing resources...\n",logEntry1);
         auto rstart = std::chrono::high_resolution_clock::now();
         setup_nets();
         setup_wires();
@@ -1341,7 +1353,13 @@ struct Router2
             route_queue.push_back(i);
 
         timing_driven = ctx->setting<bool>("timing_driven");
-        log_info("Running main router loop...\n");
+        LogData logEntry2 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Running main router loop"
+        );
+        log_info("Running main router loop...\n",logEntry2);
         do {
             ctx->sorted_shuffle(route_queue);
 
@@ -1390,8 +1408,8 @@ struct Router2
             }
             for (auto cn : failed_nets)
                 route_queue.push_back(cn);
-            log_info("    iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
-                     total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
+            // log_info("    iter=%d wires=%d overused=%d overuse=%d archfail=%s\n", iter, total_wire_use, overused_wires,
+            //          total_overuse, overused_wires > 0 ? "NA" : std::to_string(arch_fail).c_str());
             ++iter;
             if (curr_cong_weight < 1e9)
                 curr_cong_weight += cfg.curr_cong_mult;
@@ -1402,17 +1420,38 @@ struct Router2
                 nets_by_runtime.emplace_back(nets.at(n->udata).total_route_us, n->name);
             }
             std::sort(nets_by_runtime.begin(), nets_by_runtime.end(), std::greater<std::pair<int, IdString>>());
-            log_info("1000 slowest nets by runtime:\n");
+            if(ctx->verbose){
+                LogData logEntry5 = LogData::CreateLogStruct(
+                    LevelCode::ALWAYS_LOG,
+                    LogCategory::ROUTE,
+                    PhaseType::ROUTE,
+                    "1000 slowest nets by runtime"
+                );
+                log_always("1000 slowest nets by runtime:\n",logEntry5);
+            }
             for (int i = 0; i < std::min(int(nets_by_runtime.size()), 1000); i++) {
-                log("        %80s %6d %.1fms\n", nets_by_runtime.at(i).second.c_str(ctx),
-                    int(ctx->nets.at(nets_by_runtime.at(i).second)->users.size()),
-                    nets_by_runtime.at(i).first / 1000.0);
+                if(ctx->verbose){
+                    log("        %80s %6d %.1fms\n", nets_by_runtime.at(i).second.c_str(ctx),
+                        int(ctx->nets.at(nets_by_runtime.at(i).second)->users.size()),
+                        nets_by_runtime.at(i).first / 1000.0);
+                }
             }
         }
         auto rend = std::chrono::high_resolution_clock::now();
-        log_info("Router2 time %.02fs\n", std::chrono::duration<float>(rend - rstart).count());
-
-        log_info("Running router1 to check that route is legal...\n");
+        LogData logEntry3 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Router2 time"
+        );
+        log_info("Router2 time %.02fs\n", logEntry3,std::chrono::duration<float>(rend - rstart).count());
+        LogData logEntry4 = LogData::CreateLogStruct(
+            LevelCode::INFO_LOG,
+            LogCategory::ROUTE,
+            PhaseType::ROUTE,
+            "Running router1 to check that route is legal"
+        );
+        log_info("Running router1 to check that route is legal...\n",logEntry4);
 
         router1(ctx, Router1Cfg(ctx));
     }

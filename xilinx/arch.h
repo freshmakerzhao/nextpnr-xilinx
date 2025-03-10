@@ -339,6 +339,49 @@ NPNR_PACKED_STRUCT(struct ChipInfoPOD {
     RelPtr<TimingDataPOD> timing_data;
 });
 
+
+
+NPNR_PACKED_STRUCT(template <typename T> struct RelSlice {
+    int32_t offset;
+    uint32_t length;
+
+    const T *get() const { return reinterpret_cast<const T *>(reinterpret_cast<const char *>(this) + offset); }
+
+    const T &operator[](std::size_t index) const
+    {
+        NPNR_ASSERT(index < length);
+        return get()[index];
+    }
+
+    const T *begin() const { return get(); }
+    const T *end() const { return get() + length; }
+
+    size_t size() const { return length; }
+    ptrdiff_t ssize() const { return length; }
+
+    const T &operator*() const { return *(get()); }
+
+    const T *operator->() const { return get(); }
+
+    RelSlice(const RelSlice &) = delete;
+    RelSlice &operator=(const RelSlice &) = delete;
+});
+
+NPNR_PACKED_STRUCT(struct TimingValue {
+    int32_t fast_min;
+    int32_t fast_max;
+    int32_t slow_min;
+    int32_t slow_max;
+});
+
+NPNR_PACKED_STRUCT(struct CellPinRegArcPOD {
+    int32_t clock;
+    int32_t edge;
+    TimingValue setup;
+    TimingValue hold;
+    TimingValue clk_q;
+});
+
 /************************ End of chipdb section. ************************/
 
 struct BelIterator
@@ -685,6 +728,19 @@ struct ArchArgs
     std::string chipdb;
 };
 
+// struct TimingArcClass {
+//     IdString model;
+//     int32_t fast_min;
+//     int32_t fast_max;
+//     int32_t slow_min;
+//     int32_t slow_max;
+//     IdString clk;
+//     IdString output;
+// };
+
+
+
+
 struct Arch : BaseCtx
 {
     boost::iostreams::mapped_file_source blob_file;
@@ -697,6 +753,12 @@ struct Arch : BaseCtx
     dict<PipId, NetInfo *> pip_to_net;
     dict<WireId, std::pair<int, int>> driving_pip_loc;
     dict<WireId, NetInfo *> reserved_wires;
+    // std::unordered_map<IdString, TimingArcClass> timingArcClassMap;
+    // 存cell里的path cell_name->(from_port->(to_port->(min,max)))
+    std::unordered_map<IdString, std::unordered_map<IdString,std::unordered_map<IdString,TimingValue>>> comb_paths;
+    // 存cell里的reg属性, cell_name->port_name
+    std::unordered_map<IdString, std::unordered_map<IdString, TimingClockingInfo>> reg_timing_infos;
+    
 
     struct LogicTileStatus
     {
@@ -1049,10 +1111,10 @@ struct Arch : BaseCtx
         return w2n == wire_to_net.end() ? nullptr : w2n->second;
     }
 
-    DelayInfo getWireDelay(WireId wire) const
+    DelayQuad getWireDelay(WireId wire) const
     {
-        DelayInfo delay;
-        delay.delay = 0;
+        DelayQuad delay(0);
+        // delay.delay = 0;
         return delay;
     }
 
@@ -1286,57 +1348,37 @@ struct Arch : BaseCtx
             return locInfo(wire).wire_data[wire.index].intent;
     }
 
-    DelayInfo getPipDelay(PipId pip) const
+    DelayQuad getPipDelay(PipId pip) const
     {
-        DelayInfo delay;
-        NPNR_ASSERT(pip != PipId());
-        if (locInfo(pip).pip_data[pip.index].flags == PIP_TILE_ROUTING) {
-            int src_intent = wireIntent(getPipSrcWire(pip)), dst_intent = wireIntent(getPipDstWire(pip));
-            if (src_intent == ID_NODE_GLOBAL_VDISTR || src_intent == ID_NODE_GLOBAL_HROUTE ||
-                src_intent == ID_NODE_GLOBAL_VROUTE || src_intent == ID_NODE_GLOBAL_HDISTR ||
-                src_intent == ID_NODE_GLOBAL_LEAF || src_intent == ID_NODE_GLOBAL_BUFG) {
+        // TODO
+        // auto &pip_data = chip_pip_info(chip_info, pip);
+        // auto pip_tmg = get_pip_timing(pip_data);
+        // if (pip_tmg != nullptr) {
+        //     // TODO: multi corner analysis
+        //     WireId src = getPipSrcWire(pip);
+        //     uint64_t input_res = fast_pip_delays ? 0 : (drive_res.count(src) ? drive_res.at(src) : 0);
+        //     uint64_t input_cap = fast_pip_delays ? 0 : (load_cap.count(src) ? load_cap.at(src) : 0);
+        //     auto src_tmg = get_node_timing(src);
+        //     if (src_tmg != nullptr)
+        //         input_res += (src_tmg->res.slow_max / 2);
+        //     // Scale delay (fF * mOhm -> ps)
+        //     delay_t total_delay = (input_res * input_cap) / uint64_t(1e6);
+        //     total_delay += pip_tmg->int_delay.slow_max;
 
-                if (dst_intent == ID_NODE_LOCAL || dst_intent == ID_NODE_HLONG || dst_intent == ID_NODE_VLONG ||
-                    dst_intent == ID_NODE_VQUAD || dst_intent == ID_NODE_HQUAD) {
-                    // Assign a high penalty from global to local
-                    delay.delay = 250;
-                } else {
-                    delay.delay = 100;
-                }
-            } else if (dst_intent == ID_NODE_LAGUNA_DATA) {
-                delay.delay = 5000;
-            } else {
-                const delay_t pip_epsilon = 35;
-                auto &pip_data = locInfo(pip).pip_data[pip.index];
-                auto &pip_timing = chip_info->timing_data->pip_timing_classes[pip_data.timing_class];
-                int src_len = 1;
-                auto found_srcloc = driving_pip_loc.find(getPipSrcWire(pip));
-                if (found_srcloc != driving_pip_loc.end()) {
-                    src_len =
-                            std::max(1, std::abs(found_srcloc->second.first - (pip.tile % chip_info->width)) +
-                                                std::abs(found_srcloc->second.second - (pip.tile / chip_info->width)));
-                }
-                auto &src_timing =
-                        chip_info->timing_data
-                                ->wire_timing_classes[locInfo(pip).wire_data[pip_data.src_index].timing_class];
-                delay_t pip_delay =
-                        pip_timing.max_delay + delay_t((float(src_len * src_timing.resistance + pip_timing.resistance) *
-                                                        pip_timing.capacitance) /
-                                                       1e9);
-                if (!pip_timing.is_buffered) {
-                    auto &dst_timing =
-                            chip_info->timing_data
-                                    ->wire_timing_classes[locInfo(pip).wire_data[pip_data.dst_index].timing_class];
-                    pip_delay += delay_t(
-                            (float(src_timing.resistance + pip_timing.resistance) * dst_timing.capacitance) / 1e9);
-                }
-                delay.delay = std::max(pip_delay, pip_epsilon);
-            }
-        } else if (locInfo(pip).pip_data[pip.index].flags == PIP_LUT_ROUTETHRU) {
-            delay.delay = 300;
-        } else
-            delay.delay = 25;
-        return delay;
+        //     WireId dst = getPipDstWire(pip);
+        //     auto dst_tmg = get_node_timing(dst);
+        //     if (dst_tmg != nullptr) {
+        //         total_delay +=
+        //                 ((pip_tmg->out_res.slow_max + uint64_t(dst_tmg->res.slow_max) / 2) * dst_tmg->cap.slow_max) /
+        //                 uint64_t(1e6);
+        //     }
+
+        //     return DelayQuad(total_delay);
+        // } else {
+        //     // Pip with no specified delay. Return a notional value so the router still has something to work with.
+        //     return DelayQuad(100);
+        // }
+        return DelayQuad(50);
     }
 
     DownhillPipRange getPipsDownhill(WireId wire) const
@@ -1396,21 +1438,27 @@ struct Arch : BaseCtx
     // -------------------------------------------------
     mutable IdString gnd_glbl, gnd_row, vcc_glbl, vcc_row;
     delay_t estimateDelay(WireId src, WireId dst, bool debug = false) const;
-    delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
+    // delay_t predictDelay(const NetInfo *net_info, const PortRef &sink) const;
+    delay_t predictDelay(BelId src_bel, IdString src_pin, BelId dst_bel, IdString dst_pin) const
+    {
+        // return uarch->predictDelay(src_bel, src_pin, dst_bel, dst_pin);
+        Loc src_loc = getBelLocation(src_bel), dst_loc = getBelLocation(dst_bel);
+        return 100 * (std::abs(dst_loc.x - src_loc.x) + std::abs(dst_loc.y - src_loc.y));
+    }
+    const RelSlice<CellPinRegArcPOD> *lookup_cell_seq_timings(int type_idx, IdString port) const;
     ArcBounds getRouteBoundingBox(WireId src, WireId dst) const;
     delay_t getBoundingBoxCost(WireId src, WireId dst, int distance) const;
     delay_t getDelayEpsilon() const { return 20; }
     delay_t getRipupDelayPenalty() const { return 120; }
     delay_t getWireRipupDelayPenalty(WireId wire) const;
     float getDelayNS(delay_t v) const { return v * 0.001; }
-    DelayInfo getDelayFromNS(float ns) const
-    {
-        DelayInfo del;
-        del.delay = delay_t(ns * 1000);
-        return del;
-    }
+    delay_t getDelayFromNS(float ns) const { return delay_t(ns * 1000); }
     uint32_t getDelayChecksum(delay_t v) const { return v; }
     bool getBudgetOverride(const NetInfo *net_info, const PortRef &sink, delay_t &budget) const;
+
+    bool loadTimingData(std::string filename);
+
+    void assignArchTimingInfo();
 
     // -------------------------------------------------
 
@@ -1430,7 +1478,7 @@ struct Arch : BaseCtx
 
     // Get the delay through a cell from one port to another, returning false
     // if no path exists. This only considers combinational delays, as required by the Arch API
-    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayInfo &delay) const;
+    bool getCellDelay(const CellInfo *cell, IdString fromPort, IdString toPort, DelayQuad &delay) const;
     // Get the port class, also setting clockInfoCount to the number of TimingClockingInfos associated with a port
     TimingPortClass getPortTimingClass(const CellInfo *cell, IdString port, int &clockInfoCount) const;
     // Get the TimingClockingInfo of a port
@@ -1547,6 +1595,8 @@ struct Arch : BaseCtx
     // netlist modifications, and validity checks
     void assignArchInfo();
     void assignCellInfo(CellInfo *cell);
+
+    
 
     void fixupPlacement();
     void fixupRouting();

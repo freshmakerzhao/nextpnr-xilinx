@@ -660,11 +660,11 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
         }
 
-        DelayInfo delay = ctx->getWireDelay(wire);
+        DelayQuad delay = ctx->getWireDelay(wire);
 
         QtProperty *delayItem = addSubGroup(topItem, "Delay");
-        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRaiseDelay());
-        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRaiseDelay());
+        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRiseDelay());
+        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRiseDelay());
         addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
         addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
 
@@ -730,11 +730,11 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             addProperty(attrsItem, QVariant::String, item.first.c_str(ctx), item.second.c_str());
         }
 
-        DelayInfo delay = ctx->getPipDelay(pip);
+        DelayQuad delay = ctx->getPipDelay(pip);
 
         QtProperty *delayItem = addSubGroup(topItem, "Delay");
-        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRaiseDelay());
-        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRaiseDelay());
+        addProperty(delayItem, QVariant::Double, "Min Raise", delay.minRiseDelay());
+        addProperty(delayItem, QVariant::Double, "Max Raise", delay.maxRiseDelay());
         addProperty(delayItem, QVariant::Double, "Min Fall", delay.minFallDelay());
         addProperty(delayItem, QVariant::Double, "Max Fall", delay.maxFallDelay());
     } else if (type == ElementType::NET) {
@@ -749,7 +749,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
 
         QtProperty *driverItem = addSubGroup(topItem, "Driver");
         addProperty(driverItem, QVariant::String, "Port", net->driver.port.c_str(ctx));
-        addProperty(driverItem, QVariant::Double, "Budget", net->driver.budget);
+        // addProperty(driverItem, QVariant::Double, "Budget", net->driver.budget);
         if (net->driver.cell)
             addProperty(driverItem, QVariant::String, "Cell", net->driver.cell->name.c_str(ctx), ElementType::CELL);
         else
@@ -760,7 +760,7 @@ void DesignWidget::onSelectionChanged(int num, const QItemSelection &, const QIt
             QtProperty *portItem = addSubGroup(usersItem, item.port.c_str(ctx));
 
             addProperty(portItem, QVariant::String, "Port", item.port.c_str(ctx));
-            addProperty(portItem, QVariant::Double, "Budget", item.budget);
+            // addProperty(portItem, QVariant::Double, "Budget", item.budget);
             if (item.cell)
                 addProperty(portItem, QVariant::String, "Cell", item.cell->name.c_str(ctx), ElementType::CELL);
             else

@@ -69,20 +69,20 @@ TimingConstrObjectId BaseCtx::timingWildcardObject()
 
 TimingConstrObjectId BaseCtx::timingClockDomainObject(NetInfo *clockDomain)
 {
-    NPNR_ASSERT(clockDomain->clkconstr != nullptr);
-    if (clockDomain->clkconstr->domain_tmg_id != TimingConstrObjectId()) {
-        return clockDomain->clkconstr->domain_tmg_id;
-    } else {
+    // NPNR_ASSERT(clockDomain->clkconstr != nullptr);
+    // if (clockDomain->clkconstr->domain_tmg_id != TimingConstrObjectId()) {
+    //     return clockDomain->clkconstr->domain_tmg_id;
+    // } else {
         TimingConstraintObject obj;
         TimingConstrObjectId id;
         id.index = int(constraintObjects.size());
         obj.id = id;
         obj.type = TimingConstraintObject::CLOCK_DOMAIN;
         obj.entity = clockDomain->name;
-        clockDomain->clkconstr->domain_tmg_id = id;
+        // clockDomain->clkconstr->domain_tmg_id = id;
         constraintObjects.push_back(obj);
         return id;
-    }
+    // }
 }
 
 TimingConstrObjectId BaseCtx::timingNetObject(NetInfo *net)
@@ -260,6 +260,31 @@ const char *BaseCtx::nameOfGroup(GroupId group) const
     return ctx->getGroupName(group).c_str(ctx);
 }
 
+const std::vector<IdString> &getBelPinsForCellPin(const CellInfo *cell_info, IdString pin) 
+{
+    return cell_info->cell_bel_pins.at(pin);
+}
+
+
+delay_t Context::predictArcDelay(const NetInfo *net_info, const PortRef &sink) const
+{
+    if (net_info->driver.cell == nullptr || net_info->driver.cell->bel == BelId() || sink.cell->bel == BelId())
+        return 0;
+    IdString driver_pin, sink_pin;
+    // Pick the first pin for a prediction; assume all will be similar enouhg
+    for (auto pin : getBelPinsForCellPin(net_info->driver.cell, net_info->driver.port)) {
+        driver_pin = pin;
+        break;
+    }
+    for (auto pin : getBelPinsForCellPin(sink.cell, sink.port)) {
+        sink_pin = pin;
+        break;
+    }
+    if (driver_pin == IdString() || sink_pin == IdString())
+        return 0;
+    return predictDelay(net_info->driver.cell->bel, driver_pin, sink.cell->bel, sink_pin);
+}
+
 WireId Context::getNetinfoSourceWire(const NetInfo *net_info) const
 {
     if (net_info->driver.cell == nullptr)
@@ -296,6 +321,29 @@ WireId Context::getNetinfoSinkWire(const NetInfo *net_info, const PortRef &user_
     return getBelPinWire(dst_bel, user_port);
 }
 
+SSOArray<WireId, 2> Context::getNetinfoSinkWires(const NetInfo *net_info, const PortRef &user_info) const
+{
+    if (user_info.cell->isPseudo())
+        return SSOArray<WireId, 2>(1, user_info.cell->pseudo_cell->getPortWire(user_info.port));
+    auto dst_bel = user_info.cell->bel;
+    if (dst_bel == BelId())
+        return SSOArray<WireId, 2>(0, WireId());
+    size_t bel_pin_count = 0;
+    // We use an SSOArray here because it avoids any heap allocation for the 99.9% case of 1 or 2 sink wires
+    // but as SSOArray doesn't (currently) support resizing to keep things simple it does mean we have to do
+    // two loops
+    for (auto s : getBelPinsForCellPin(user_info.cell, user_info.port)) {
+        (void)s; // unused
+        ++bel_pin_count;
+    }
+    SSOArray<WireId, 2> result(bel_pin_count, WireId());
+    bel_pin_count = 0;
+    for (auto pin : getBelPinsForCellPin(user_info.cell, user_info.port)) {
+        result[bel_pin_count++] = getBelPinWire(dst_bel, pin);
+    }
+    return result;
+}
+
 delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &user_info) const
 {
 #ifdef ARCH_ECP5
@@ -304,35 +352,97 @@ delay_t Context::getNetinfoRouteDelay(const NetInfo *net_info, const PortRef &us
 #endif
 
     if (net_info->wires.empty())
-        return predictDelay(net_info, user_info);
+        return predictArcDelay(net_info, user_info);
 
     WireId src_wire = getNetinfoSourceWire(net_info);
     if (src_wire == WireId())
         return 0;
 
-    WireId dst_wire = getNetinfoSinkWire(net_info, user_info);
-    WireId cursor = dst_wire;
-    delay_t delay = 0;
+    DelayQuad quad_result;
+    // if (getArcDelayOverride(net_info, user_info, quad_result)) {
+    //     // Arch overrides delay
+    //     return quad_result.maxDelay();
+    // }
 
-    while (cursor != WireId() && cursor != src_wire) {
-        auto it = net_info->wires.find(cursor);
+    delay_t max_delay = 0;
 
-        if (it == net_info->wires.end())
-            break;
+    for (auto dst_wire : getNetinfoSinkWires(net_info, user_info)) {
+        WireId cursor = dst_wire;
+        delay_t delay = 0;
 
-        PipId pip = it->second.pip;
-        if (pip == PipId())
-            break;
+        while (cursor != WireId() && cursor != src_wire) {
+            auto it = net_info->wires.find(cursor);
 
-        delay += getPipDelay(pip).maxDelay();
-        delay += getWireDelay(cursor).maxDelay();
-        cursor = getPipSrcWire(pip);
+            if (it == net_info->wires.end())
+                break;
+
+            PipId pip = it->second.pip;
+            if (pip == PipId())
+                break;
+
+            delay += getPipDelay(pip).maxDelay();
+            delay += getWireDelay(cursor).maxDelay();
+            cursor = getPipSrcWire(pip);
+        }
+
+        if (cursor == src_wire)
+            max_delay = std::max(max_delay, delay + getWireDelay(src_wire).maxDelay()); // routed
+        else
+            max_delay = std::max(max_delay, predictArcDelay(net_info, user_info)); // unrouted
     }
+    return max_delay;
+}
 
-    if (cursor == src_wire)
-        return delay + getWireDelay(src_wire).maxDelay();
+DelayQuad Context::getNetinfoRouteDelayQuad(const NetInfo *net_info, const PortRef &user_info) const
+{
+#ifdef ARCH_ECP5
+    if (net_info->is_global)
+        return DelayQuad(0);
+#endif
 
-    return predictDelay(net_info, user_info);
+    if (net_info->wires.empty())
+        return DelayQuad(predictArcDelay(net_info, user_info));
+
+    WireId src_wire = getNetinfoSourceWire(net_info);
+    if (src_wire == WireId())
+        return DelayQuad(0);
+
+    DelayQuad result(std::numeric_limits<delay_t>::max(), std::numeric_limits<delay_t>::lowest());
+
+    // if (getArcDelayOverride(net_info, user_info, result)) {
+    //     // Arch overrides delay
+    //     return result;
+    // }
+
+    for (auto dst_wire : getNetinfoSinkWires(net_info, user_info)) {
+        WireId cursor = dst_wire;
+        DelayQuad delay{0};
+
+        while (cursor != WireId() && cursor != src_wire) {
+            auto it = net_info->wires.find(cursor);
+
+            if (it == net_info->wires.end())
+                break;
+
+            PipId pip = it->second.pip;
+            if (pip == PipId())
+                break;
+
+            delay = delay + getPipDelay(pip);
+            delay = delay + getWireDelay(cursor);
+            cursor = getPipSrcWire(pip);
+        }
+
+        if (cursor == src_wire)
+            delay = delay + getWireDelay(src_wire);
+        else
+            delay = DelayQuad(predictArcDelay(net_info, user_info)); // unrouted
+        result.rise.min_delay = std::min(result.rise.min_delay, delay.rise.min_delay);
+        result.rise.max_delay = std::max(result.rise.max_delay, delay.rise.max_delay);
+        result.fall.min_delay = std::min(result.fall.min_delay, delay.fall.min_delay);
+        result.fall.max_delay = std::max(result.fall.max_delay, delay.fall.max_delay);
+    }
+    return result;
 }
 
 static uint32_t xorshift32(uint32_t x)
@@ -356,13 +466,13 @@ uint32_t Context::checksum() const
         if (ni.driver.cell)
             x = xorshift32(x + xorshift32(ni.driver.cell->name.index));
         x = xorshift32(x + xorshift32(ni.driver.port.index));
-        x = xorshift32(x + xorshift32(getDelayChecksum(ni.driver.budget)));
+        // x = xorshift32(x + xorshift32(getDelayChecksum(ni.driver.budget)));
 
         for (auto &u : ni.users) {
             if (u.cell)
                 x = xorshift32(x + xorshift32(u.cell->name.index));
             x = xorshift32(x + xorshift32(u.port.index));
-            x = xorshift32(x + xorshift32(getDelayChecksum(u.budget)));
+            // x = xorshift32(x + xorshift32(getDelayChecksum(u.budget)));
         }
 
         uint32_t attr_x_sum = 0;
@@ -500,9 +610,9 @@ void Context::check() const
 void BaseCtx::addClock(IdString net, float freq)
 {
     std::unique_ptr<ClockConstraint> cc(new ClockConstraint());
-    cc->period = getCtx()->getDelayFromNS(1000 / freq);
-    cc->high = getCtx()->getDelayFromNS(500 / freq);
-    cc->low = getCtx()->getDelayFromNS(500 / freq);
+    cc->period = DelayPair(getCtx()->getDelayFromNS(1000 / freq));
+    cc->high = DelayPair(getCtx()->getDelayFromNS(500 / freq));
+    cc->low = DelayPair(getCtx()->getDelayFromNS(500 / freq));
     if (!net_aliases.count(net)) {
         log_warning("net '%s' does not exist in design, ignoring clock constraint\n", net.c_str(this));
     } else {

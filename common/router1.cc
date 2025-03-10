@@ -118,7 +118,8 @@ struct Router1
         if (queued_arcs.count(arc))
             return;
 
-        delay_t pri = ctx->estimateDelay(src_wire, dst_wire) - arc.net_info->users[arc.user_idx].budget;
+        // delay_t pri = ctx->estimateDelay(src_wire, dst_wire) - arc.net_info->users[arc.user_idx].budget;
+        delay_t pri = ctx->estimateDelay(src_wire, dst_wire);
 
         arc_entry entry;
         entry.arc = arc;
@@ -730,7 +731,7 @@ struct Router1
             log("  final route delay:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].delay));
             log("  final route penalty: %8.2f\n", ctx->getDelayNS(visited[dst_wire].penalty));
             log("  final route bonus:   %8.2f\n", ctx->getDelayNS(visited[dst_wire].bonus));
-            log("  arc budget:      %12.2f\n", ctx->getDelayNS(net_info->users[user_idx].budget));
+            // log("  arc budget:      %12.2f\n", ctx->getDelayNS(net_info->users[user_idx].budget));
         }
 
         // bind resulting route (and maybe unroute other nets)
@@ -930,6 +931,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         );
         log_info("Routing complete.\n",logEntry7);
         ctx->yield();
+
         LogData logEntry8 = LogData::CreateLogStruct(
             LevelCode::INFO_LOG,
             LogCategory::ROUTE,
@@ -952,8 +954,8 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             );
             log_always("Checksum: 0x%08x\n",logEntry, ctx->checksum());
         }
-        timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
-                        true /* warn_on_failure */);
+        if (ctx->do_timing_analysis)
+        timing_analysis(ctx, true, true, true, true, true);
 
         ctx->unlock();
         return true;

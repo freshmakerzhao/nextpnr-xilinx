@@ -16,11 +16,11 @@ class Delay:
 
 
 class IOPath:
-    def __init__(self, from_pin, to_pin, rising, falling):
+    def __init__(self, from_pin, to_pin, fast, slow):
         self.from_pin = from_pin
         self.to_pin = to_pin
-        self.rising = rising
-        self.falling = falling
+        self.fast = fast
+        self.slow = slow
 
 
 class SetupHoldCheck:
@@ -124,11 +124,16 @@ def parse_sdf_file(filename):
                                                                                parse_delay(delay[3][0]),
                                                                                parse_delay(delay[4][0]))
             elif subentry[0] == "TIMINGCHECK":
+                timing_dict = {}
                 for check in subentry[1:]:
                     if check[0] == "SETUPHOLD":
                         cell.entries.append(
                             SetupHoldCheck(check[1], check[2], parse_delay(check[3][0]), parse_delay(check[4][0])))
                     elif check[0] == "WIDTH":
                         cell.entries.append(WidthCheck(check[1], parse_delay(check[2][0])))
+                    elif check[0] == "SETUP":
+                        if check[1] not in timing_dict:
+                            timing_dict[check[1]] = {}
+                        timing_dict[check[1]]["SETUP"] = parse_delay(check[3][0])
         sdf.cells[(celltype, inst)] = cell
     return sdf

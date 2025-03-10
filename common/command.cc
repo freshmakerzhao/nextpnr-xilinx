@@ -167,6 +167,8 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("no-tmdriv", "disable timing-driven placement");
     general.add_options()("sdf", po::value<std::string>(), "SDF delay back-annotation file to write");
     general.add_options()("sdf-cvc", "enable tweaks for SDF file compatibility with the CVC simulator");
+    general.add_options()("timing-data", po::value<std::string>(), "timing data json file");
+    general.add_options()("timing-result", po::value<std::string>(), "output timing result file");
 
     return general;
 }
@@ -264,6 +266,8 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("no-tmdriv"))
         ctx->settings[ctx->id("timing_driven")] = false;
+    if (vm.count("timing-result"))
+        ctx->settings[ctx->id("timing_result")] = vm["timing-result"].as<std::string>();
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())
@@ -357,7 +361,7 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
             if (!ctx->pack() && !ctx->force)
                 log_error("Packing design failed.\n");
         }
-        assign_budget(ctx.get());
+        // assign_budget(ctx.get());
         ctx->check();
         print_utilisation(ctx.get());
 
@@ -369,6 +373,11 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
         }
 
         if (do_route) {
+            if (vm.count("timing-data")) {
+                // 读取timing data json文件，解析数据存进ctx里
+                ctx->loadTimingData(vm["timing-data"].as<std::string>());
+                ctx->do_timing_analysis = true;
+            }
             run_script_hook("pre-route");
             if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");

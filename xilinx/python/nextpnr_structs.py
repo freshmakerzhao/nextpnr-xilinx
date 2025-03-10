@@ -276,10 +276,11 @@ class NextpnrTileType:
 		self.type = constid.make(tile.tile_type())
 		self.index = -1
 		self.timing = timing
-		if tile.cell_timing() is not None:
-			self.cell_timing = NextpnrTileCellTiming.from_sdf(tile.tile_type(), tile.cell_timing())
-		else:
-			self.cell_timing = None
+		# if tile.cell_timing() is not None:
+		# 	self.cell_timing = NextpnrTileCellTiming.from_sdf(tile.tile_type(), tile.cell_timing())
+		# else:
+		# timing数据从json导入
+		self.cell_timing = None
 		self.bels = []
 		self.wires = []
 		self.pips = []

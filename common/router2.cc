@@ -122,7 +122,7 @@ struct Router2
     bool timing_driven;
 
     // Criticality data from timing analysis
-    NetCriticalityMap net_crit;
+    // NetCriticalityMap net_crit;
 
     void setup_nets()
     {
@@ -355,15 +355,15 @@ struct Router2
         int source_uses = 0;
         if (wd.bound_nets.count(net->udata))
             source_uses = wd.bound_nets.at(net->udata).first;
-        if (timing_driven) {
-            float max_bound_crit = 0;
-            for (auto &bound : wd.bound_nets)
-                if (bound.first != net->udata)
-                    max_bound_crit = std::max(max_bound_crit, nets.at(bound.first).max_crit);
-            if (max_bound_crit >= 0.8 && nd.arcs.at(user).arc_crit < (max_bound_crit + 0.01)) {
-                present_cost *= 1.5;
-            }
-        }
+        // if (timing_driven) {
+        //     float max_bound_crit = 0;
+        //     for (auto &bound : wd.bound_nets)
+        //         if (bound.first != net->udata)
+        //             max_bound_crit = std::max(max_bound_crit, nets.at(bound.first).max_crit);
+        //     if (max_bound_crit >= 0.8 && nd.arcs.at(user).arc_crit < (max_bound_crit + 0.01)) {
+        //         present_cost *= 1.5;
+        //     }
+        // }
         if (pip != PipId()) {
             Loc pl = ctx->getPipLocation(pip);
             bias_cost = cfg.bias_cost_factor * (base_cost / int(net->users.size())) *
@@ -1363,26 +1363,26 @@ struct Router2
         do {
             ctx->sorted_shuffle(route_queue);
 
-            if (timing_driven && (int(route_queue.size()) > (int(nets_by_udata.size()) / 50))) {
-                // Heuristic: reduce runtime by skipping STA in the case of a "long tail" of a few
-                // congested nodes
-                get_criticalities(ctx, &net_crit);
-                for (auto n : route_queue) {
-                    IdString name = nets_by_udata.at(n)->name;
-                    auto fnd = net_crit.find(name);
-                    auto &net = nets.at(n);
-                    net.max_crit = 0;
-                    if (fnd == net_crit.end())
-                        continue;
-                    for (int i = 0; i < int(fnd->second.criticality.size()); i++) {
-                        float c = fnd->second.criticality.at(i);
-                        net.arcs.at(i).arc_crit = c;
-                        net.max_crit = std::max(net.max_crit, c);
-                    }
-                }
-                std::stable_sort(route_queue.begin(), route_queue.end(),
-                                 [&](int na, int nb) { return nets.at(na).max_crit > nets.at(nb).max_crit; });
-            }
+            // if (timing_driven && (int(route_queue.size()) > (int(nets_by_udata.size()) / 50))) {
+            //     // Heuristic: reduce runtime by skipping STA in the case of a "long tail" of a few
+            //     // congested nodes
+            //     get_criticalities(ctx, &net_crit);
+            //     for (auto n : route_queue) {
+            //         IdString name = nets_by_udata.at(n)->name;
+            //         auto fnd = net_crit.find(name);
+            //         auto &net = nets.at(n);
+            //         net.max_crit = 0;
+            //         if (fnd == net_crit.end())
+            //             continue;
+            //         for (int i = 0; i < int(fnd->second.criticality.size()); i++) {
+            //             float c = fnd->second.criticality.at(i);
+            //             net.arcs.at(i).arc_crit = c;
+            //             net.max_crit = std::max(net.max_crit, c);
+            //         }
+            //     }
+            //     std::stable_sort(route_queue.begin(), route_queue.end(),
+            //                      [&](int na, int nb) { return nets.at(na).max_crit > nets.at(nb).max_crit; });
+            // }
 
 #if 0
             for (size_t j = 0; j < route_queue.size(); j++) {

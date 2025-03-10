@@ -1242,8 +1242,7 @@ void Arch::assignArchTimingInfo()
     for (auto &cell : cells) {
         CellInfo *ci = cell.second.get();
         ci->flat_index = cell_idx++;
-        // if (speed_grade && ci->timing_index == -1)
-        //     ci->timing_index = get_cell_timing_idx(ci->type);
+
         for (auto &port : ci->ports) {
             // Default 1:1 cell:bel mapping
             if (!ci->cell_bel_pins.count(port.first))
@@ -1560,58 +1559,10 @@ TimingClockingInfo Arch::getPortClockingInfo(const CellInfo *cell, IdString port
     TimingClockingInfo result;
     if (cell->type == id("SLICE_FFX")) {
         return reg_timing_infos.at(cell->type).at(port);
-        // TimingArcClass clk2q_arc = timingArcClassMap.at(id("ff_init_clk_q:SLICEL"));
-        // // result.clock_port = timingArcClassMap.at(id("ff_init_clk_q:SLICEL")).clk;
-        // result.clock_port = id("CK");
-        // result.clockToQ = DelayQuad(timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_clk_q:SLICEL")).slow_max);
-        // result.edge = ClockEdge::RISING_EDGE;
-        // IdString setup_arc_name, hold_arc_name;
-        // if (port == id("CE")) {
-        //     setup_arc_name = id("ff_init_setup_ce_clk:SLICEL");
-        //     hold_arc_name = id("ff_init_hold_ce_clk:SLICEL");
-        // } else if (port == id("D")) {
-        //     setup_arc_name = id("ff_init_setup_din_clk:SLICEL");
-        //     hold_arc_name = id("ff_init_hold_din_clk:SLICEL");
-        // } else if (port == id("Q")) {
-        //     return result;
-        // } else if (port == id("SR")) {
-        //     return result;
-        // } else {
-        //     log_error("error getPortClockingInfo\n");
-        //     exit(1);
-        // }
-        // result.setup = DelayPair(timingArcClassMap.at(setup_arc_name).fast_min, timingArcClassMap.at(setup_arc_name).slow_max);
-        // result.hold = DelayPair(timingArcClassMap.at(hold_arc_name).fast_min, timingArcClassMap.at(hold_arc_name).slow_max);
-
-        // if (port == id("CE")) {
-        //     result.setup = DelayPair(timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).slow_max);
-        //     result.hold = DelayPair(timingArcClassMap.at(id("ff_init_hold_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_hold_ce_clk:SLICEL")).slow_max);
-        //     return result;
-        // } else if (port == id("D")) {
-        //     result.setup = DelayPair(timingArcClassMap.at(id("ff_init_setup_din_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_setup_din_clk:SLICEL")).slow_max);
-        //     result.hold = DelayPair(timingArcClassMap.at(id("ff_init_hold_din_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_hold_din_clk:SLICEL")).slow_max);
-        //     return result;
-        // } else if (port == id("Q")) {
-        //     result.clock_port = id("CK");
-        //     result.clockToQ = DelayQuad(timingArcClassMap.at(id("ff_init_setup_ce_clk:SLICEL")).fast_min, timingArcClassMap.at(id("ff_init_clk_q:SLICEL")).slow_max);
-        //     result.edge = ClockEdge::RISING_EDGE;
-        // }
-        // return result;
     } else {
-        // 暂时填充假数据
+        // 暂时填充假数据，不会运行到这里
         TimingClockingInfo result;
     }
-    
-    NPNR_ASSERT(cell->timing_index != -1);
-    auto reg_arcs = lookup_cell_seq_timings(cell->timing_index, port);
-    NPNR_ASSERT(reg_arcs);
-    const auto &arc = (*reg_arcs)[index];
-
-    result.clock_port = IdString(arc.clock);
-    result.edge = ClockEdge(arc.edge);
-    result.setup = DelayPair(arc.setup.fast_min, arc.setup.slow_max);
-    result.hold = DelayPair(arc.hold.fast_min, arc.hold.slow_max);
-    result.clockToQ = DelayQuad(arc.clk_q.fast_min, arc.clk_q.slow_max);
 
     return result;
 }

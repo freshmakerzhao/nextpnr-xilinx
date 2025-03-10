@@ -1386,10 +1386,6 @@ void TimingAnalyser::get_cell_delays()
         auto &pi = port_info(port.first);
         auto &pd = port.second;
 
-        if(port.first.cell == ctx->id("ff1") && port.first.port == ctx->id("Q")) {
-            log_info("ss");
-        }
-
         IdString name = port.first.port;
         // Ignore dangling ports altogether for timing purposes
         if (!pi.net)
@@ -2447,12 +2443,6 @@ static json11::Json::array json_report_timing_paths(const Context *ctx, bool is_
 
 void timing_analysis(Context *ctx, bool print_slack_histogram, bool print_fmax, bool print_path, bool warn_on_failure, bool update_results)
 {
-    // 更新timing_index，当前timing_index没有了
-    int cell_idx = 0, net_idx = 0;
-    for (auto &cell : ctx->cells) {
-        CellInfo *ci = cell.second.get();
-        ci->timing_index = get_cell_timing_idx(ci->type);
-    }
     TimingAnalyser tmg(ctx);
     tmg.setup_only = false;
     tmg.with_clock_skew = false;//TODO: 暂时设置为false

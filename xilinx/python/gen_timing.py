@@ -5,7 +5,6 @@ import json
 
 
 def main():
-    pass
     parser = argparse.ArgumentParser()
     parser.add_argument("bel_timing_json", help="bel_timing.json")
     parser.add_argument("timing_json", help="timing.json")

@@ -31,6 +31,9 @@
 #include "ArchiveTool.h"
 #endif
 
+#include "json.hpp"
+#include "util.h"
+
 NEXTPNR_NAMESPACE_BEGIN
 
 namespace JsonWriter {
@@ -205,7 +208,7 @@ void write_module(std::ostream &f, Context *ctx)
     f << stringf("    }");
 }
 
-void write_context(std::ostream &f, Context *ctx)
+void write_context_back(std::ostream &f, Context *ctx)
 {
     f << stringf("{\n");
     f << stringf("  \"creator\": %s,\n",
@@ -214,6 +217,107 @@ void write_context(std::ostream &f, Context *ctx)
     write_module(f, ctx);
     f << stringf("\n  }");
     f << stringf("\n}\n");
+}
+
+void write_context(std::ostream &f, Context *ctx)
+{
+    nlohmann::ordered_json ctx_json;
+    ctx_json["creator"] = "Next Generation Place and Route (Version " GIT_DESCRIBE_STR ")";
+    int dummy_idx = int(ctx->idstring_idx_to_str->size()) + 1000;
+    // 
+    auto top_name = str_or_default(ctx->attrs, ctx->id("module"), "top");
+    nlohmann::ordered_json top_module_json;
+    // 遍历settings
+    nlohmann::ordered_json setting_json = nlohmann::ordered_json::object();
+    for (auto &setting : ctx->settings) {
+        setting_json[setting.first.c_str(ctx)] = setting.second.to_string();
+    }
+    top_module_json["settings"] = setting_json;
+    // 遍历attributes
+    nlohmann::ordered_json attributes_json = nlohmann::ordered_json::object();
+    for (auto &attr : ctx->attrs) {
+        attributes_json[attr.first.c_str(ctx)] = attr.second.to_string();
+    }
+    top_module_json["attributes"] = attributes_json;
+    // 遍历 top_ports
+    nlohmann::ordered_json ports_json = nlohmann::ordered_json::object();
+    auto ports = group_ports(ctx, ctx->ports);
+    for (auto &port : ports) {
+        nlohmann::json bits = nlohmann::json::array();
+        if (port.bits.size() != 1 || port.bits.at(0) != -1) // skip single disconnected ports
+            for (auto bit : port.bits) {
+                if (bit == -1)
+                    bits.push_back(++dummy_idx);
+                else
+                    bits.push_back(bit);
+            }
+        ports_json[port.name] = nlohmann::ordered_json{
+                {"direction", port.dir == PORT_IN ? "input" : port.dir == PORT_INOUT ? "inout" : "output"},
+                {"bits", bits}
+            };
+    }
+    top_module_json["ports"] = ports_json;
+    // 遍历cells
+    nlohmann::ordered_json cells_json = nlohmann::ordered_json::object();
+    for (auto &pair : ctx->cells) {
+        nlohmann::ordered_json cell_json = nlohmann::ordered_json::object();;
+        auto &c = pair.second;
+        auto cell_ports = group_ports(ctx, c->ports, true);
+        cell_json["hide_name"] = c->name.c_str(ctx)[0] == '$' ? 1 : 0;
+        cell_json["type"] = ctx->nameOf(c->type);
+        nlohmann::ordered_json parameters_json = nlohmann::ordered_json::object();
+        for (auto &param : c->params) {
+            parameters_json[param.first.c_str(ctx)] = param.second.to_string();
+        }
+        cell_json["parameters"] = parameters_json;
+        nlohmann::ordered_json attributes_json = nlohmann::ordered_json::object();
+        for (auto &attr : c->attrs) {
+            attributes_json[attr.first.c_str(ctx)] = attr.second.to_string();
+        }
+        cell_json["attributes"] = attributes_json;
+        nlohmann::ordered_json port_directions_json = nlohmann::ordered_json::object();
+        for (auto &pg : cell_ports) {
+            std::string direction = (pg.dir == PORT_IN) ? "input" : (pg.dir == PORT_OUT) ? "output" : "inout";
+            port_directions_json[pg.name] = direction;
+        }
+        cell_json["port_directions"] = port_directions_json;
+        nlohmann::ordered_json connections_json = nlohmann::ordered_json::object();
+        for (auto &pg : cell_ports) {
+            nlohmann::json bits = nlohmann::json::array();
+            if (pg.bits.size() != 1 || pg.bits.at(0) != -1) // skip single disconnected ports
+                for (auto bit : pg.bits) {
+                    if (bit == -1)
+                        bits.push_back(++dummy_idx);
+                    else
+                        bits.push_back(bit);
+                }
+            connections_json[pg.name] = bits;
+        }
+        log_info(connections_json.dump().c_str());
+        cell_json["connections"] = connections_json;
+        cells_json[ctx->nameOf(c->name)] = cell_json;
+    }
+    top_module_json["cells"] = cells_json;
+    // 遍历netnames
+    nlohmann::ordered_json netnames_json = nlohmann::ordered_json::object();
+    for (auto &pair : ctx->nets) {
+        auto &w = pair.second;
+        nlohmann::ordered_json net_json;
+        net_json["hide_name"] = w->name.c_str(ctx)[0] == '$' ? 1 : 0;
+        net_json["bits"] = nlohmann::json::array({pair.first.index});
+        nlohmann::ordered_json attributes_json = nlohmann::ordered_json::object();
+        for (auto &attr : w->attrs) {
+            attributes_json[attr.first.c_str(ctx)] = attr.second.to_string();
+        }
+        net_json["attributes"] = attributes_json;
+        netnames_json[ctx->nameOf(w->name)] = net_json;
+    }
+    top_module_json["netnames"] = netnames_json;
+
+    ctx_json["modules"] = nlohmann::ordered_json{
+        {"top",top_module_json}
+    };
+    f<<ctx_json.dump(4);
 }
 
 }; // End Namespace JsonWriter

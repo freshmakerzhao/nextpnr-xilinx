@@ -293,7 +293,6 @@ void write_context(std::ostream &f, Context *ctx)
                 }
             connections_json[pg.name] = bits;
         }
-        log_info(connections_json.dump().c_str());
         cell_json["connections"] = connections_json;
         cells_json[ctx->nameOf(c->name)] = cell_json;
     }

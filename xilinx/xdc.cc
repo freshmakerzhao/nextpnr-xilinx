@@ -239,13 +239,15 @@ void Arch::parseXdc(std::istream &in)
                 NetInfo *maybe_net = getNetByAlias(name);
                 if (maybe_net != nullptr) {
                     // TODO: 只考虑create_clock出现一次的情况
-                    // maybe_net->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint);
-                    // maybe_net->clkconstr->period = getDelayFromNS(period);
-                    // maybe_net->clkconstr->high.delay = maybe_net->clkconstr->period.delay / 2;
-                    // maybe_net->clkconstr->low.delay = maybe_net->clkconstr->period.delay / 2;
+                    maybe_net->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint);
+                    maybe_net->clkconstr->period = DelayPair(getDelayFromNS(period));
+                    maybe_net->clkconstr->high = DelayPair(maybe_net->clkconstr->period.minDelay() / 2);
+                    maybe_net->clkconstr->low = DelayPair(maybe_net->clkconstr->period.minDelay() / 2);
+                    maybe_net->is_clk = true;
                     // period是ns周期，计算出频率hz
                     auto freq = (1000.0 / period) * 1e6 ;
                     settings[id("target_freq")] = std::to_string(freq);
+                    global_clks.push_back(maybe_net);
                 }
             }
         }

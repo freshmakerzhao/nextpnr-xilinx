@@ -25,6 +25,19 @@
 
 NEXTPNR_NAMESPACE_BEGIN
 
+NetInfo *GetFastGlobelClk(const BaseCtx *ctx) {
+    int min_period = std::numeric_limits<int>::max();  // in ps
+    NetInfo * glb_clk = nullptr;
+    for (auto clk : ctx->global_clks) {
+        auto period = clk->clkconstr->period.minDelay();
+        if (period >= 0 && period < min_period) {
+            min_period = clk->clkconstr->period.minDelay();
+            glb_clk = clk;
+        }
+    }
+    return glb_clk;
+}
+
 assertion_failure::assertion_failure(std::string msg, std::string expr_str, std::string filename, int line)
         : runtime_error("Assertion failure: " + msg + " (" + filename + ":" + std::to_string(line) + ")"), msg(msg),
           expr_str(expr_str), filename(filename), line(line)

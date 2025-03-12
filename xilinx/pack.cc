@@ -1414,6 +1414,7 @@ bool Arch::pack()
         packer.pack_cmt_fifo();
         packer.finalise_muxfs();
         packer.pack_lutffs();
+        packer.link_clk_to_net();
         packer.constrains_bel_loc();
         packer.check();
 
@@ -1609,6 +1610,116 @@ void XC7Packer::pack_cmt_fifo()
     cmt_fifo_rules[ctx->id("OUT_FIFO")].port_xform[ctx->id(std::string("FULL"))]  = ctx->id("FULL");
     
     generic_xform(cmt_fifo_rules, true);
+}
+
+// Add capturing clk to nets
+void XC7Packer::link_clk_to_net() {
+    /***************************************************************************************
+    / Note:
+    / No internal clk source on existing devices, so no need to iterate through PLL or MMCM
+    /***************************************************************************************/
+
+    // 统计所有时钟器件
+    std::set<IdString> clk_cells = {id_IOB33M_INBUF_EN, id_IOB33_INBUF_EN, id_BUFGCTRL, id_BUFHCE_BUFHCE, id_BUFIO_BUFIO, id_BUFMRCE_BUFMRCE, id_BUFR_BUFR, id_PLLE2_ADV_PLLE2_ADV, id_MMCME2_ADV_MMCME2_ADV};
+
+    // Iterate clk tree, pass clk properties
+    for (NetInfo *src_clk : ctx->global_clks) {
+        std::vector<NetInfo *> clk_nets;
+        clk_nets.push_back(src_clk);
+
+        while (!clk_nets.empty()) {
+            auto clk_net = clk_nets.back();
+            clk_nets.pop_back();
+            // 遍历net的users
+            for (PortRef port_ref : clk_net->users) {
+                CellInfo *ci = port_ref.cell;
+                // 如果cell属于clk_cells
+                if (clk_cells.find(ci->type) == clk_cells.end())
+                    continue;
+                // 根据不同类型，取出对应的输出端口
+                std::vector<NetInfo *> output_clks;
+                if (ci->type == id_IOB33M_INBUF_EN || ci->type == id_IOB33_INBUF_EN)
+                    output_clks.push_back(ci->ports[ctx->id("OUT")].net);
+                else if (ci->type == id_BUFGCTRL || ci->type == id_BUFHCE_BUFHCE || ci->type == id_BUFIO_BUFIO || ci->type == id_BUFMRCE_BUFMRCE || ci->type == id_BUFR_BUFR) {
+                    output_clks.push_back(ci->ports[ctx->id("O")].net);
+                } else if (ci->type == id_PLLE2_ADV_PLLE2_ADV || ci->type == id_MMCME2_ADV_MMCME2_ADV) {
+                    for (int i = 0; i < 7; i++) {
+                        std::string pn = "CLKOUT" + std::to_string(i);
+                        if (ci->ports.find(ctx->id(pn)) != ci->ports.end())
+                            output_clks.push_back(ci->ports[ctx->id(pn)].net);
+                        if (ci->ports.find(ctx->id(pn+"B")) != ci->ports.end())
+                            output_clks.push_back(ci->ports[ctx->id(pn+"B")].net);
+                    }
+                }
+                // 根据cell和输出端口，填入clk信息
+                for (NetInfo *out_clk: output_clks) {
+                    out_clk->is_clk = true;
+                    out_clk->is_direved_clk = clk_net->is_direved_clk;
+                    out_clk->clkconstr = std::unique_ptr<ClockConstraint>(new ClockConstraint);
+                    out_clk->clkconstr->high = clk_net->clkconstr->high;
+                    out_clk->clkconstr->low = clk_net->clkconstr->low;
+                    out_clk->clkconstr->period = clk_net->clkconstr->period; // 默认直接传递
+                    if (ci->type == id_BUFR_BUFR) {
+                        std::string d = str_or_default(ci->params, ctx->id("BUFR_DIVIDE"), "BYPASS");
+                        if (d != "BYPASS") {
+                            int devider = std::stoi(d);
+                            out_clk->clkconstr->period.min_delay = src_clk->clkconstr->period.minDelay() * devider;
+                            out_clk->clkconstr->period.max_delay = src_clk->clkconstr->period.maxDelay() * devider;
+                            out_clk->is_direved_clk = true;
+                        }
+                    } else if (ci->type == id_PLLE2_ADV_PLLE2_ADV ) {
+                        int M = int_or_default(ci->params, ctx->id("CLKFBOUT_MULT"), 1);
+                        int D = int_or_default(ci->params, ctx->id("DIVCLK_DIVIDE"), 1);
+                        int O_n = int_or_default(ci->params, ctx->id(out_clk->driver.port.str(ctx)+"_DIVIDE"), 1);
+                        out_clk->clkconstr->period.min_delay = (clk_net->clkconstr->period.minDelay() / M) * D * O_n * 1.0;
+                        out_clk->clkconstr->period.max_delay = (clk_net->clkconstr->period.maxDelay() / M) * D * O_n * 1.0;
+                        out_clk->is_direved_clk = true;
+                    } else if (ci->type == id_MMCME2_ADV_MMCME2_ADV) {
+                        float M = std::stof(str_or_default(ci->params, ctx->id("CLKFBOUT_MULT_F"), "1"));
+                        int D = int_or_default(ci->params, ctx->id("DIVCLK_DIVIDE"), 1);
+                        std::string port_name = out_clk->driver.port.str(ctx);
+                        if (port_name.back() == 'B')
+                            port_name.pop_back();
+                        port_name+="_DIVIDE";
+                        float O_n;
+                        if (port_name == "CLKOUT0_DIVIDE")
+                            O_n = std::stof(str_or_default(ci->params, ctx->id(port_name+"_F"), "1"));
+                        else 
+                            O_n = float(int_or_default(ci->params, ctx->id(port_name), 1));
+                        out_clk->clkconstr->period.min_delay = (clk_net->clkconstr->period.minDelay() / M) * D * O_n * 1.0;
+                        out_clk->clkconstr->period.max_delay = (clk_net->clkconstr->period.maxDelay() / M) * D * O_n * 1.0;
+                        out_clk->is_direved_clk = true;
+                    }
+                }
+                clk_nets.insert(clk_nets.end(), std::make_move_iterator(output_clks.begin()),std::make_move_iterator(output_clks.end()));
+            }
+        }
+    }
+
+    // Iterate all cells, and set input nets capturing_clk
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+
+        NetInfo *clk_in = nullptr;
+        for (auto port: ci->ports) {
+            if (port.second.net && port.second.type == PORT_IN && port.second.net->is_clk ){
+                clk_in = port.second.net;
+                std::cout << ci->name.str(ctx) << " -- " 
+                    << port.second.name.str(ctx) << std::endl;
+                break;
+            }
+        }
+        // If no clk input, use global clk
+        if (!clk_in) 
+            clk_in = GetFastGlobelClk(ctx);
+        std::cout << "net: " << clk_in->name.str(ctx) << std::endl;
+
+        // If found clk, set capturing clk on each input port
+        if (clk_in) 
+            for (auto port: ci->ports) 
+                if (port.second.net && port.second.type == PORT_IN && !port.second.net->is_clk)
+                    port.second.net->capturing_clk = clk_in;
+    }
 }
 
 NEXTPNR_NAMESPACE_END

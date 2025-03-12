@@ -472,6 +472,8 @@ struct NetInfo : ArchNetInfo
 {
     IdString name, hierpath;
     int32_t udata = 0;
+    bool is_clk = false;
+    bool is_direved_clk = false;
 
     PortRef driver;  // source of net
     std::vector<PortRef> users; // sinks of net
@@ -487,6 +489,8 @@ struct NetInfo : ArchNetInfo
     TimingConstrObjectId tmg_id;
 
     Region *region = nullptr;
+
+    NetInfo *capturing_clk = nullptr;
     
     int flat_index;
 };
@@ -545,6 +549,8 @@ struct DelayQuad
         return *this;
     }
 };
+
+NetInfo *GetFastGlobelClk(const BaseCtx *ctx);
 
 enum TimingPortClass
 {
@@ -935,6 +941,9 @@ struct BaseCtx
     // Placed nets and cells.
     std::unordered_map<IdString, std::unique_ptr<NetInfo>> nets;
     std::unordered_map<IdString, std::unique_ptr<CellInfo>> cells;
+
+    // Collection of global clk nets
+    std::vector<NetInfo*> global_clks;
 
     // Hierarchical (non-leaf) cells by full path
     std::unordered_map<IdString, HierarchicalCell> hierarchy;

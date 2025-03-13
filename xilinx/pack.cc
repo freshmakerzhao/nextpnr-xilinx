@@ -1704,15 +1704,12 @@ void XC7Packer::link_clk_to_net() {
         for (auto port: ci->ports) {
             if (port.second.net && port.second.type == PORT_IN && port.second.net->is_clk ){
                 clk_in = port.second.net;
-                std::cout << ci->name.str(ctx) << " -- " 
-                    << port.second.name.str(ctx) << std::endl;
                 break;
             }
         }
         // If no clk input, use global clk
         if (!clk_in) 
             clk_in = GetFastGlobelClk(ctx);
-        std::cout << "net: " << clk_in->name.str(ctx) << std::endl;
 
         // If found clk, set capturing clk on each input port
         if (clk_in) 

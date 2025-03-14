@@ -19,6 +19,7 @@
 
 #include <random>
 #include <algorithm>
+#include <set>
 #include "nextpnr.h"
 #include "power.h"
 #include "power_parse_json.h"
@@ -28,11 +29,27 @@ NEXTPNR_NAMESPACE_BEGIN
 
 float GenerateRandomNumber(float lower_limit, float upper_limit) {
     // Initialize random number generator with a random device and a uniform distribution
-    std::random_device rd;  // Random device to seed the generator
-    std::mt19937 gen(rd()); // Mersenne Twister generator
+    // std::random_device rd;  // Random device to seed the generator
+    std::mt19937 gen(42); // Mersenne Twister generator
     std::uniform_real_distribution<float> dis(lower_limit, upper_limit); // Uniform distribution between lower_limit and upper_limit
 
     return dis(gen);  // Generate and return a random number in the specified range
+}
+
+int FindSiteFanout(Context *ctx, NetInfo *ni) {
+    std::set<SiteCoordinates> sites;
+
+    for (auto user : ni->users) {
+        CellInfo *ci = user.cell;
+        if (ci->bel == BelId())
+            continue;
+        
+        auto &site = ctx->chip_info->tile_insts[ci->bel.tile].site_insts[ctx->locInfo(ci->bel).bel_data[ci->bel.index].site];
+        SiteCoordinates site_coordinates {site.site_x, site.site_y, site.rel_x, site.rel_y, site.inter_x, site.inter_y};
+        sites.emplace(site_coordinates);
+    }
+
+    return sites.size();
 }
 
 bool PowerAnalyzer::LoadPowerData(const std::string &path) {
@@ -170,6 +187,7 @@ bool StaticPowerAnalyzer::EstimateBasePowerFromPresetTemp() {
     float base_power = static_power_DB_.GetChipBasePower();
     if (base_power > 0) {
         ctx_->power_result.SetStaticPower(base_power);
+        ctx_->power_result.AddTotalPower(base_power);
         ctx_->power_result.SetJunctionTemp(junction_temp_);
         return true;
     }
@@ -191,8 +209,10 @@ bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature
             continue;
         if (ni->name.str(ctx_).find("GND") != std::string::npos || ni->name.str(ctx_).find("VCC") != std::string::npos)
             continue;
+
+        int site_fanout = FindSiteFanout(ctx_, ni);
         
-        // 
+        // Find clk period
         float clk_period = 0.0;  // in ps, 1e10^-12
         if (ni->is_clk)
             clk_period = ni->clkconstr->period.minDelay();
@@ -219,10 +239,169 @@ bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature
 
             // Calculate single bel_pin's dynamic power and save result to PowerResult
             float bel_dynamic_power = (usage * std::pow(10, 6)) * dens / clk_period;
-            ctx_->power_result.AddNetPower(net.first, bel_dynamic_power);
-            ctx_->power_result.AddResourcePower(bel_type, bel_dynamic_power);
+            // ctx_->power_result.AddNetPower(net.first, bel_dynamic_power);  // net power is to store routing resource power
             ctx_->power_result.AddDynamicPower(bel_dynamic_power);
             ctx_->power_result.AddTotalPower(bel_dynamic_power);
+
+            //clk_cells
+            std::set<IdString> clk_cells = {ctx_->id("BUFGCTRL"), ctx_->id("BUFHCE_BUFHCE"), ctx_->id("BUFIO_BUFIO"), 
+                ctx_->id("BUFMRCE_BUFMRCE"), ctx_->id("BUFR_BUFR")}; 
+            //IO_cells
+            std::set<IdString> IO_cells = {ctx_->id("IOB33M_INBUF_EN"), ctx_->id("IOB33_INBUF_EN"), 
+                ctx_->id("IOB33S_INBUF_EN"), ctx_->id("KEEPER"), ctx_->id("IOB33M_OUTBUF"), ctx_->id("IOB33S_OUTBUF"), 
+                ctx_->id("IOB33_OUTBUF"), ctx_->id("ODELAYE2_ODELAYE2")};
+            //MMCM_cells
+            std::set<IdString> MMCM_cells = {ctx_->id("PLLE2_ADV_PLLE2_ADV"), ctx_->id("MMCME2_ADV_MMCME2_ADV")};
+            //Logic_cells
+            std::set<IdString> Logic_cells = {ctx_->id("SLICE_LUTX"),ctx_->id("CARRY4"),ctx_->id("SLICE_FFX"),
+                ctx_->id("ILOGICE3_IFF"),ctx_->id("OLOGICE3_TFF"),ctx_->id("OLOGICE3_OUTFF"),ctx_->id("ISERDESE2_ISERDESE2"),
+                ctx_->id("OSERDESE2_OSERDESE2"),ctx_->id("IDELAYE2_IDELAYE2"),ctx_->id("IDELAYCTRL_IDELAYCTRL"),
+                ctx_->id("IN_FIFO_IN_FIFO"),ctx_->id("OUT_FIFO_OUT_FIFO"),ctx_->id("IBUFDS_GTE2")};
+            //Bram_cells
+            std::set<IdString> Bram_cells = {ctx_->id("FIFO18E1_FIFO18E1"),ctx_->id("FIFO36E1_FIFO36E1"),
+                ctx_->id("RAMB18E1_RAMB18E1"),ctx_->id("RAMB36E1_RAMB36E1")};
+            //Signal_cells
+            std::set<IdString> Signal_cells = {ctx_->id("SELMUX2_1")};
+            //DSP
+            std::set<IdString> DSP_cells = {ctx_->id("DSP48E1_DSP48E1")};
+            //GTP
+            std::set<IdString> GTP_cells = {ctx_->id("IBUFDS_GTE2"),ctx_->id("GTPE2_COMMON"),ctx_->id("GTPE2_CHANNEL")};
+            //GTX
+            std::set<IdString> GTX_cells = {ctx_->id("IBUFDS_GTE2"),ctx_->id("GTXE2_COMMON"),ctx_->id("GTXE2_CHANNEL")};
+
+            if (clk_cells.find(ci->type) != clk_cells.end()) {
+                auto it = ctx_->power_result.GetClockPowerResult().find(ci->name);
+                if (it == ctx_->power_result.GetClockPowerResult().end()) {
+                    float frequency = ni->is_clk ? 1.0 / (ni->clkconstr->period.minDelay() * std::pow(10, -6))
+                                                    : 1.0 / (ni->capturing_clk->clkconstr->period.minDelay() * std::pow(10, -6));
+                    int bel_fanout = ni->users.size();
+                    ClockPowerResult clk_result {bel_dynamic_power, ci->name, frequency, ctx_->id("N/A"), ctx_->id("N/A"), ctx_->id("N/A"), bel_fanout, site_fanout, bel_fanout/site_fanout, ctx_->id("N/A")};
+                    ctx_->power_result.GetClockPowerResult().insert({ci->name, clk_result});
+                } 
+                else {
+                    it->second.utilization += bel_dynamic_power;
+                }
+            }
+            else if (Logic_cells.find(ci->type) != Logic_cells.end()){
+                auto it = ctx_->power_result.GetLogicPowerResult().find(ci->name);
+                if (it == ctx_->power_result.GetLogicPowerResult().end()) {
+                    //
+                    float clock_frequency;
+                    float singal_rate;
+                    float high_percent;
+                    if (ni->is_clk) {
+                        clock_frequency = 1.0 / (ni->clkconstr->period.minDelay() * std::pow(10, -6));
+                        singal_rate = (transition_density_ / ni->clkconstr->period.minDelay()) * std::pow(10, 6) ;
+                        high_percent = signal_probability_ *100 ;
+                    }
+                    else {
+                        
+                        clock_frequency = 1.0 / (ni->capturing_clk->clkconstr->period.minDelay() * std::pow(10, -6));
+                        singal_rate = (transition_density_ / ni->capturing_clk->clkconstr->period.minDelay()) * std::pow(10, 6) ;
+                        high_percent = signal_probability_ * 100 ;
+                    }
+
+                    //clock name
+                    IdString clock_name;
+                    std::unordered_map<std::string,std::string> clk_pins_name;//<cell_type,clk_pins_name>
+                    for(auto& port : ci->ports){
+                        if(port.second.net && port.second.net->is_clk){
+                            clock_name = port.second.net->name;
+                            clk_pins_name.emplace(ci->type.str(ctx_),port.first.str(ctx_));
+                        }else{
+                            clock_name = ctx_->id("Async");
+                        }
+                    }
+                    LogicPowerResult logic_result {bel_dynamic_power, ci->name, ctx_->id("N/A"), clock_frequency, clock_name,
+                        singal_rate,high_percent};
+                    ctx_->power_result.GetLogicPowerResult().insert({ci->name, logic_result});
+                } 
+                else {
+                    it->second.utilization += bel_dynamic_power;
+                }
+            }
+            else if (IO_cells.find(ci->type) != IO_cells.end()){
+                auto it = ctx_->power_result.GetIOPowerResult().find(ci->name);
+                if (it == ctx_->power_result.GetIOPowerResult().end()) {
+                    IOPowerResult IO_result;
+                    IO_result.utilization = bel_dynamic_power;
+                    ctx_->power_result.GetIOPowerResult().insert({ci->name, IO_result});
+                }
+                else{
+                    it->second.utilization += bel_dynamic_power;
+                }
+            }
+            else if (MMCM_cells.find(ci->type) != MMCM_cells.end()){
+                auto it = ctx_->power_result.GetClockManagerPowerResult().find(ci->name);
+                if (it == ctx_->power_result.GetClockManagerPowerResult().end()) {
+                    ClockManagerPowerResult clockmanager_result;
+                    clockmanager_result.utilization = bel_dynamic_power;
+                    clockmanager_result.MMCM_OR_PLL = ci->type;
+                    ctx_->power_result.GetClockManagerPowerResult().insert({ci->name, clockmanager_result});
+                }
+                else{
+                    it->second.utilization += bel_dynamic_power;
+                }
+            }
+            else if (Bram_cells.find(ci->type) != Bram_cells.end()){
+                auto it = ctx_->power_result.GetBRAMPowerResult().find(ci->name);
+                if (it == ctx_->power_result.GetBRAMPowerResult().end()) {
+                    BRAMPowerResult bram_result;
+                    bram_result.utilization = bel_dynamic_power;
+                    ctx_->power_result.GetBRAMPowerResult().insert({ci->name, bram_result});
+                }
+                else{
+                    it->second.utilization += bel_dynamic_power;
+                }
+            }
+            else if (Signal_cells.find(ci->type) != Signal_cells.end()){
+                auto it = ctx_->power_result.GetSignalsPowerResult().find(ci->name);
+                if (it == ctx_->power_result.GetSignalsPowerResult().end()) {
+                    SignalsPowerResult signals_result;
+                    signals_result.utilization = bel_dynamic_power;
+                    ctx_->power_result.GetSignalsPowerResult().insert({ci->name, signals_result});
+                }
+                else{
+                    it->second.utilization += bel_dynamic_power;
+                }
+            }
+            else if (DSP_cells.find(ci->type) != DSP_cells.end()){
+                auto it = ctx_->power_result.GetDSPPowerResult().find(ci->name);
+                if (it == ctx_->power_result.GetDSPPowerResult().end()) {
+                    DSPPowerResult dsp_result;
+                    dsp_result.utilization = bel_dynamic_power;
+                    ctx_->power_result.GetDSPPowerResult().insert({ci->name, dsp_result});
+                }
+                else{
+                    it->second.utilization += bel_dynamic_power;
+                }
+            }
+            else if(ctx_->device_name == ctx_->id("MC7F100") || ctx_->device_name == ctx_->id("MC7F200")){
+                if (GTP_cells.find(ci->type) != GTP_cells.end()){
+                    auto it = ctx_->power_result.GetGTManagerPowerResult().find(ci->name);
+                    if (it == ctx_->power_result.GetGTManagerPowerResult().end()) {
+                        GTManagerPowerResult gtmanager_result;
+                        gtmanager_result.utilization = bel_dynamic_power;
+                        ctx_->power_result.GetGTManagerPowerResult().insert({ci->name, gtmanager_result});
+                    }
+                    else{
+                        it->second.utilization += bel_dynamic_power;
+                    }
+                }
+            }
+            else if(ctx_->device_name == ctx_->id("MC7F160")){
+                if (GTX_cells.find(ci->type) != GTX_cells.end()){
+                    auto it = ctx_->power_result.GetGTManagerPowerResult().find(ci->name);
+                    if (it == ctx_->power_result.GetGTManagerPowerResult().end()) {
+                        GTManagerPowerResult gtmanager_result;
+                        gtmanager_result.utilization = bel_dynamic_power;
+                        ctx_->power_result.GetGTManagerPowerResult().insert({ci->name, gtmanager_result});
+                    }
+                    else{
+                        it->second.utilization += bel_dynamic_power;
+                    }
+                }
+            }
 
             // Calculate working static power and save result to PowerResult
             float base_power = 0.0;

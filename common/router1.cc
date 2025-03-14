@@ -961,7 +961,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         if (!power_analysis.Run()) {
             log_error("Power analysis failed.\n");
         }
-
+        ctx->power_result.ExportPowerData("/home/liwenhao/my_nextpnr-xilinx/power_data/gui_power_data_100t.json",ctx);
         ctx->unlock();
         return true;
     } catch (log_execution_error_exception) {

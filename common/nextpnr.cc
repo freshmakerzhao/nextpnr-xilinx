@@ -19,9 +19,11 @@
 
 #include "nextpnr.h"
 #include <boost/algorithm/string.hpp>
+#include <fstream>
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
+#include "json.hpp"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -71,26 +73,6 @@ void IdString::initialize_add(const BaseCtx *ctx, const char *s, int idx)
 
     auto insert_rc = ctx->idstring_str_to_idx->insert({s, idx});
     ctx->idstring_idx_to_str->push_back(&insert_rc.first->first);
-}
-
-void PowerResult::AddNetPower(IdString net_name, float power) {
-    if (net_powers_.find(net_name) != net_powers_.end()) 
-        net_powers_[net_name] += power;
-    else 
-        net_powers_[net_name] = power;
-}
-
-void PowerResult::AddResourcePower(IdString resource_name, float power) {
-    if (resource_powers_.find(resource_name) != resource_powers_.end()) 
-        resource_powers_[resource_name] += power;
-    else 
-        resource_powers_[resource_name] = power;
-}
-float PowerResult::GetResourcePower(IdString resource_name){
-    if (resource_powers_.find(resource_name) != resource_powers_.end()) 
-        return resource_powers_[resource_name];
-    else 
-        return 0.0;
 }
 
 TimingConstrObjectId BaseCtx::timingWildcardObject()
@@ -844,5 +826,106 @@ struct FixupHierarchyWorker
 } // namespace
 
 void Context::fixupHierarchy() { FixupHierarchyWorker(this).run(); }
+
+bool PowerResult::ExportPowerData(const std::string &path,Context *ctx){
+    nlohmann::json json_data;
+    json_data["Summary"] = nlohmann::json::object();
+    json_data["Summary"]["Total_On-Chip_Power"] = total_power_;
+    json_data["Summary"]["Junction_Temperature"] = junction_temp_;
+    json_data["Summary"]["Static_Power"] = static_power_;
+    float sum = dynamic_power_ + static_power_;
+
+    float gtmanager_power = 0.0;
+    for(auto gtmanager : GTManager_powers_){
+        gtmanager_power += gtmanager.second.utilization;
+    }
+    if(ctx->device_name == ctx->id("MC7F160")){
+        json_data["Summary"]["GTX"] = gtmanager_power;
+    }
+    else if(ctx->device_name == ctx->id("MC7F100") || ctx->device_name == ctx->id("MC7F200")){
+        json_data["Summary"]["GTP"] = gtmanager_power;
+    }
+
+    float clk_power = 0.0;
+    for(auto clk : clk_powers_){
+        clk_power += clk.second.utilization;
+    }
+    float logic_power = 0.0;
+    for(auto logic : logic_powers_){
+        logic_power += logic.second.utilization;
+    }
+    float IO_power = 0.0;
+    for(auto IO : IO_powers_){
+        IO_power += IO.second.utilization;
+    }
+    float signals_power = 0.0;
+    for(auto signals : Signals_powers_){
+        signals_power += signals.second.utilization;
+    }
+    float bram_power = 0.0;
+    for(auto bram : BRAM_powers_){
+        bram_power += bram.second.utilization;
+    }
+    float dsp_power = 0.0;
+    for(auto dsp : DSP_powers_){
+        dsp_power += dsp.second.utilization;
+    }
+    float mmcm_power = 0.0;
+    for(auto clockmanager : ClockManager_powers_){
+        mmcm_power += clockmanager.second.utilization;
+    }
+
+    json_data["Summary"]["Dynamic_Power"] = nlohmann::json::object({
+        {"Clocks",clk_power},
+        {"Logic",logic_power},
+        {"Singals",signals_power},
+        {"BRAM",bram_power},
+        {"DSP",dsp_power},
+        {"MMCM",mmcm_power},
+        {"IO",IO_power},
+    });
+    
+    //utilization details
+    json_data["Utilization_Details"] = nlohmann::json::object();
+    json_data["Utilization_Details"]["Clocks"] = nlohmann::json::array();
+    json_data["Utilization_Details"]["Logic"] = nlohmann::json::array();
+
+    for(auto& clk : clk_powers_){
+        auto& val = clk.second;
+        json_data["Utilization_Details"]["Clocks"].push_back(nlohmann::json::object({
+            {"Utilization", val.utilization},
+            {"Name", val.name.str(ctx)},
+            {"Frequency", val.frequency},
+            {"Buffer", val.buffer.str(ctx)},
+            {"Clock_Buffer_Enable", val.clock_buffer_enable.str(ctx)},
+            {"Enable_Signal", val.enable_signal.str(ctx)},
+            {"Bel_Fanout", val.bel_fanout},
+            {"Sites", val.site},
+            {"Fanout/Site", val.fanout_site},
+            {"Type", val.type.str(ctx)}
+        }));
+    }
+    for(auto& logic : logic_powers_){
+        auto& val = logic.second;
+        json_data["Utilization_Details"]["Logic"].push_back(nlohmann::json::object({
+            {"Utilization", val.utilization},
+            {"Name", val.name.str(ctx)},
+            {"Type", val.type.str(ctx)},
+            {"Clock", val.clock},
+            {"Clock_Name", val.clock_name.str(ctx)},
+            {"Signal_Rrate", val.signal_rate},
+            {"High", val.high_percent}
+        }));
+    }
+    std::ofstream outFile(path);
+    if (!outFile.is_open()) {
+        std::cerr << "Error: Unable to open file for writing: " << path << std::endl;
+        return false;
+    }
+    outFile << json_data.dump(2) << std::endl; 
+    outFile.close();
+
+    return true;
+}
 
 NEXTPNR_NAMESPACE_END

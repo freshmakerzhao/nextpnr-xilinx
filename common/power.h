@@ -95,6 +95,7 @@ class PowerAnalyzer {
         bool LoadPowerData(const std::string &path);
 };
 
+int FindSiteFanout(Context *ctx, NetInfo *ni);
 
 NEXTPNR_NAMESPACE_END
 

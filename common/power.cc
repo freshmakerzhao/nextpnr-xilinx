@@ -312,7 +312,7 @@ bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature
                             clock_name = ctx_->id("Async");
                         }
                     }
-                    LogicPowerResult logic_result {bel_dynamic_power, ci->name, ctx_->id("N/A"), clock_frequency, clock_name,
+                    LogicPowerResult logic_result {bel_dynamic_power, ci->name, ci->type, clock_frequency, clock_name,
                         singal_rate,high_percent};
                     ctx_->power_result.GetLogicPowerResult().insert({ci->name, logic_result});
                 } 

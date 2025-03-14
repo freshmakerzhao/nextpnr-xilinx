@@ -829,10 +829,11 @@ void Context::fixupHierarchy() { FixupHierarchyWorker(this).run(); }
 
 bool PowerResult::ExportPowerData(const std::string &path,Context *ctx){
     nlohmann::json json_data;
-    json_data["Summary"] = nlohmann::json::object();
-    json_data["Summary"]["Total_On-Chip_Power"] = total_power_;
-    json_data["Summary"]["Junction_Temperature"] = junction_temp_;
-    json_data["Summary"]["Static_Power"] = static_power_;
+    json_data["summary"] = nlohmann::json::object();
+    json_data["summary"]["total_on_chip_power"] = total_power_;
+    json_data["summary"]["junction_temperature"] = junction_temp_;
+    json_data["summary"]["on_chip_power"] = nlohmann::json::object();
+    json_data["summary"]["on_chip_power"]["static_power"] = static_power_;
     float sum = dynamic_power_ + static_power_;
 
     float gtmanager_power = 0.0;
@@ -840,10 +841,10 @@ bool PowerResult::ExportPowerData(const std::string &path,Context *ctx){
         gtmanager_power += gtmanager.second.utilization;
     }
     if(ctx->device_name == ctx->id("MC7F160")){
-        json_data["Summary"]["GTX"] = gtmanager_power;
+        json_data["summary"]["on_chip_power"]["GTX"] = gtmanager_power;
     }
     else if(ctx->device_name == ctx->id("MC7F100") || ctx->device_name == ctx->id("MC7F200")){
-        json_data["Summary"]["GTP"] = gtmanager_power;
+        json_data["summary"]["on_chip_power"]["GTP"] = gtmanager_power;
     }
 
     float clk_power = 0.0;
@@ -875,10 +876,10 @@ bool PowerResult::ExportPowerData(const std::string &path,Context *ctx){
         mmcm_power += clockmanager.second.utilization;
     }
 
-    json_data["Summary"]["Dynamic_Power"] = nlohmann::json::object({
-        {"Clocks",clk_power},
-        {"Logic",logic_power},
-        {"Singals",signals_power},
+    json_data["summary"]["on_chip_power"]["dynamic_power"] = nlohmann::json::object({
+        {"clocks",clk_power},
+        {"logic",logic_power},
+        {"signals",signals_power},
         {"BRAM",bram_power},
         {"DSP",dsp_power},
         {"MMCM",mmcm_power},
@@ -886,35 +887,35 @@ bool PowerResult::ExportPowerData(const std::string &path,Context *ctx){
     });
     
     //utilization details
-    json_data["Utilization_Details"] = nlohmann::json::object();
-    json_data["Utilization_Details"]["Clocks"] = nlohmann::json::array();
-    json_data["Utilization_Details"]["Logic"] = nlohmann::json::array();
+    json_data["utilization_details"] = nlohmann::json::object();
+    json_data["utilization_details"]["clocks"] = nlohmann::json::array();
+    json_data["utilization_details"]["logic"] = nlohmann::json::array();
 
     for(auto& clk : clk_powers_){
         auto& val = clk.second;
-        json_data["Utilization_Details"]["Clocks"].push_back(nlohmann::json::object({
-            {"Utilization", val.utilization},
-            {"Name", val.name.str(ctx)},
-            {"Frequency", val.frequency},
-            {"Buffer", val.buffer.str(ctx)},
-            {"Clock_Buffer_Enable", val.clock_buffer_enable.str(ctx)},
-            {"Enable_Signal", val.enable_signal.str(ctx)},
-            {"Bel_Fanout", val.bel_fanout},
-            {"Sites", val.site},
-            {"Fanout/Site", val.fanout_site},
-            {"Type", val.type.str(ctx)}
+        json_data["utilization_details"]["clocks"].push_back(nlohmann::json::object({
+            {"utilization", val.utilization},
+            {"name", val.name.str(ctx)},
+            {"frequency", val.frequency},
+            {"buffer", val.buffer.str(ctx)},
+            {"clock_buffer_enable", val.clock_buffer_enable.str(ctx)},
+            {"enable_signal", val.enable_signal.str(ctx)},
+            {"bel_fanout", val.bel_fanout},
+            {"sites", val.site},
+            {"fanout_site", val.fanout_site},
+            {"type", val.type.str(ctx)}
         }));
     }
     for(auto& logic : logic_powers_){
         auto& val = logic.second;
-        json_data["Utilization_Details"]["Logic"].push_back(nlohmann::json::object({
-            {"Utilization", val.utilization},
-            {"Name", val.name.str(ctx)},
-            {"Type", val.type.str(ctx)},
-            {"Clock", val.clock},
-            {"Clock_Name", val.clock_name.str(ctx)},
-            {"Signal_Rrate", val.signal_rate},
-            {"High", val.high_percent}
+        json_data["utilization_details"]["logic"].push_back(nlohmann::json::object({
+            {"utilization", val.utilization},
+            {"name", val.name.str(ctx)},
+            {"type", val.type.str(ctx)},
+            {"clock", val.clock},
+            {"clock_name", val.clock_name.str(ctx)},
+            {"signal_rate", val.signal_rate},
+            {"high", val.high_percent}
         }));
     }
     std::ofstream outFile(path);

@@ -189,10 +189,12 @@ struct Router2
                     std::abs(nets.at(i).bb.y1 - nets.at(i).bb.y0) + std::abs(nets.at(i).bb.x1 - nets.at(i).bb.x0), 1);
             nets.at(i).cx /= int(ni->users.size() + 1);
             nets.at(i).cy /= int(ni->users.size() + 1);
-            if (ctx->debug)
-                // log_info("%s: bb=(%d, %d)->(%d, %d) c=(%d, %d) hpwl=%d\n", ctx->nameOf(ni), nets.at(i).bb.x0,
-                //          nets.at(i).bb.y0, nets.at(i).bb.x1, nets.at(i).bb.y1, nets.at(i).cx, nets.at(i).cy,
-                //          nets.at(i).hpwl);
+            // 手动调试时使用
+            // if (ctx->debug) {
+            //     log_info("%s: bb=(%d, %d)->(%d, %d) c=(%d, %d) hpwl=%d\n", ctx->nameOf(ni), nets.at(i).bb.x0,
+            //              nets.at(i).bb.y0, nets.at(i).bb.x1, nets.at(i).bb.y1, nets.at(i).cx, nets.at(i).cy,
+            //              nets.at(i).hpwl);
+            // }
             nets.at(i).bb.x0 = std::max(nets.at(i).bb.x0 - cfg.bb_margin_x, 0);
             nets.at(i).bb.y0 = std::max(nets.at(i).bb.y0 - cfg.bb_margin_y, 0);
             nets.at(i).bb.x1 = std::min(nets.at(i).bb.x1 + cfg.bb_margin_x, ctx->getGridDimX());
@@ -436,11 +438,12 @@ struct Router2
         pool<WireId> rsv;
         WireId cursor = sink;
         bool done = false;
-        if (ctx->debug)
+        // 手动调试时使用
+        // if (ctx->debug)
             // log("reserving wires for arc %d of net %s\n", int(i), ctx->nameOf(net));
         while (!done) {
             auto &wd = wire_data(cursor);
-            if (ctx->debug)
+            // if (ctx->debug)
                 // log("      %s\n", ctx->nameOfWire(cursor));
             did_something |= (wd.reserved_net != net->udata);
             wd.reserved_net = net->udata;
@@ -1165,10 +1168,11 @@ struct Router2
                 mid_y = p.first;
             accum_y += p.second;
         }
-        if (ctx->verbose) {
+        // 手动调试时使用
+        // if (ctx->verbose) {
             // log_info("    x splitpoint: %d\n", mid_x);
             // log_info("    y splitpoint: %d\n", mid_y);
-        }
+        // }
         std::vector<int> bins(5, 0);
         for (auto &n : nets) {
             if (n.bb.x0 < mid_x && n.bb.x1 < mid_x && n.bb.y0 < mid_y && n.bb.y1 < mid_y)

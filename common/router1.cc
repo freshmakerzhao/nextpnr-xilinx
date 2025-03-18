@@ -1015,7 +1015,8 @@ bool Context::checkRoutedDesign() const
         auto src_wire = ctx->getNetinfoSourceWire(net_info);
         if (src_wire == WireId()) {
             log_assert(net_info->driver.cell == nullptr);
-            if (ctx->debug)
+            // 手动调试时使用
+            // if (ctx->debug)
                 // log("  undriven and unrouted\n");
             continue;
         }

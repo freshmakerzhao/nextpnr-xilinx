@@ -1201,9 +1201,10 @@ void Arch::findSourceSinkLocations()
                         intent != ID_PINFEED && intent != ID_INPUT) {
                         int tile = cursor.tile == -1 ? chip_info->nodes[cursor.index].tile_wires[0].tile : cursor.tile;
                         sink_locs[sink] = Loc(tile % chip_info->width, tile / chip_info->width, 0);
-                        if (getCtx()->debug) {
+                        // 手动调试时使用
+                        // if (getCtx()->debug) {
                             // log_info("%s <---- %s\n", nameOfWire(sink), nameOfWire(cursor));
-                        }
+                        // }
 
                         while (backtrace.count(cursor)) {
                             cursor = backtrace.at(cursor);
@@ -1251,9 +1252,10 @@ void Arch::findSourceSinkLocations()
                         intent != ID_NODE_OUTPUT && intent != ID_NODE_INT_INTERFACE) {
                         int tile = cursor.tile == -1 ? chip_info->nodes[cursor.index].tile_wires[0].tile : cursor.tile;
                         source_locs[source] = Loc(tile % chip_info->width, tile / chip_info->width, 0);
-                        if (getCtx()->debug) {
+                        // 手动调试时使用
+                        // if (getCtx()->debug) {
                             // log_info("%s ----> %s\n", nameOfWire(source), nameOfWire(cursor));
-                        }
+                        // }
 
                         while (backtrace.count(cursor)) {
                             cursor = backtrace.at(cursor);

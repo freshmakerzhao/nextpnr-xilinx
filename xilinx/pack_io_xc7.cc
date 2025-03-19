@@ -1,21 +1,21 @@
 ﻿/*
- *  nextpnr -- Next Generation Place and Route
- *
- *  Copyright (C) 2019  David Shah <david@symbioticeda.com>
- *
- *  Permission to use, copy, modify, and/or distribute this software for any
- *  purpose with or without fee is hereby granted, provided that the above
- *  copyright notice and this permission notice appear in all copies.
- *
- *  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- *  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- *  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- *  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- *  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- *  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- *  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- */
+*  nextpnr -- Next Generation Place and Route
+*
+*  Copyright (C) 2019  David Shah <david@symbioticeda.com>
+*
+*  Permission to use, copy, modify, and/or distribute this software for any
+*  purpose with or without fee is hereby granted, provided that the above
+*  copyright notice and this permission notice appear in all copies.
+*
+*  THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+*  WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+*  MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+*  ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+*  WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+*  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+*  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+*
+*/
 
 #include <algorithm>
 #include <boost/algorithm/string.hpp>
@@ -78,9 +78,9 @@ void XC7Packer::update_usr_ibufdisable(Context *ctx,CellInfo *inbuf) {
 void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &iostandard)
 {
     bool is_se_ibuf = xil_iob->type == ctx->id("IBUF") || xil_iob->type == ctx->id("IBUF_IBUFDISABLE") ||
-                      xil_iob->type == ctx->id("IBUF_INTERMDISABLE");
+                    xil_iob->type == ctx->id("IBUF_INTERMDISABLE");
     bool is_se_iobuf = xil_iob->type == ctx->id("IOBUF") || xil_iob->type == ctx->id("IOBUF_DCIEN") ||
-                       xil_iob->type == ctx->id("IOBUF_INTERMDISABLE");
+                    xil_iob->type == ctx->id("IOBUF_INTERMDISABLE");
     bool is_se_obuf = xil_iob->type == ctx->id("OBUF") || xil_iob->type == ctx->id("OBUFT");
 
     // 判断IOBUFDS_INTERMDISABLE中端口IBUFDS_IBUFDISABLE这个端口是否接地，接地则让USE_IBUFDISABLE参数为FALSE
@@ -98,10 +98,10 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
     };
 
     /*
-     * IO primitives in Xilinx are complex "macros" that usually expand to more than one BEL
-     * To avoid various nasty bugs (such as auto-transformation by Vivado of dedicated INV primitives to LUT1s), we
-     * have to maintain this hierarchy so it can be re-built during DCP conversion in RapidWright
-     */
+    * IO primitives in Xilinx are complex "macros" that usually expand to more than one BEL
+    * To avoid various nasty bugs (such as auto-transformation by Vivado of dedicated INV primitives to LUT1s), we
+    * have to maintain this hierarchy so it can be re-built during DCP conversion in RapidWright
+    */
     std::unordered_map<IdString, PortInfo> orig_ports = xil_iob->ports;
     std::vector<CellInfo *> subcells;
 
@@ -165,7 +165,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         bool has_dci = xil_iob->type == ctx->id("IOBUF_DCIEN");
         CellInfo *obuf = insert_obuf(
                 int_name(xil_iob->name, (is_se_iobuf || xil_iob->type == ctx->id("OBUFT")) ? "OBUFT" : "OBUF",
-                         !is_se_obuf),
+                        !is_se_obuf),
                 is_se_iobuf ? (has_dci ? ctx->id("OBUFT_DCIEN") : ctx->id("OBUFT")) : xil_iob->type,
                 get_net_or_empty(xil_iob, ctx->id("I")), pad_net, get_net_or_empty(xil_iob, ctx->id("T")));
         std::string tile = get_tilename_by_sitename(ctx, site);
@@ -181,11 +181,11 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
     bool is_diff_ibuf = xil_iob->type == ctx->id("IBUFDS") || xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE") || xil_iob->type == ctx->id("IBUFDS_IBUFDISABLE");
     bool is_diff_iobuf = xil_iob->type == ctx->id("IOBUFDS") || xil_iob->type == ctx->id("IOBUFDS_DCIEN") || xil_iob->type == ctx->id("IOBUFDS_INTERMDISABLE");
     bool is_diff_out_ibuf = xil_iob->type == ctx->id("IBUFDS_DIFF_OUT") ||
-                             xil_iob->type == ctx->id("IBUFDS_DIFF_OUT_IBUFDISABLE") ||
-                             xil_iob->type == ctx->id("IBUFDS_DIFF_OUT_INTERMDISABLE");
+                            xil_iob->type == ctx->id("IBUFDS_DIFF_OUT_IBUFDISABLE") ||
+                            xil_iob->type == ctx->id("IBUFDS_DIFF_OUT_INTERMDISABLE");
     bool is_diff_out_iobuf = xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT") ||
-                             xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_DCIEN") ||
-                             xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_INTERMDISABLE");
+                            xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_DCIEN") ||
+                            xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_INTERMDISABLE");
     bool is_diff_obuf = xil_iob->type == ctx->id("OBUFDS") || xil_iob->type == ctx->id("OBUFTDS");
 
     if (is_diff_ibuf || is_diff_iobuf) {
@@ -209,12 +209,12 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         disconnect_port(ctx, xil_iob, ctx->id("O"));
 
         IdString ibuf_type = ctx->id("IBUFDS");
-        if (xil_iob->type == ctx->id("IBUFDS_IBUFDISABLE"))
+        if (xil_iob->type == ctx->id("IBUFDS_IBUFDISABLE") || xil_iob->type == ctx->id("IOBUFDS_DCIEN"))
             ibuf_type = ctx->id("IBUFDS_IBUFDISABLE");
         if (xil_iob->type == ctx->id("IBUFDS_INTERMDISABLE") || xil_iob->type == ctx->id("IOBUFDS_INTERMDISABLE"))
             ibuf_type = ctx->id("IBUFDS_INTERMDISABLE");
         CellInfo *inbuf = insert_diffibuf(int_name(xil_iob->name, "IBUF", is_se_iobuf), ibuf_type,
-                                          {pad_p_net, pad_n_net}, top_out);
+                                        {pad_p_net, pad_n_net}, top_out);
         replace_port(xil_iob, ctx->id("IBUFDISABLE"), inbuf, ctx->id("IBUFDISABLE"));
         replace_port(xil_iob, ctx->id("INTERMDISABLE"), inbuf, ctx->id("INTERMDISABLE"));
         // 迁移原cell的parameter
@@ -252,7 +252,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
 
         NetInfo *inv_i = create_internal_net(xil_iob->name, is_diff_obuf ? "I_B" : "OBUFTDS$subnet$I_B");
         CellInfo *inv = insert_outinv(int_name(xil_iob->name, is_diff_obuf ? "INV" : "OBUFTDS$subcell$INV"),
-                                      get_net_or_empty(xil_iob, ctx->id("I")), inv_i);
+                                    get_net_or_empty(xil_iob, ctx->id("I")), inv_i);
         if (is_riob18) {
             inv->attrs[ctx->id("BEL")] = site_n + "/IOB18S/O_ININV";
             inv->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18S");
@@ -332,7 +332,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
             ibuf_type = ctx->id("IBUFDS_INTERMDISABLE");
         std::string inst_name ="/"+ std::string(ibuf_type.c_str(ctx));
         CellInfo *inbuf_p = insert_diffibuf(int_name(xil_iob->name, inst_name, true), ibuf_type,
-                                          {pad_p_net, pad_n_net}, top_o_net);
+                                        {pad_p_net, pad_n_net}, top_o_net);
         replace_port(xil_iob, ctx->id("IBUFDISABLE"), inbuf_p, ctx->id("IBUFDISABLE"));
         replace_port(xil_iob, ctx->id("INTERMDISABLE"), inbuf_p, ctx->id("INTERMDISABLE"));
         inbuf_p->params.insert(xil_iob->params.begin(), xil_iob->params.end());
@@ -349,10 +349,10 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
             inbuf_p->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB33M");
         }
         CellInfo *inbuf_n = insert_diffibuf(int_name(xil_iob->name, inst_name+"_0", true), ibuf_type,
-                                          {pad_n_net, pad_p_net}, top_p_net);
+                                        {pad_n_net, pad_p_net}, top_p_net);
         replace_port(xil_iob, ctx->id("IBUFDISABLE"), inbuf_n, ctx->id("IBUFDISABLE"));
         replace_port(xil_iob, ctx->id("INTERMDISABLE"), inbuf_n, ctx->id("INTERMDISABLE"));
-         if (is_riob18) {
+        if (is_riob18) {
             inbuf_n->attrs[ctx->id("BEL")] = site_n + "/IOB18S/INBUF_DCIEN";
             inbuf_n->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18S");
         } else {
@@ -385,9 +385,11 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         IdString ibuf_type = ctx->id("IBUFDS");
         if (xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_INTERMDISABLE"))
             ibuf_type = ctx->id("IBUFDS_INTERMDISABLE");
+        if (xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_DCIEN"))
+            ibuf_type = ctx->id("IBUFDS_IBUFDISABLE");
         std::string inst_name ="/"+ std::string(ibuf_type.c_str(ctx));
         CellInfo *inbuf_p = insert_diffibuf(int_name(xil_iob->name, inst_name, true), ibuf_type,
-                                          {pad_p_net, pad_n_net}, top_o_net);
+                                        {pad_p_net, pad_n_net}, top_o_net);
         replace_port(xil_iob, ctx->id("IBUFDISABLE"), inbuf_p, ctx->id("IBUFDISABLE"));
         replace_port(xil_iob, ctx->id("INTERMDISABLE"), inbuf_p, ctx->id("INTERMDISABLE"));
         // 迁移原cell的parameter
@@ -398,20 +400,24 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         subcells.push_back(inbuf_p);
         if (is_riob18) {
             // TODO:
+            inbuf_p->attrs[ctx->id("BEL")] = site_p + "/IOB18M/INBUF_DCIEN";
+            inbuf_p->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18M");
         } else {
             inbuf_p->attrs[ctx->id("BEL")] = site_p + "/IOB33M/INBUF_EN";
             inbuf_p->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB33M");
         }
         CellInfo *inbuf_n = insert_diffibuf(int_name(xil_iob->name, inst_name+"_0", true), ibuf_type,
-                                          {pad_n_net, pad_p_net}, top_p_net);
+                                        {pad_n_net, pad_p_net}, top_p_net);
         replace_port(xil_iob, ctx->id("IBUFDISABLE"), inbuf_n, ctx->id("IBUFDISABLE"));
         replace_port(xil_iob, ctx->id("INTERMDISABLE"), inbuf_n, ctx->id("INTERMDISABLE"));
         // 迁移原cell的parameter
         inbuf_n->params.insert(xil_iob->params.begin(), xil_iob->params.end());
-         // 更新与USE_IBUFDISABLE相关的IO原语
+        // 更新与USE_IBUFDISABLE相关的IO原语
         if(driver_ibufdisable_port)
             update_usr_ibufdisable(ctx, inbuf_n);
         if (is_riob18) {
+            inbuf_n->attrs[ctx->id("BEL")] = site_n + "/IOB18S/INBUF_DCIEN";
+            inbuf_n->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18S");
         } else {
             inbuf_n->attrs[ctx->id("BEL")] = site_n + "/IOB33S/INBUF_EN";
             inbuf_n->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB33S");
@@ -421,7 +427,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         disconnect_port(ctx, xil_iob, ctx->id("IOB"));
         NetInfo *inv_i = create_internal_net(xil_iob->name, is_diff_obuf ? "I_B" : "OBUFTDS$subnet$I_B");
         CellInfo *inv = insert_outinv(int_name(xil_iob->name, is_diff_obuf ? "INV" : "OBUFTDS$subcell$INV"),
-                                      get_net_or_empty(xil_iob, ctx->id("I")), inv_i);
+                                    get_net_or_empty(xil_iob, ctx->id("I")), inv_i);
         if (is_riob18) {
             inv->attrs[ctx->id("BEL")] = site_n + "/IOB18S/O_ININV";
             inv->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18S");
@@ -429,7 +435,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
             inv->attrs[ctx->id("BEL")] = site_n + "/IOB33S/O_ININV";
             inv->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB33S");
         }
-        bool has_dci = xil_iob->type == ctx->id("IOBUFDS_DCIEN") || xil_iob->type == ctx->id("IOBUFDSE3");
+        bool has_dci = xil_iob->type == ctx->id("IOBUFDS_DCIEN") || xil_iob->type == ctx->id("IOBUFDSE3") || xil_iob->type == ctx->id("IOBUFDS_DIFF_OUT_DCIEN");
         CellInfo *obuf_p = insert_obuf(int_name(xil_iob->name, is_diff_obuf ? "P" : "OBUFTDS$subcell$P"),
                                     (is_diff_iobuf || is_diff_out_iobuf || (xil_iob->type == ctx->id("OBUFTDS")))
                                             ? (has_dci ? ctx->id("OBUFT_DCIEN") : ctx->id("OBUFT"))
@@ -472,7 +478,7 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
                         macro_ports += orig.first.str(ctx);
                         macro_ports += ',';
                         macro_ports += (orig.second.type == PORT_INOUT) ? "inout"
-                                       : (orig.second.type == PORT_OUT) ? "out"
+                                    : (orig.second.type == PORT_OUT) ? "out"
                                                                         : "in";
                         macro_ports += ";";
                     }
@@ -523,7 +529,7 @@ void XC7Packer::pack_io()
             std::string site = ctx->getPackagePinSite(loc);
             if (site.empty())
                 log_error("Unable to constrain IO '%s', device does not have a pin named '%s'\n", pad->name.c_str(ctx),
-                          loc.c_str());
+                        loc.c_str());
             if(ctx->verbose){
                 LogData logEntry = LogData::CreateLogStruct(
                     LevelCode::ALWAYS_LOG,
@@ -581,7 +587,7 @@ void XC7Packer::pack_io()
         if (!pad->attrs.count(ctx->id("BEL"))) {
             if (available_io_bels.empty()) {
                 log_error("IO placer ran out of available IOs (%d available IO, %d unconstrained pins)\n", avail_count,
-                          unconstr_io_count);
+                        unconstr_io_count);
             }
             pad->attrs[ctx->id("BEL")] = std::string(ctx->nameOfBel(available_io_bels.front()));
             available_io_bels.pop();
@@ -676,6 +682,7 @@ void XC7Packer::pack_io()
     hpiobuf_rules[ctx->id("OBUF")].port_xform[ctx->id("O")] = ctx->id("OUT");
     hpiobuf_rules[ctx->id("OBUF")].port_xform[ctx->id("T")] = ctx->id("TRI");
     hpiobuf_rules[ctx->id("OBUFT")] = hpiobuf_rules[ctx->id("OBUF")];
+    hpiobuf_rules[ctx->id("OBUFT_DCIEN")] = hpiobuf_rules[ctx->id("OBUF")];
 
     hpiobuf_rules[ctx->id("IBUF")].new_type = ctx->id("IOB18_INBUF_DCIEN");
     hpiobuf_rules[ctx->id("IBUF")].port_xform[ctx->id("I")] = ctx->id("PAD");
@@ -689,7 +696,7 @@ void XC7Packer::pack_io()
     hpiobuf_rules[ctx->id("IBUFDS")] = hpiobuf_rules[ctx->id("IBUF")];
     hpiobuf_rules[ctx->id("IBUFDS")].port_xform[ctx->id("IB")] = ctx->id("DIFFI_IN");
 
-   // Special xform for OBUFx and IBUFx.
+// Special xform for OBUFx and IBUFx.
     std::unordered_map<IdString, XFormRule> rules;
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
@@ -840,7 +847,7 @@ std::string XC7Packer::get_idelay_site(const std::string &io_bel)
     if (boost::contains(io_bel, "IOB18"))
         ibc_bel = ctx->getBelByName(ctx->id(io_bel.substr(0, io_bel.find('/')) + "/IOB18/INBUF_DCIEN"));
     else
-      ibc_bel = ctx->getBelByName(ctx->id(io_bel.substr(0, io_bel.find('/')) + "/IOB33/INBUF_EN"));
+    ibc_bel = ctx->getBelByName(ctx->id(io_bel.substr(0, io_bel.find('/')) + "/IOB33/INBUF_EN"));
     std::queue<WireId> visit;
     visit.push(ctx->getBelPinWire(ibc_bel, ctx->id("OUT")));
 
@@ -1029,7 +1036,7 @@ void XC7Packer::pack_iologic()
                 else
                     // TODO: support SIGNAL_PATTERN = CLOCK
                     log_error("%s '%s' has DATAOUT connected to unsupported cell type %s\n",
-                              ci->type.c_str(ctx), ctx->nameOf(ci), user_type.c_str());
+                            ci->type.c_str(ctx), ctx->nameOf(ci), user_type.c_str());
             }
             std::string iol_site = get_odelay_site(ctx->getBelName(io_bel).str(ctx));
             ci->attrs[ctx->id("BEL")] = iol_site + "/ODELAYE2";
@@ -1140,7 +1147,7 @@ void XC7Packer::pack_iologic()
             // If this is tied to GND it's just unused. This does not have a route to GND anyway.
             NetInfo *tbytein = get_net_or_empty(ci, ctx->id("TBYTEIN"));
             if (tbytein != nullptr && tbytein->name == ctx->id("$PACKER_GND_NET")) disconnect_port(ctx, ci, ctx->id("TBYTEIN"));
-             //根据OQ或OFB确定oserdese2的位置，主模式下可以这样做，默认主模式
+            //根据OQ或OFB确定oserdese2的位置，主模式下可以这样做，默认主模式
             std::string serdes_mode = str_or_default(ci->params,ctx->id("SERDES_MODE"),"MASTER");
             if(serdes_mode == "MASTER"){
                 NetInfo *q = get_net_or_empty(ci, ctx->id("OQ"));

@@ -398,6 +398,8 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         subcells.push_back(inbuf_p);
         if (is_riob18) {
             // TODO:
+            inbuf_p->attrs[ctx->id("BEL")] = site_p + "/IOB18M/INBUF_DCIEN";
+            inbuf_p->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18M");
         } else {
             inbuf_p->attrs[ctx->id("BEL")] = site_p + "/IOB33M/INBUF_EN";
             inbuf_p->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB33M");
@@ -412,6 +414,8 @@ void XC7Packer::decompose_iob(CellInfo *xil_iob, bool is_hr, const std::string &
         if(driver_ibufdisable_port)
             update_usr_ibufdisable(ctx, inbuf_n);
         if (is_riob18) {
+            inbuf_n->attrs[ctx->id("BEL")] = site_n + "/IOB18S/INBUF_DCIEN";
+            inbuf_n->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB18S");
         } else {
             inbuf_n->attrs[ctx->id("BEL")] = site_n + "/IOB33S/INBUF_EN";
             inbuf_n->attrs[ctx->id("X_IOB_SITE_TYPE")] = std::string("IOB33S");

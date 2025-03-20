@@ -866,6 +866,7 @@ class PowerResult {
         std::unordered_map<IdString, GTManagerPowerResult> GTManager_powers_; // in nW, dynamic power of each GTX resource
         std::unordered_map<IdString, SignalsPowerResult> Signals_powers_; // in nW, dynamic power of each Signals resource
         std::unordered_map<IdString, float> net_powers_; // in nW
+        std::map<std::pair<short, short>, float> temperature_power_slopes_; // <temperature_range, power_slope>
 
     // Refert to original NextPNR's report.cc for data dump.
 
@@ -894,6 +895,7 @@ class PowerResult {
         std::unordered_map<IdString, DSPPowerResult> & GetDSPPowerResult() { return DSP_powers_;}
         std::unordered_map<IdString, GTManagerPowerResult> & GetGTManagerPowerResult() { return GTManager_powers_;}
         std::unordered_map<IdString, SignalsPowerResult> & GetSignalsPowerResult() { return Signals_powers_;}
+        std::map<std::pair<short, short>, float>& GetPowerSlopes() { return temperature_power_slopes_; }
         bool ExportPowerData(const std::string &path,Context *ctx);
         bool IfSuccess() { return success; }
 };

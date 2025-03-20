@@ -118,6 +118,7 @@ bool StaticPowerAnalyzer::Run() {
     if (static_power_DB_.IsPreset()) {
         static_power_DB_.InitTemperaturePowerSlopes(static_power_DB_.GetPowerSlopes());
         CalculateTemperaturePowerSlopes(static_power_DB_.GetPowerSlopes());
+        ctx_->power_result.GetPowerSlopes() = static_power_DB_.GetPowerSlopes();
         if (EstimateBasePowerFromPresetTemp())
             return true;
         else

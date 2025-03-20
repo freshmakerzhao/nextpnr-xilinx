@@ -294,41 +294,10 @@ void XC7Packer::pack_gt()
                 [this](const std::pair<IdString, PortInfo> &a, const std::pair<IdString, PortInfo> &b) {
                     return a.first.str(ctx) < b.first.str(ctx);
                 });
-
-            // // 打印排序后的所有端口名称
-            // log_info("Listing all ports for GTPE2_CHANNEL instance %s (sorted):\n", ci->name.c_str(ctx));
-            // for (const auto &p : sorted_ports) {
-            //     std::string full_port_name = p.first.str(ctx);
-            //     log_info("Found port: %s\n", full_port_name.c_str());
-            // }
-
-            // 后续遍历 sorted_ports 进行端口处理
+            
             for (const auto &port : sorted_ports) {
                 auto port_name = port.first.str(ctx);
                 auto net = get_net_or_empty(ci, port.first);
-
-                // // 打印端口信息
-                // log_info("  Port: %s\n", port_name.c_str());
-                // // 添加 Debug 打印日志
-                // log_info("GTPE2_CHANNEL instance %s port: %s\n", ci->name.c_str(ctx), port_name.c_str());
-                // if (net != nullptr) {
-                //     log_info("Port %s is connected to net: %s\n", port_name.c_str(), net->name.c_str(ctx));
-                //     // 打印网络的驱动源信息
-                //     if (net->driver.cell != nullptr) {
-                //         log_info("Net %s is driven by %s (type: %s)\n", net->name.c_str(ctx),
-                //                 net->driver.cell->name.c_str(ctx), net->driver.cell->type.c_str(ctx));
-                //     }
-                //     // 打印网络的用户信息
-                //     if (!net->users.empty()) {
-                //         log_info("Net %s has %lu users:\n", net->name.c_str(ctx), net->users.size());
-                //         for (const auto &user : net->users) {
-                //             log_info("  User: %s (type: %s, port: %s)\n", 
-                //                     user.cell->name.c_str(ctx), user.cell->type.c_str(ctx), user.port.c_str(ctx));
-                //         }
-                //     }
-                // } else {
-                //     log_info("Port %s is not connected to any net.\n", port_name.c_str());
-                // }
 
                 // If one of the clock ports is tied, then Vivado just disconnects them
                 if (net != nullptr && boost::starts_with(port_name, "PLL") && boost::ends_with(port_name, "CLK")) {
@@ -366,24 +335,6 @@ void XC7Packer::pack_gt()
                     rename_port(ctx, ci, ctx->id(port_name), ctx->id(new_port_name));
                 }
             }
-            // // 在原始 for 循环后，添加带 [] 端口的修复逻辑
-            // log_info("Checking and renaming array-style ports for instance %s...\n", ci->name.c_str(ctx));
-            // for (auto &port : ci->ports) {
-            //     auto port_name = port.first.str(ctx);
-
-            //     // 如果端口名称包含 "[" 和 "]"，进行修复
-            //     if (boost::contains(port_name, "[") && boost::contains(port_name, "]")) {
-            //         auto index_start = port_name.find("[");
-            //         auto index_end = port_name.find("]");
-            //         auto base_name = port_name.substr(0, index_start); // 提取端口基名，例如 GTRSVD 或 DRPADDR
-            //         auto index = port_name.substr(index_start + 1, index_end - index_start - 1); // 提取索引，例如 0, 1, 2
-            //         auto new_port_name = base_name + index; // 拼接成 GTRSVD0 或 DRPADDR0 的形式
-
-            //         // 重命名端口
-            //         log_info("Renaming port %s to %s for instance %s\n", port_name.c_str(), new_port_name.c_str(), ci->name.c_str(ctx));
-            //         rename_port(ctx, ci, ctx->id(port_name), ctx->id(new_port_name));
-            //     }
-            // }
         }
     }
 }

@@ -547,7 +547,7 @@ void XC7Packer::pack_io()
                 );
                 log_always("    Tile '%s'\n",logEntry3, tile.c_str());
             }
-            if (boost::starts_with(tile, "GTP_COMMON") || boost::starts_with(tile, "GTP_CHANNEL")) {
+            if (boost::starts_with(tile, "GTP_COMMON") || boost::starts_with(tile, "GTP_CHANNEL") || boost::starts_with(tile, "GTX_COMMON") || boost::starts_with(tile, "GTX_CHANNEL")) {
                 auto pad_bel = std::string(site + "/PAD");
                 pad->attrs[id_BEL] = pad_bel;
             } else {
@@ -604,7 +604,7 @@ void XC7Packer::pack_io()
             auto net = buf_cell->ports[ctx->id("O")].net;
             if (net != nullptr && net->users.size() == 1) {
                 auto user_cell = net->users[0].cell;
-                if (user_cell->type != id_GTPE2_COMMON && user_cell->type != ctx->id("BUFH") && user_cell->type != ctx->id("BUFHCE") 
+                if (user_cell->type != id_GTXE2_CHANNEL && user_cell->type != id_GTXE2_COMMON && user_cell->type != id_GTPE2_COMMON && user_cell->type != ctx->id("BUFH") && user_cell->type != ctx->id("BUFHCE") 
                     && user_cell->type != ctx->id("BUFG") && user_cell->type != ctx->id("BUFGCE") && user_cell->type != ctx->id("BUFGCE_1")
                     && user_cell->type != ctx->id("BUFGMUX") && user_cell->type != ctx->id("BUFGMUX_1") && user_cell->type != ctx->id("BUFGCTRL") && user_cell->type != ctx->id("BUFGMUX_CTRL"))
                     log_error("IBUFDS_GTE2 instance %s output port must be connected to a GTPE2_COMMON instance, but is instead connected to an instance %s of type %s\n",
@@ -612,16 +612,45 @@ void XC7Packer::pack_io()
                 if (user_cell->type == id_GTPE2_COMMON){
                     constrain_gtp(pad_cell, user_cell);
                 }
+
+                if (user_cell->type == id_GTXE2_COMMON){
+                    constrain_gtp(pad_cell, user_cell);
+                }
+
                 continue;
-            } else log_error("IBUFDS_GTE2 instance %s output port is not connected, or connected to multiple cells\n", buf_cell->name.c_str(ctx));
+            } else if (net != nullptr && net->users.size() >= 2) {
+                // 如果有两个用户连接到这个网络
+                for (size_t i = 0; i < net->users.size(); ++i) {
+                    auto user_cell = net->users[i].cell;
+                    if (user_cell->type != id_GTXE2_CHANNEL && user_cell->type != id_GTXE2_COMMON && user_cell->type != id_GTPE2_COMMON && user_cell->type != ctx->id("BUFH") && user_cell->type != ctx->id("BUFHCE") 
+                        && user_cell->type != ctx->id("BUFG") && user_cell->type != ctx->id("BUFGCE") && user_cell->type != ctx->id("BUFGCE_1")
+                        && user_cell->type != ctx->id("BUFGMUX") && user_cell->type != ctx->id("BUFGMUX_1") && user_cell->type != ctx->id("BUFGCTRL") && user_cell->type != ctx->id("BUFGMUX_CTRL"))
+                        log_error("IBUFDS_GTE2 instance %s output port must be connected to a GTPE2_COMMON instance, but is instead connected to an instance %s of type %s\n",
+                                buf_cell->name.c_str(ctx), user_cell->name.c_str(ctx), user_cell->type.c_str(ctx));
+                    
+                    if (user_cell->type == id_GTPE2_COMMON){
+                        constrain_gtp(pad_cell, user_cell);
+                    }
+
+                    if (user_cell->type == id_GTXE2_COMMON){
+                        constrain_gtp(pad_cell, user_cell);
+                    }
+                }
+                continue;               
+            } else {
+                log_error("IBUFDS_GTE2 instance %s output port is not connected, or connected to multiple cells\n", buf_cell->name.c_str(ctx));
+            }
         }
 
         // This OBUF is integrated into the GTP channel pad and does not need placing
+        // RXDATA直接接IO引脚，尽管RXDATA是GTXE2_CHANNEL的输出端口,也就是driver_cell->type也是GTXE2_CHANNEL,但是不能走constrain_gtp约束pad，因为这个IO不是GTX模块内部IO，而是普通IO
+        // TXDATA 直接接IO引脚，同上TXDATA是GTXE2_CHANNEL的输入端口
         if (buf_cell->type == ctx->id("OBUF")) {
             auto net = buf_cell->ports[ctx->id("I")].net;
-            if (net != nullptr) {
+            auto driver_port = net->driver.port.str(ctx);
+            if (net != nullptr && !boost::starts_with(driver_port, "RXDATA") && !boost::starts_with(driver_port, "TXDATA")) {
                 auto driver_cell = net->driver.cell;
-                if (driver_cell != nullptr && driver_cell->type == ctx->id("GTPE2_CHANNEL")) {
+                if ((driver_cell != nullptr && driver_cell->type == ctx->id("GTPE2_CHANNEL")) || (driver_cell != nullptr && driver_cell->type == ctx->id("GTXE2_CHANNEL"))) {
                     packed_cells.insert(buf_cell->name);
                     constrain_gtp(pad_cell, driver_cell);
                     continue;
@@ -633,7 +662,7 @@ void XC7Packer::pack_io()
             auto net = buf_cell->ports[ctx->id("O")].net;
             if (net != nullptr && net->users.size() == 1) {
                 auto user_cell = net->users[0].cell;
-                if (user_cell->type == ctx->id("GTPE2_CHANNEL")) {
+                if ((user_cell->type == ctx->id("GTPE2_CHANNEL")) || (user_cell->type == ctx->id("GTXE2_CHANNEL"))) {
                     packed_cells.insert(buf_cell->name);
                     constrain_gtp(pad_cell, user_cell);
                     continue;
@@ -680,6 +709,7 @@ void XC7Packer::pack_io()
     hpiobuf_rules[ctx->id("OBUF")].port_xform[ctx->id("O")] = ctx->id("OUT");
     hpiobuf_rules[ctx->id("OBUF")].port_xform[ctx->id("T")] = ctx->id("TRI");
     hpiobuf_rules[ctx->id("OBUFT")] = hpiobuf_rules[ctx->id("OBUF")];
+    hpiobuf_rules[ctx->id("OBUFT_DCIEN")] = hpiobuf_rules[ctx->id("OBUF")];
 
     hpiobuf_rules[ctx->id("IBUF")].new_type = ctx->id("IOB18_INBUF_DCIEN");
     hpiobuf_rules[ctx->id("IBUF")].port_xform[ctx->id("I")] = ctx->id("PAD");
@@ -699,6 +729,7 @@ void XC7Packer::pack_io()
         CellInfo *ci = cell.second;
         // GTP bufs don't need transforming, they are hardwired
         if (boost::starts_with(ci->type.str(ctx), "GTP")) continue;
+        if (boost::starts_with(ci->type.str(ctx), "GTX")) continue;
         if (boost::starts_with(ci->type.str(ctx), "IBUFDS_GTE2")) continue;
         if (!ci->attrs.count(ctx->id("BEL")))
             continue;

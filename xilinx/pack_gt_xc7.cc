@@ -33,7 +33,7 @@ std::string XC7Packer::get_gtp_site(const std::string &io_bel)
     for (int s = 0; s < tile->num_sites; s++) {
         auto site = &tile->site_insts[s];
         auto site_name = std::string(site->name.get());
-        if (boost::starts_with(site_name, "GTP"))
+        if (boost::starts_with(site_name, "GTP") || boost::starts_with(site_name, "GTX"))
             return site_name;
     }
 
@@ -177,13 +177,32 @@ void XC7Packer::pack_gt()
             // the other inverter BELs are not yet
             // supported by prjxray
 
-            for (auto &port : ci->ports) {
+            // 将所有端口复制到一个 vector 中，方便排序和遍历
+            std::vector<std::pair<IdString, PortInfo>> sorted_ports;
+            for (const auto &p : ci->ports) {
+                sorted_ports.push_back(p);
+            }
+            // 对端口名称进行排序（可选），保证处理顺序一致
+            std::sort(sorted_ports.begin(), sorted_ports.end(),
+                [this](const std::pair<IdString, PortInfo> &a, const std::pair<IdString, PortInfo> &b) {
+                    return a.first.str(ctx) < b.first.str(ctx);
+                });   
+            // 遍历端口进行处理，包括去方括号
+            for (auto &port : sorted_ports) {
                 auto port_name = port.first.str(ctx);
                 auto port_net  = port.second.net;
                 bool used = port_net != nullptr &&
                             port_net->name != ctx->id("$PACKER_VCC_NET") &&
                             port_net->name != ctx->id("$PACKER_GND_NET");
                 bool internal_refclk = false;
+            
+                //针对100t而言GTEASTREFCLK0、GTWESTREFCLK0这样的东西向时钟用不到，接地会无法布线
+                //只有200t上存在GTP Quad级联，时钟东西向传递才会用到，所以暂且在pack时将其断开端口
+                if (boost::starts_with(port_name, "GTEASTREFCLK") || boost::starts_with(port_name, "GTWESTREFCLK")) {
+                    // 断开端口连接
+                    disconnect_port(ctx, ci, port.first);
+                    continue;
+                }
 
                 if (port_name == "DRPCLK") {
                     ci->setParam(ctx->id("_DRPCLK_USED"), Property(used));
@@ -194,10 +213,21 @@ void XC7Packer::pack_gt()
                         log_warning("Driver %s of net %s connected to a GTPE2_COMMON PLL is not an IBUFDS_GTE2 block, but %s\n",
                             driver->name.c_str(ctx), port_net->name.c_str(ctx), driver->type.c_str(ctx));
 
+                            // 检查是否为接地或高电平驱动
+                        if (driver->type == ctx->id("PSEUDO_GND")) {
+                            log_info("Driver is %s, disconnecting GTREFCLK port %s from net %s.\n",
+                                    driver->type.c_str(ctx), port_name.c_str(), port_net->name.c_str(ctx));
+                            
+                            // 断开端口连接
+                            disconnect_port(ctx, ci, port.first);
+                            continue;
+                        }
+
+                        //??? To Do: 不确定用途，暂时注释
                         // Do we really need this here?
                         // Would that work in other cases too?
-                        if (driver->type != id_BUFGCTRL)
-                            log_error("GTP_COMMON GTREFCLK connected to unsupported cell type %s\n", driver->type.c_str(ctx));
+                        // if (driver->type != id_BUFGCTRL)
+                        //     log_error("GTP_COMMON GTREFCLK connected to unsupported cell type %s\n", driver->type.c_str(ctx));
 
                         // vivado internally always connects to GTGREFCLK0, even if GTGREFCLK1 is connected in the verilog
                         auto gtg_port = id_GTGREFCLK0;
@@ -264,7 +294,20 @@ void XC7Packer::pack_gt()
             fold_inverter(ci, "TXUSRCLK");
             fold_inverter(ci, "TXUSRCLK2");
 
-            for (auto &port : ci->ports) {
+            // 将所有端口复制到 vector 中
+            std::vector<std::pair<IdString, PortInfo>> sorted_ports;
+            for (const auto &p : ci->ports) {
+                sorted_ports.push_back(p);
+            }
+
+            // 对 vector 按照端口名称排序
+            std::sort(sorted_ports.begin(), sorted_ports.end(),
+                [this](const std::pair<IdString, PortInfo> &a, const std::pair<IdString, PortInfo> &b) {
+                    return a.first.str(ctx) < b.first.str(ctx);
+                });
+
+            // 后续遍历 sorted_ports 进行端口处理
+            for (const auto &port : sorted_ports) {
                 auto port_name = port.first.str(ctx);
                 auto net = get_net_or_empty(ci, port.first);
 
@@ -290,10 +333,165 @@ void XC7Packer::pack_gt()
                     disconnect_port(ctx, ci, port.first);
                 }
 
-                if (boost::contains(port_name, "[") && boost::contains(port_name, "]")) {
+                if (boost::contains(port_name, "[") && boost::contains(port_name, "]")) {                  
                     auto new_port_name = std::string(port_name);
                     boost::replace_all(new_port_name, "[", "");
                     boost::replace_all(new_port_name, "]", "");
+                    rename_port(ctx, ci, ctx->id(port_name), ctx->id(new_port_name));
+                }
+            }
+        } else if (ci->type == id_GTXE2_COMMON) {
+            all_plls.push_back(ci);
+            const IdString refclk0_used_attr = ctx->id("_GTREFCLK0_USED"),
+                           refclk1_used_attr = ctx->id("_GTREFCLK1_USED");
+            bool refclk0_used = false, refclk1_used = false;
+            
+            fold_inverter(ci, "DRPCLK");
+            fold_inverter(ci, "QPLLLOCKDETCLKINV");
+
+            // 将所有端口复制到一个 vector 中，方便排序和遍历
+            std::vector<std::pair<IdString, PortInfo>> sorted_ports;
+            for (const auto &p : ci->ports) {
+                sorted_ports.push_back(p);
+            }            
+            // 对端口名称进行排序（可选），保证处理顺序一致
+            std::sort(sorted_ports.begin(), sorted_ports.end(),
+                [this](const std::pair<IdString, PortInfo> &a, const std::pair<IdString, PortInfo> &b) {
+                    return a.first.str(ctx) < b.first.str(ctx);
+                });   
+            // 遍历端口进行处理，包括去方括号
+            for (auto &port : sorted_ports) {
+                auto port_name = port.first.str(ctx);
+                auto net = port.second.net;
+                bool used = net != nullptr &&
+                            net->name != ctx->id("$PACKER_VCC_NET") &&
+                            net->name != ctx->id("$PACKER_GND_NET");
+                bool internal_refclk = false;
+
+                // 如果端口带有方括号，比如 QPLLREFCLKSEL[1]，需要去掉
+                if (boost::contains(port_name, "[") && boost::contains(port_name, "]")) {
+                    auto new_port_name = port_name;
+                    boost::replace_all(new_port_name, "[", "");
+                    boost::replace_all(new_port_name, "]", "");
+                    rename_port(ctx, ci, ctx->id(port_name), ctx->id(new_port_name));
+                    // 重命名后更新 port_name，方便后续逻辑
+                    port_name = new_port_name;
+                }
+
+                if ((net != nullptr) && (boost::starts_with(port_name, "GTNORTHREFCLK") || boost::starts_with(port_name, "GTSOUTHREFCLK"))) {
+                    if (net->name == ctx->id("$PACKER_GND_NET") || net->name == ctx->id("$PACKER_VCC_NET")) {
+                        disconnect_port(ctx, ci, port.first);
+                        continue;
+                    }
+                }
+
+                if (port_name == "DRPCLK") {
+                    ci->setParam(ctx->id("_DRPCLK_USED"), Property(used));
+                } else if (boost::starts_with(port_name, "GTREFCLK")) {
+                    CellInfo *driver = net->driver.cell;
+                    if (driver == nullptr) log_error("Port %s connected to net %s has no driver!", port_name.c_str(), net->name.c_str(ctx));
+                    if (driver->type != id_IBUFDS_GTE2) {
+                        log_warning("Driver %s of net %s connected to a GTXE2_COMMON QPLL is not an IBUFDS_GTE2 block, but %s\n",
+                            driver->name.c_str(ctx), net->name.c_str(ctx), driver->type.c_str(ctx));
+                            // 检查是否为接地或高电平驱动
+                        if (driver->type == ctx->id("PSEUDO_GND")) {
+                            log_info("Driver is %s, disconnecting GTREFCLK port %s from net %s.\n",
+                                    driver->type.c_str(ctx), port_name.c_str(), net->name.c_str(ctx));
+                            
+                            // 断开端口连接
+                            disconnect_port(ctx, ci, port.first);
+                            continue;
+                        }
+                        auto gtg_port = id_GTGREFCLK;
+                        log_warning("Internal REFCLK is used for instance '%s', which is not recommended. Connecting refclock to port %s instead.\n",
+                            ci->name.c_str(ctx), gtg_port.c_str(ctx));
+                        rename_port(ctx, ci, port.first, gtg_port);
+                        internal_refclk = true;
+                        ci->setParam(ctx->id("_GTGREFCLK_USED"), Property(1, 1));
+                    } else { // driver is IBUFDS_GTE2
+                        log_info("Driver %s of net %s is a IBUFDS_GTE2 block\n",
+                            driver->name.c_str(ctx), net->name.c_str(ctx));
+                        if (used) {
+                            auto rel_buf_y = driver->attrs[ctx->id("_REL_BUF_Y")].as_int64();
+                            disconnect_port(ctx, ci, port.first);
+                            if (rel_buf_y == 1) {
+                                refclk1_used = true;
+                                ci->setParam(refclk1_used_attr, Property(1, 1));
+                            } else {
+                                refclk0_used = true;
+                                ci->setParam(refclk0_used_attr, Property(1, 1));
+                            }
+                            continue;
+                        }
+                    }
+
+                    if (!internal_refclk) {
+                        // if we could not determine refclk input by IBUFDS_GTE2 location
+                        // then we just use whatever port is connected
+                        if (boost::ends_with(port_name, "0")) {
+                            refclk0_used = used;
+                            ci->setParam(refclk0_used_attr, Property(used));
+                        } else {
+                            refclk1_used = used;
+                            ci->setParam(refclk1_used_attr, Property(used));
+                        }
+                    }
+                }
+            }
+            ci->setParam(ctx->id("_BOTH_GTREFCLK_USED"), Property(refclk0_used && refclk1_used));               
+        } else if (ci->type == id_GTXE2_CHANNEL) {
+            fold_inverter(ci, "CPLLLOCKDETCLK");
+            fold_inverter(ci, "DRPCLK");
+            fold_inverter(ci, "EDTCLK");
+            fold_inverter(ci, "GTGREFCLK");
+            fold_inverter(ci, "PMASCANCLK0");
+            fold_inverter(ci, "PMASCANCLK1");
+            fold_inverter(ci, "PMASCANCLK2");
+            fold_inverter(ci, "PMASCANCLK3");
+            fold_inverter(ci, "PMASCANCLK4");
+            fold_inverter(ci, "RXUSRCLK");
+            fold_inverter(ci, "RXUSRCLK2");
+            fold_inverter(ci, "SCANCLK");         
+            fold_inverter(ci, "TSTCLK0");
+            fold_inverter(ci, "TSTCLK1");
+            fold_inverter(ci, "TXPHDLYTSTCLK");
+            fold_inverter(ci, "TXUSRCLK");
+            fold_inverter(ci, "TXUSRCLK2");
+
+            // 将所有端口复制到 vector 中
+            std::vector<std::pair<IdString, PortInfo>> sorted_ports;
+            for (const auto &p : ci->ports) {
+                sorted_ports.push_back(p);
+            }
+
+            // 对 vector 按照端口名称排序
+            std::sort(sorted_ports.begin(), sorted_ports.end(),
+                [this](const std::pair<IdString, PortInfo> &a, const std::pair<IdString, PortInfo> &b) {
+                    return a.first.str(ctx) < b.first.str(ctx);
+                });            
+            // 后续遍历 sorted_ports 进行端口处理
+            for (const auto &port : sorted_ports) {
+                auto port_name = port.first.str(ctx);
+                auto net = get_net_or_empty(ci, port.first);
+
+                // If one of the clock ports is tied, then Vivado just disconnects them
+                if ((net != nullptr && boost::starts_with(port_name, "GTREFCLK")) || (boost::starts_with(port_name, "GTNORTHREFCLK")) || (boost::starts_with(port_name, "GTSOUTHREFCLK"))) {
+                    if (net->name == ctx->id("$PACKER_GND_NET") || net->name == ctx->id("$PACKER_VCC_NET")) {
+                        disconnect_port(ctx, ci, port.first);
+                        continue;
+                    }
+                    auto drv_port = net->driver.port.str(ctx);
+                    auto port_prefix = port_name.substr(0, 4);
+                    auto port_suffix = port_name.substr(4);
+                    disconnect_port(ctx, ci, port.first);
+                }
+
+                if (boost::contains(port_name, "[") && boost::contains(port_name, "]")) {
+                    // 打印重命名前的端口名称                
+                    auto new_port_name = std::string(port_name);
+                    boost::replace_all(new_port_name, "[", "");
+                    boost::replace_all(new_port_name, "]", "");
+                    // 打印重命名后的新端口名称
                     rename_port(ctx, ci, ctx->id(port_name), ctx->id(new_port_name));
                 }
             }

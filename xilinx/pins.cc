@@ -308,9 +308,18 @@ void get_invertible_pins(Context *ctx, std::unordered_map<IdString, std::unorder
     invertible_pins[ctx->id("GTPE2_COMMON")].insert(ctx->id("PLL1LOCKDETCLK"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("CPLLLOCKDETCLK"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("DRPCLK"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("EDTCLK"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("GTGREFCLK"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("PMASCANCLK0"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("PMASCANCLK1"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("PMASCANCLK2"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("PMASCANCLK3"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("PMASCANCLK4"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("RXUSRCLK2"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("RXUSRCLK"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("SCANCLK"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("TSTCLK0"));
+    invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("TSTCLK1"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("TXPHDLYTSTCLK"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("TXUSRCLK2"));
     invertible_pins[ctx->id("GTXE2_CHANNEL")].insert(ctx->id("TXUSRCLK"));

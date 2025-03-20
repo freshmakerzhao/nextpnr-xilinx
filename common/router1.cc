@@ -957,7 +957,8 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
                         true /* warn_on_failure */);
 
         // Power analysis
-        PowerAnalyzer power_analysis(ctx, ctx->settings[ctx->id("junction_temp")].as_double(), 
+        double junction_temp = std::stod(ctx->settings[ctx->id("junction_temp")].as_string());
+        PowerAnalyzer power_analysis(ctx, junction_temp,
                                     ctx->settings[ctx->id("power_level")].as_int64(), 0.5, 0.2); // (ctx, junction_temp, v_ddc, signal_probability, transition_density)
                                                                                                 // junction_temp can only be set to one of -55, 0, 40, 80, 125
         if (!power_analysis.Run()) {

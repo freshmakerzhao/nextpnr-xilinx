@@ -918,6 +918,14 @@ bool PowerResult::ExportPowerData(const std::string &path,Context *ctx){
             {"high", val.high_percent}
         }));
     }
+    json_data["temperature_power_slopes"] = nlohmann::json::array();
+    for(auto& temp_power_slope : temperature_power_slopes_){
+        auto& val = temp_power_slope.first;
+        json_data["temperature_power_slopes"].push_back(nlohmann::json::object({
+            {"range",{val.first, val.second}},
+            {"slope",temp_power_slope.second}
+        }));
+    }
     std::ofstream outFile(path);
     if (!outFile.is_open()) {
         std::cerr << "Error: Unable to open file for writing: " << path << std::endl;

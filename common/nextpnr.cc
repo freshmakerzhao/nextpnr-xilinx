@@ -19,9 +19,11 @@
 
 #include "nextpnr.h"
 #include <boost/algorithm/string.hpp>
+#include <fstream>
 #include "design_utils.h"
 #include "log.h"
 #include "util.h"
+#include "json.hpp"
 
 NEXTPNR_NAMESPACE_BEGIN
 
@@ -934,5 +936,114 @@ struct FixupHierarchyWorker
 } // namespace
 
 void Context::fixupHierarchy() { FixupHierarchyWorker(this).run(); }
+
+bool PowerResult::ExportPowerData(Context *ctx, const std::string &path){
+    nlohmann::json json_data;
+    json_data["summary"] = nlohmann::json::object();
+    json_data["summary"]["total_on_chip_power"] = total_power_;
+    json_data["summary"]["junction_temperature"] = junction_temp_;
+    json_data["summary"]["on_chip_power"] = nlohmann::json::object();
+    json_data["summary"]["on_chip_power"]["static_power"] = static_power_;
+
+    float gtmanager_power = 0.0;
+    for(auto gtmanager : GTManager_powers_){
+        gtmanager_power += gtmanager.second.utilization;
+    }
+    if(ctx->device_name == ctx->id("MC7F160")){
+        json_data["summary"]["on_chip_power"]["GTX"] = gtmanager_power;
+    }
+    else if(ctx->device_name == ctx->id("MC7F100") || ctx->device_name == ctx->id("MC7F200")){
+        json_data["summary"]["on_chip_power"]["GTP"] = gtmanager_power;
+    }
+
+    float clk_power = 0.0;
+    for(auto clk : clk_powers_){
+        clk_power += clk.second.utilization;
+    }
+    float logic_power = 0.0;
+    for(auto logic : logic_powers_){
+        logic_power += logic.second.utilization;
+    }
+    float IO_power = 0.0;
+    for(auto IO : IO_powers_){
+        IO_power += IO.second.utilization;
+    }
+    float signals_power = 0.0;
+    for(auto signals : Signals_powers_){
+        signals_power += signals.second.utilization;
+    }
+    float bram_power = 0.0;
+    for(auto bram : BRAM_powers_){
+        bram_power += bram.second.utilization;
+    }
+    float dsp_power = 0.0;
+    for(auto dsp : DSP_powers_){
+        dsp_power += dsp.second.utilization;
+    }
+    float mmcm_power = 0.0;
+    for(auto clockmanager : ClockManager_powers_){
+        mmcm_power += clockmanager.second.utilization;
+    }
+
+    json_data["summary"]["on_chip_power"]["dynamic_power"] = nlohmann::json::object({
+        {"clocks",clk_power},
+        {"logic",logic_power},
+        {"signals",signals_power},
+        {"BRAM",bram_power},
+        {"DSP",dsp_power},
+        {"MMCM",mmcm_power},
+        {"IO",IO_power},
+    });
+    
+    //utilization details
+    json_data["utilization_details"] = nlohmann::json::object();
+    json_data["utilization_details"]["clocks"] = nlohmann::json::array();
+    json_data["utilization_details"]["logic"] = nlohmann::json::array();
+
+    for(auto& clk : clk_powers_){
+        auto& val = clk.second;
+        json_data["utilization_details"]["clocks"].push_back(nlohmann::json::object({
+            {"utilization", val.utilization},
+            {"name", val.name.str(ctx)},
+            {"frequency", val.frequency},
+            {"buffer", val.buffer.str(ctx)},
+            {"clock_buffer_enable", val.clock_buffer_enable.str(ctx)},
+            {"enable_signal", val.enable_signal.str(ctx)},
+            {"bel_fanout", val.bel_fanout},
+            {"sites", val.site},
+            {"fanout_site", val.fanout_site},
+            {"type", val.type.str(ctx)}
+        }));
+    }
+    for(auto& logic : logic_powers_){
+        auto& val = logic.second;
+        json_data["utilization_details"]["logic"].push_back(nlohmann::json::object({
+            {"utilization", val.utilization},
+            {"name", val.name.str(ctx)},
+            {"type", val.type.str(ctx)},
+            {"clock", val.clock},
+            {"clock_name", val.clock_name.str(ctx)},
+            {"signal_rate", val.signal_rate},
+            {"high", val.high_percent}
+        }));
+    }
+    json_data["temperature_power_slopes"] = nlohmann::json::array();
+    for(auto& temp_power_slope : temperature_power_slopes_){
+        auto& val = temp_power_slope.first;
+        json_data["temperature_power_slopes"].push_back(nlohmann::json::object({
+            {"range",{val.first, val.second}},
+            {"slope",temp_power_slope.second}
+        }));
+    }
+    std::ofstream outFile(path);
+    if (!outFile.is_open()) {
+        std::cerr << "Error: Unable to open file for writing: " << path << std::endl;
+        return false;
+    }
+    outFile << json_data.dump(2) << std::endl; 
+    outFile.close();
+
+    return true;
+}
 
 NEXTPNR_NAMESPACE_END

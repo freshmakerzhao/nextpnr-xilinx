@@ -355,8 +355,9 @@ class NextpnrTileType:
 		site = bel.site
 		z = bels.get_bel_z_override(bel, len(self.bels))
 		# Overriden z of -1 means we skip this bel
-		if z == -1:
-			return None
+		# (The following two lines of code is commented out since we need to collect all routing bels)
+		# if z == -1:
+		# 	return None
 		name = bel.name()
 		bt = bel.bel_type()
 		prim_st = site.primary.site_type()

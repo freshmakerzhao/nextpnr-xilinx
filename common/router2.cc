@@ -384,9 +384,11 @@ struct Router2
         return (ctx->getDelayNS(ctx->estimateDelay(wd.w, sink)) / (1 + source_uses)) + cfg.ipin_cost_adder;
     }
 
+    // true：路径合法，从sink_wire到src_wire的布线正确且独占。
+    // false：路径不合法，可能因共享线或未连接至源。
     bool check_arc_routing(NetInfo *net, size_t usr)
     {
-        auto &ad = nets.at(net->udata).arcs.at(usr);
+        auto &ad = nets.at(net->udata).arcs.at(usr); // Arch data
         WireId src_wire = nets.at(net->udata).src_wire;
         WireId cursor = ad.sink_wire;
         while (wire_data(cursor).bound_nets.count(net->udata)) {

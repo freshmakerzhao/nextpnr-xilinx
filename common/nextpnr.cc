@@ -937,14 +937,13 @@ struct FixupHierarchyWorker
 
 void Context::fixupHierarchy() { FixupHierarchyWorker(this).run(); }
 
-bool PowerResult::ExportPowerData(const std::string &path,Context *ctx){
+bool PowerResult::ExportPowerData(Context *ctx, const std::string &path){
     nlohmann::json json_data;
     json_data["summary"] = nlohmann::json::object();
     json_data["summary"]["total_on_chip_power"] = total_power_;
     json_data["summary"]["junction_temperature"] = junction_temp_;
     json_data["summary"]["on_chip_power"] = nlohmann::json::object();
     json_data["summary"]["on_chip_power"]["static_power"] = static_power_;
-    float sum = dynamic_power_ + static_power_;
 
     float gtmanager_power = 0.0;
     for(auto gtmanager : GTManager_powers_){

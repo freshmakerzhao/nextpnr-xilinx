@@ -70,7 +70,7 @@ bool PowerAnalyzer::LoadPowerData(const std::string &path) {
     for (const auto& bel_key : {"bels", "routing_resources"}) {
         for (auto &bel_entry: v_ddc_jsonData[bel_key].object_items()) {
                 IdString bel_type = ctx_->id(bel_entry.first);
-                for (auto &temp_entry : bel_entry.second["static_power"].object_items()) {
+                for (auto &temp_entry : bel_entry.second["static_power"].object_items()) { // temperature
                     IdString temperature = ctx_->id(temp_entry.first); 
                     float base_power = temp_entry.second["base"].number_value();
                     float low_power = temp_entry.second["low"].number_value();
@@ -431,6 +431,9 @@ bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature
 }
 
 float DynamicPowerAnalyzer::GetBelUsage(IdString bel_type, IdString pin_name, int v_ddc) {
+    if (bel_type == ctx_->id("PAD"))
+        return 0;
+
     bool success = false;
     float usage = dynamic_power_DB_.GetBelPowerData(ctx_, bel_type, pin_name, v_ddc, success);
     if (success)

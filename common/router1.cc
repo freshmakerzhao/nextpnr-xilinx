@@ -968,7 +968,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             ctx->power_result.SetSuccess(false);
         }
         if (ctx->power_result.IfSuccess())
-            ctx->power_result.ExportPowerData(ctx->settings[ctx->id("power_result")].as_string(), ctx);
+            ctx->power_result.ExportPowerData(ctx, ctx->settings[ctx->id("power_result")].as_string());
         // Power analysis ends
 
         ctx->unlock();

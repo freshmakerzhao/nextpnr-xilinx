@@ -1150,7 +1150,7 @@ class PowerResult {
         std::unordered_map<IdString, GTManagerPowerResult> & GetGTManagerPowerResult() { return GTManager_powers_;}
         std::unordered_map<IdString, SignalsPowerResult> & GetSignalsPowerResult() { return Signals_powers_;}
         std::map<std::pair<short, short>, float>& GetPowerSlopes() { return temperature_power_slopes_; }
-        bool ExportPowerData(const std::string &path,Context *ctx);
+        bool ExportPowerData(Context *ctx, const std::string &path);
         bool IfSuccess() { return success; }
 };
 

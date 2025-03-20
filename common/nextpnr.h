@@ -1105,10 +1105,11 @@ struct SignalsPowerResult {
 // PowerResult is initialized in ctx: ctx->power_result
 class PowerResult {
     private:
-        float static_power_ = 0.0; // in nW
-        float dynamic_power_ = 0.0; // in nW
-        float total_power_ = 0.0; // in nW
+        double static_power_ = 0.0; // in nW
+        double dynamic_power_ = 0.0; // in nW
+        double total_power_ = 0.0; // in nW
         float junction_temp_ = 0.0; // in celcius
+        bool success = true;
 
         std::unordered_map<IdString, ClockPowerResult> clk_powers_; // in nW, dynamic power of each clk resource
         std::unordered_map<IdString, LogicPowerResult> logic_powers_; // in nW, dynamic power of each logic resource
@@ -1133,6 +1134,7 @@ class PowerResult {
         void AddDynamicPower(float power) { dynamic_power_ += power; }
         void AddStaticPower(float power) { static_power_ += power; }
         void AddTotalPower(float power) { total_power_ += power; }
+        void SetSuccess(bool s) { success = s; }
 
         float GetTotalPower() { return total_power_; }
         float GetStaticPowerResult() { return static_power_; }
@@ -1147,6 +1149,7 @@ class PowerResult {
         std::unordered_map<IdString, GTManagerPowerResult> & GetGTManagerPowerResult() { return GTManager_powers_;}
         std::unordered_map<IdString, SignalsPowerResult> & GetSignalsPowerResult() { return Signals_powers_;}
         bool ExportPowerData(const std::string &path,Context *ctx);
+        bool IfSuccess() { return success; }
 };
 
 
@@ -1371,6 +1374,8 @@ struct Context : Arch, DeterministicRNG
     // True when detailed per-net timing is to be stored / reported
     bool detailed_timing_report = false;
     bool do_timing_analysis = false;
+
+    bool do_power_analaysis = false;
 
     Context(ArchArgs args) : Arch(args) {}
 

@@ -170,6 +170,12 @@ po::options_description CommandHandler::getGeneralOptions()
     general.add_options()("timing-data", po::value<std::string>(), "timing data json file");
     general.add_options()("timing-result", po::value<std::string>(), "output timing result file");
 
+
+    general.add_options()("power-level", po::value<int>(), "power data json file");
+    general.add_options()("junction-temp", po::value<double>(), "output power analysis result file");
+    general.add_options()("power-data", po::value<std::string>(), "power data json file");
+    general.add_options()("power-result", po::value<std::string>(), "output power analysis result file");
+
     return general;
 }
 
@@ -268,6 +274,15 @@ void CommandHandler::setupContext(Context *ctx)
         ctx->settings[ctx->id("timing_driven")] = false;
     if (vm.count("timing-result"))
         ctx->settings[ctx->id("timing_result")] = vm["timing-result"].as<std::string>();
+
+    if (vm.count("power-level"))
+        ctx->settings[ctx->id("power_level")] = vm["power-level"].as<int>();
+    if (vm.count("junction-temp"))
+        ctx->settings[ctx->id("junction_temp")] = vm["junction-temp"].as<double>();
+    if (vm.count("power-data"))
+        ctx->settings[ctx->id("power_data")] = vm["power-data"].as<std::string>();
+    if (vm.count("power-result"))
+        ctx->settings[ctx->id("power_result")] = vm["power-result"].as<std::string>();
 
     // Setting default values
     if (ctx->settings.find(ctx->id("target_freq")) == ctx->settings.end())

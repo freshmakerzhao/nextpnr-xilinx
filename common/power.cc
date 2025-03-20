@@ -56,7 +56,7 @@ bool PowerAnalyzer::LoadPowerData(const std::string &path) {
     PowerJsonReader data_parser(path);
     json jsonData;
     if (!data_parser.LoadData(jsonData)) {
-        log_error("Failed to estimate power data to power analyzer.\n");
+        log_error("Failed to load power data to power analyzer.\n");
         return false;
     }
 
@@ -295,7 +295,6 @@ bool DynamicPowerAnalyzer::Run(StaticPowerDB &static_power_DB, float temperature
                         high_percent = signal_probability_ *100 ;
                     }
                     else {
-                        
                         clock_frequency = 1.0 / (ni->capturing_clk->clkconstr->period.minDelay() * std::pow(10, -6));
                         singal_rate = (transition_density_ / ni->capturing_clk->clkconstr->period.minDelay()) * std::pow(10, 6) ;
                         high_percent = signal_probability_ * 100 ;
@@ -460,7 +459,7 @@ void DynamicPowerAnalyzer::TransitionDensityGenerator() {
 }
 
 bool PowerAnalyzer::Run() {
-    if (!LoadPowerData("/home/liwenhao/my_nextpnr-xilinx/power_data/xilinx_power_data_template_100t.json")) {
+    if (!LoadPowerData(ctx_->settings[ctx_->id("power_data")].as_string())) {
         log_warning("Failed to load power data.\n");
         return false;
     }

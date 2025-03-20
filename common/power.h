@@ -91,7 +91,6 @@ class PowerAnalyzer {
         }
 
         bool Run();
-        void WritePowerReport(std::ostream &out);
         bool LoadPowerData(const std::string &path);
 };
 

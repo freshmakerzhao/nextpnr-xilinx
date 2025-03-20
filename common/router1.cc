@@ -956,12 +956,19 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         timing_analysis(ctx, true /* slack_histogram */, true /* print_fmax */, true /* print_path */,
                         true /* warn_on_failure */);
 
-        PowerAnalyzer power_analysis(ctx, 40, 1000, 0.5, 0.2); // (ctx, junction_temp, v_ddc, signal_probability, transition_density)
-                                                               // junction_temp can only be set to one of -55, 0, 40, 80, 125
+        // Power analysis
+        double junction_temp = std::stod(ctx->settings[ctx->id("junction_temp")].as_string());
+        PowerAnalyzer power_analysis(ctx, junction_temp,
+                                    ctx->settings[ctx->id("power_level")].as_int64(), 0.5, 0.2); // (ctx, junction_temp, v_ddc, signal_probability, transition_density)
+                                                                                                // junction_temp can only be set to one of -55, 0, 40, 80, 125
         if (!power_analysis.Run()) {
-            log_error("Power analysis failed.\n");
+            log_warning("Power analysis failed.\n");
+            ctx->power_result.SetSuccess(false);
         }
-        ctx->power_result.ExportPowerData("/home/liwenhao/my_nextpnr-xilinx/power_data/gui_power_data_100t.json",ctx);
+        if (ctx->power_result.IfSuccess())
+            ctx->power_result.ExportPowerData(ctx->settings[ctx->id("power_result")].as_string(), ctx);
+        // Power analysis ends
+
         ctx->unlock();
         return true;
     } catch (log_execution_error_exception) {

@@ -159,6 +159,43 @@ template <> struct hash<NEXTPNR_NAMESPACE_PREFIX IdString>
 
 NEXTPNR_NAMESPACE_BEGIN
 
+struct NetInfo;
+NetInfo *GetFastGlobelClk(const BaseCtx *ctx);
+
+struct SiteCoordinates {
+    int32_t site_x, site_y;
+    int32_t rel_x, rel_y;
+    int32_t inter_x, inter_y;
+
+    bool operator==(const SiteCoordinates& rhs) const {
+        return (site_x == rhs.site_x) &&
+               (site_y == rhs.site_y) &&
+               (rel_x == rhs.rel_x) &&
+               (rel_y == rhs.rel_y) &&
+               (inter_x == rhs.inter_x) &&
+               (inter_y == rhs.inter_y);
+    }
+
+    bool operator!=(const SiteCoordinates& rhs) const {
+        return !(*this == rhs);
+    }
+
+    bool operator<(const SiteCoordinates &other) const
+    {
+        double sqrt1 = std::sqrt(site_x*site_x + site_y*site_y);
+        double sqrt1_1 = std::sqrt(other.site_x*other.site_x + other.site_y*other.site_y);
+        double sqrt2 = std::sqrt(rel_x*rel_x + rel_x*rel_x);
+        double sqrt2_2 = std::sqrt(other.rel_x*other.rel_x + other.rel_x*other.rel_x);
+        double sqrt3 = std::sqrt(inter_x*inter_x + inter_x*inter_x);
+        double sqrt3_3 = std::sqrt(other.inter_x*other.inter_x + other.inter_x*other.inter_x);
+        
+        return sqrt1 < sqrt1_1 || (sqrt1 == sqrt1_1 && sqrt2 < sqrt2_2) || (sqrt1 == sqrt1_1 && sqrt2 == sqrt2_2 && sqrt3 < sqrt3_3);
+    }
+
+    // unsigned int hash() const { return mkhash(tile, index); }
+};
+
+
 struct GraphicElement
 {
     enum type_t
@@ -323,8 +360,8 @@ enum ClkStatus
     CLK_STATUS_CLKINV = 2
 };
 
-// Port info store in NetInfo
-// used to reference the source/sink ports of a net; 
+// Port info stored in NetInfo
+// used to refer the source/sink ports of a net; 
 // refers back to a cell and a port name
 struct PortRef
 {
@@ -919,6 +956,205 @@ struct DeterministicRNG
     }
 };
 
+// Clock power result container
+struct ClockPowerResult {
+    float utilization; // power
+    IdString name;
+    float frequency;
+    IdString buffer;
+    IdString clock_buffer_enable;
+    IdString enable_signal;
+    int bel_fanout;
+    int site; // site fanout
+    float fanout_site; // bel_fanout/site_fanout
+    IdString type;
+};
+// Logic power result container
+struct LogicPowerResult {
+    float utilization; // power
+    IdString name;
+    IdString type;
+    float clock;
+    IdString clock_name;
+    float signal_rate;
+    float high_percent;
+};
+// IO power result container
+struct IOPowerResult {
+    float utilization; // power
+    IdString name;
+    IdString IO_type;
+    IdString IO_standard;
+    float drive_strength;
+    int input_pins;
+    int output_pins;
+    int bidir_pins;
+    IdString IO_logic_serdes;
+    IdString IO_delay;
+    IdString ibuf_low_pwr;
+    IdString input_term;
+    IdString output_impedance;
+    IdString clock_name;
+    float clock;
+    float signal_rate;
+    IdString data_rate;
+    float output_enable;
+    float term_disable;
+    float ibuf_disable;
+    float output_load;
+    float Vccint;
+    float Vccaux;
+    float Vccaux_io;
+    float Vcco_on_chip;
+    IdString external_termination;
+    float Vcco_off_chip;
+};
+// BRAM power result container
+struct BRAMPowerResult {
+    float utilization; // power
+    IdString name;
+    IdString mode;
+    float signal_rate;
+    IdString clock_name_A;
+    float clock_A;
+    float enable_rate_A;
+    int read_width_A;
+    int write_width_A;
+    int write_mode_A;
+    int write_rate_A;
+    IdString clock_name_B;
+    float clock_B;
+    float enable_rate_B;
+    int read_width_B;
+    int write_width_B;
+    int write_mode_B;
+    int write_rate_B;
+};
+// MMCM or pll power result container
+struct ClockManagerPowerResult {
+    float utilization; // power
+    IdString name;
+    IdString MMCM_OR_PLL;
+    float clock;
+    IdString phase_shift;
+    int divide_counter;
+    float multiply_counter;
+    int clock_0_divide;
+    int clock_1_divide;
+    int clock_2_divide;
+    int clock_3_divide;
+    int clock_4_divide;
+    int clock_5_divide;
+    int clock_6_divide;
+    float power_down;
+    float Vccint;
+    float Vccaux;
+};
+// DSP power result container
+struct DSPPowerResult {
+    float utilization; // power
+    IdString name;
+    float clock;
+    IdString phase_shift;
+    int divide_counter;
+    float multiply_counter;
+    int clock_0_divide;
+    int clock_1_divide;
+    int clock_2_divide;
+    int clock_3_divide;
+    int clock_4_divide;
+    int clock_5_divide;
+    int clock_6_divide;
+    float power_down;
+    float Vccint;
+    float Vccaux;
+};
+// GTManager power result container
+struct GTManagerPowerResult {
+    float utilization; // power
+    IdString name;
+    IdString operational_mode;
+    IdString eyescan;
+    IdString pll_sharing;
+    IdString power_mode;
+    float RX_data_rate;
+    int RX_data_path_width;
+    IdString RX_8b_divide_10b;
+    float TX_data_rate;
+    int TX_data_path_width;
+    IdString TX_8b_divide_10b;
+    int TX_op_amp;
+    IdString oob_used;
+    IdString hard_pcle;
+    float Vccint;
+    float MGTVccaux;
+    float MGTAVcc;
+    float MGTAVtt;
+};
+// Signals power result container
+struct SignalsPowerResult {
+    float utilization; // power
+    IdString name;
+    float signal_rate;
+    float high_percent;
+    int fanout;
+    int slice_fanout;
+    IdString clock;
+    IdString logic_type;
+};
+// PowerResult is initialized in ctx: ctx->power_result
+class PowerResult {
+    private:
+        double static_power_ = 0.0; // in nW
+        double dynamic_power_ = 0.0; // in nW
+        double total_power_ = 0.0; // in nW
+        float junction_temp_ = 0.0; // in celcius
+        bool success = true;
+
+        std::unordered_map<IdString, ClockPowerResult> clk_powers_; // in nW, dynamic power of each clk resource
+        std::unordered_map<IdString, LogicPowerResult> logic_powers_; // in nW, dynamic power of each logic resource
+        std::unordered_map<IdString, IOPowerResult> IO_powers_; // in nW, dynamic power of each IO resource
+        std::unordered_map<IdString, BRAMPowerResult> BRAM_powers_; // in nW, dynamic power of each BRAM resource
+        std::unordered_map<IdString, ClockManagerPowerResult> ClockManager_powers_; // in nW, dynamic power of each MMCM  or pll  resource
+        std::unordered_map<IdString, DSPPowerResult> DSP_powers_; // in nW, dynamic power of each DSP resource
+        std::unordered_map<IdString, GTManagerPowerResult> GTManager_powers_; // in nW, dynamic power of each GTX resource
+        std::unordered_map<IdString, SignalsPowerResult> Signals_powers_; // in nW, dynamic power of each Signals resource
+        std::unordered_map<IdString, float> net_powers_; // in nW
+        std::map<std::pair<short, short>, float> temperature_power_slopes_; // <temperature_range, power_slope>
+
+    // Refert to original NextPNR's report.cc for data dump.
+
+    public:
+        PowerResult() = default;
+        ~PowerResult() = default;
+
+        void SetJunctionTemp(float temp) { junction_temp_ = temp; }
+        void SetStaticPower(float power) { static_power_ = power; }
+        void AddNetPower(IdString net_name, float power);
+        void AddResourcePower(IdString resource_name, float power);
+        void AddDynamicPower(float power) { dynamic_power_ += power; }
+        void AddStaticPower(float power) { static_power_ += power; }
+        void AddTotalPower(float power) { total_power_ += power; }
+        void SetSuccess(bool s) { success = s; }
+
+        float GetTotalPower() { return total_power_; }
+        float GetStaticPowerResult() { return static_power_; }
+        float GetDynamicPowerResult() { return dynamic_power_; }
+        float GetJunctionTemp() { return junction_temp_; }
+        std::unordered_map<IdString, ClockPowerResult> & GetClockPowerResult() { return clk_powers_;}
+        std::unordered_map<IdString, LogicPowerResult> & GetLogicPowerResult() { return logic_powers_;}
+        std::unordered_map<IdString, IOPowerResult> & GetIOPowerResult() { return IO_powers_;}
+        std::unordered_map<IdString, BRAMPowerResult> & GetBRAMPowerResult() { return BRAM_powers_;}
+        std::unordered_map<IdString, ClockManagerPowerResult> & GetClockManagerPowerResult() { return ClockManager_powers_;}
+        std::unordered_map<IdString, DSPPowerResult> & GetDSPPowerResult() { return DSP_powers_;}
+        std::unordered_map<IdString, GTManagerPowerResult> & GetGTManagerPowerResult() { return GTManager_powers_;}
+        std::unordered_map<IdString, SignalsPowerResult> & GetSignalsPowerResult() { return Signals_powers_;}
+        std::map<std::pair<short, short>, float>& GetPowerSlopes() { return temperature_power_slopes_; }
+        bool ExportPowerData(Context *ctx, const std::string &path);
+        bool IfSuccess() { return success; }
+};
+
+
 struct BaseCtx
 {
     // Lock to perform mutating actions on the Context.
@@ -965,6 +1201,8 @@ struct BaseCtx
     // Fmax data post timing analysis
     TimingResult timing_result;
 
+    // Power Analysis Result
+    PowerResult power_result;
 
     BaseCtx()
     {
@@ -1138,6 +1376,8 @@ struct Context : Arch, DeterministicRNG
     // True when detailed per-net timing is to be stored / reported
     bool detailed_timing_report = false;
     bool do_timing_analysis = false;
+
+    bool do_power_analaysis = false;
 
     Context(ArchArgs args) : Arch(args) {}
 

@@ -233,7 +233,6 @@ struct XC7Packer : public XilinxPacker
     void update_usr_ibufdisable(Context *ctx,CellInfo *inbuf);
     // Call before packing constants
     void prepare_iologic();
-
     void pack_iologic();
     void pack_idelayctrl();
     void pack_cmt_fifo();

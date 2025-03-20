@@ -29,7 +29,11 @@
 #include "log.h"
 #include "nextpnr.h"
 #include "pins.h"
+#include "power_parse_json.h"
+#include "json11.hpp"
+#include "power.h"
 
+using json = json11::Json;
 NEXTPNR_NAMESPACE_BEGIN
 
 // Process the contents of packed_cells and new_cells
@@ -521,6 +525,10 @@ void XilinxPacker::check(){
             }
         }
     }
+
+    // For testing
+    // PowerAnalyzer p(ctx,25.0,1000,0.5,0.2);
+    // p.LoadPowerData("/home/liwenhao/my_nextpnr-xilinx/power_data/xilinx_power_data_template.json");
 }
 
 bool XilinxPacker::is_constrained(const CellInfo *cell)
@@ -1388,8 +1396,8 @@ bool Arch::pack()
     if (xc7) {
         XC7Packer packer;
         packer.ctx = getCtx();
-        packer.constrains_bel_loc();
-        packer.pack_constants();
+        packer.constrains_bel_loc();  // Constrain BEL locations based on xdc content
+        packer.pack_constants();  // Pack Vcc GND
         packer.pack_inverters();
         packer.pack_io();
         // packer.prepare_iologic();

@@ -24,6 +24,7 @@
 #include "log.h"
 #include "router1.h"
 #include "timing.h"
+#include "power.h"
 
 namespace {
 
@@ -956,6 +957,19 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
         }
         if (ctx->do_timing_analysis)
         timing_analysis(ctx, true, true, true, true, true);
+
+        // Power analysis
+        double junction_temp = std::stod(ctx->settings[ctx->id("junction_temp")].as_string());
+        PowerAnalyzer power_analysis(ctx, junction_temp,
+                                    ctx->settings[ctx->id("power_level")].as_int64(), 0.5, 0.2); // (ctx, junction_temp, v_ddc, signal_probability, transition_density)
+                                                                                                // junction_temp can only be set to one of -55, 0, 40, 80, 125
+        if (!power_analysis.Run()) {
+            log_warning("Power analysis failed.\n");
+            ctx->power_result.SetSuccess(false);
+        }
+        if (ctx->power_result.IfSuccess())
+            ctx->power_result.ExportPowerData(ctx, ctx->settings[ctx->id("power_result")].as_string());
+        // Power analysis ends
 
         ctx->unlock();
         return true;

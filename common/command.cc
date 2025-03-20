@@ -277,8 +277,10 @@ void CommandHandler::setupContext(Context *ctx)
 
     if (vm.count("power-level"))
         ctx->settings[ctx->id("power_level")] = vm["power-level"].as<int>();
-    if (vm.count("junction-temp"))
-        ctx->settings[ctx->id("junction_temp")] = vm["junction-temp"].as<double>();
+    if (vm.count("junction-temp")) {
+        auto temp = vm["junction-temp"].as<double>();
+        ctx->settings[ctx->id("junction_temp")] = std::to_string(temp);
+    }
     if (vm.count("power-data"))
         ctx->settings[ctx->id("power_data")] = vm["power-data"].as<std::string>();
     if (vm.count("power-result"))

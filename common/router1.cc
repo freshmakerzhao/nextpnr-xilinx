@@ -956,7 +956,7 @@ bool router1(Context *ctx, const Router1Cfg &cfg)
             log_always("Checksum: 0x%08x\n",logEntry, ctx->checksum());
         }
         if (ctx->do_timing_analysis)
-        timing_analysis(ctx, true, true, true, true, true);
+            timing_analysis(ctx, true, true, true, true, true);
 
         // Power analysis
         double junction_temp = std::stod(ctx->settings[ctx->id("junction_temp")].as_string());

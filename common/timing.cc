@@ -2035,8 +2035,11 @@ void TimingAnalyser::compute_slack()
             auto &arr = pd.arrival.at(dp.key.launch);
             auto &req = pd.required.at(dp.key.capture);
             pdp.second.setup_slack = 0 - (arr.value.maxDelay() - req.value.minDelay() + clock_to_clock);
-            if (!setup_only)
+            pdp.second.setup_slack +=ctx->nets.at(launch_clock)->clkconstr->period.minDelay();
+            if (!setup_only) {
                 pdp.second.hold_slack = arr.value.minDelay() - req.value.maxDelay() + clock_to_clock;
+            }
+                
             pdp.second.max_path_length = arr.path_length + req.path_length;
             if (dp.key.launch == dp.key.capture)
                 pd.worst_setup_slack = std::min(pd.worst_setup_slack, dp.period.minDelay() + pdp.second.setup_slack);
@@ -2469,7 +2472,7 @@ static json11::Json::array json_report_timing_paths(const Context *ctx, bool is_
                 timingPathsJson.push_back(json11::Json::object({{"from", clock_event_name(ctx, timing_path.clock_pair.start)},
                                                       {"to", clock_event_name(ctx, timing_path.clock_pair.end)},
                                                       {"path", report_timing_path(timing_path, true, true)},
-                                                      {"slack", timing_path.slack}}));
+                                                      {"slack", ctx->getDelayNS(timing_path.slack)}}));
 
         // // Cross-domain timing paths
         // for (auto &report : ctx->timing_result.xclock_paths_recovery)
@@ -2484,7 +2487,7 @@ static json11::Json::array json_report_timing_paths(const Context *ctx, bool is_
                 timingPathsJson.push_back(json11::Json::object({{"from", clock_event_name(ctx, timing_path.clock_pair.start)},
                                                       {"to", clock_event_name(ctx, timing_path.clock_pair.end)},
                                                       {"path", report_timing_path(timing_path, true, false)},
-                                                      {"slack", timing_path.slack}}));
+                                                      {"slack", ctx->getDelayNS(timing_path.slack)}}));
 
         // // Cross-domain timing paths
         // for (auto &report : ctx->timing_result.xclock_paths_removal)

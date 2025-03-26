@@ -845,6 +845,9 @@ class HeAPPlacer
             NPNR_ASSERT(lbport != nullptr);
             NPNR_ASSERT(ubport != nullptr);
 
+            /**
+             * 构建eqn相关方程
+             */
             auto stamp_equation = [&](PortRef &var, PortRef &eqn, double weight) {
                 if (eqn.cell->udata == dont_solve)
                     return;
@@ -853,7 +856,7 @@ class HeAPPlacer
                 if (var.cell->udata != dont_solve) {
                     es.add_coeff(row, var.cell->udata, weight);
                 } else {
-                    es.add_rhs(row, -v_pos * weight);
+                    es.add_rhs(row, -v_pos * weight);// 右侧向量
                 }
                 if (cell_offsets.count(var.cell->name)) {
                     es.add_rhs(row, -(yaxis ? cell_offsets.at(var.cell->name).second
@@ -863,6 +866,7 @@ class HeAPPlacer
             };
 
             // Add all relevant connections to the matrix
+            // 这里会把driver、所有user都经过一次
             foreach_port(ni, [&](PortRef &port, int user_idx) {
                 int this_pos = cell_pos(port.cell);
                 auto process_arc = [&](PortRef *other) {

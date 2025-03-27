@@ -395,6 +395,10 @@ int CommandHandler::executeMain(std::unique_ptr<Context> ctx)
                 ctx->loadTimingData(vm["timing-data"].as<std::string>());
                 ctx->do_timing_analysis = true;
             }
+            if (vm.count("power-level") && vm.count("junction-temp") 
+                && vm.count("power-data") && vm.count("power-result")) {
+                ctx->do_power_analaysis = true;
+            }
             run_script_hook("pre-route");
             if (!ctx->route() && !ctx->force)
                 log_error("Routing design failed.\n");

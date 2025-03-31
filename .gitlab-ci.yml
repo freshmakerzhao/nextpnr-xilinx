@@ -31,3 +31,4 @@ build_job:
       - xc7a100tfgg484-2.bin
       - xc7a35tfgg484-2.bin
     expire_in: 2 months
+  when: manual

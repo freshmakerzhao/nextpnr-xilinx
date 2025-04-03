@@ -1380,13 +1380,40 @@ void XC7Packer::pack_xadc()
 
     std::unordered_map<IdString, XFormRule> xadc_rules;
     xadc_rules[ctx->id("XADC")].new_type = id_XADC_XADC;
+    for(auto i=0; i<16; i++) {
+        xadc_rules[ctx->id("XADC")].port_xform[ctx->id("VAUXP[" + std::to_string(i) + "]")] = ctx->id("VAUXP" + std::to_string(i));
+        xadc_rules[ctx->id("XADC")].port_xform[ctx->id("VAUXN[" + std::to_string(i) + "]")] = ctx->id("VAUXN" + std::to_string(i));
+        xadc_rules[ctx->id("XADC")].port_xform[ctx->id("DO[" + std::to_string(i) + "]")] = ctx->id("DO" + std::to_string(i));
+        xadc_rules[ctx->id("XADC")].port_xform[ctx->id("DI[" + std::to_string(i) + "]")] = ctx->id("DI" + std::to_string(i));
+    }
+    generic_xform(xadc_rules, true);
+
     // XADC映射
     for (auto cell : sorted(ctx->cells)) {
         CellInfo *ci = cell.second;
-        if(ci->type == ctx->id("XADC")){
+        if(ci->type == id_XADC_XADC){
+            for(int i = 0; i < 16 ;i++){
+                NetInfo *vauxp = get_net_or_empty(ci, ctx->id("VAUXP" + std::to_string(i)));
+                NetInfo *vauxn = get_net_or_empty(ci, ctx->id("VAUXN" + std::to_string(i)));
+                if(vauxp && vauxp->name == ctx->id("$PACKER_GND_NET")){
+                    disconnect_port(ctx, ci, ctx->id("VAUXP" + std::to_string(i)));
+                }
+                if(vauxn && vauxn->name == ctx->id("$PACKER_GND_NET")){
+                    disconnect_port(ctx, ci, ctx->id("VAUXN" + std::to_string(i)));
+                }
+            }
+            NetInfo *vp = get_net_or_empty(ci, ctx->id("VP"));
+            NetInfo *vn = get_net_or_empty(ci, ctx->id("VN"));
+            if(vp && vp->name == ctx->id("$PACKER_GND_NET")){
+                disconnect_port(ctx, ci, ctx->id("VP"));
+            }
+            if(vn && vn->name == ctx->id("$PACKER_GND_NET")){
+                disconnect_port(ctx, ci, ctx->id("VN"));
+            }
             fold_inverter(ci, "CONVSTCLK");
             fold_inverter(ci, "DCLK");
-            xform_cell(xadc_rules,ci);
+        } else {
+            continue;
         }
     }
 }

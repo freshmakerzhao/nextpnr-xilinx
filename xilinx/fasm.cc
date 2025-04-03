@@ -3372,6 +3372,7 @@ struct FasmBackend
                 // TODO: 暂时不知道这两个fasm具体是什么
                 write_bit("MC_R0C192",true);
                 write_bit("MC_R1C232",true);
+                write_bit("DRP_EN",true);
                 pop();
                 pop();
                 blank();

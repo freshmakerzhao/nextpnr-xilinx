@@ -283,7 +283,20 @@ void XC7Packer::pack_gbs()
             try_preplace(ci, id_I);  // Determine bels for BUFR
         if (ci->type == id_BUFIO_BUFIO)
             try_preplace(ci, id_I);  // Determine bels for BUFR
-
+    }
+    // 重复一次，让bufr等找到后续cell
+    for (auto cell : sorted(ctx->cells)) {
+        CellInfo *ci = cell.second;
+        if (ci->type == id_BUFGCTRL)
+            try_preplace(ci, id_I0);
+        if (ci->type == id_BUFG_BUFG)
+            try_preplace(ci, id_I);
+        if (ci->type == id_BUFHCE_BUFHCE)
+            try_preplace(ci, id_I);
+        if (ci->type == id_BUFR_BUFR)
+            try_preplace(ci, id_I);  // Determine bels for BUFR
+        if (ci->type == id_BUFIO_BUFIO)
+            try_preplace(ci, id_I);  // Determine bels for BUFR
     }
 }
 

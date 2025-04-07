@@ -1053,15 +1053,7 @@ struct Arch : BaseCtx
 
     uint32_t getWireChecksum(WireId wire) const { return wire.index; }
 
-    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
-    {
-        NPNR_ASSERT(wire != WireId());
-        NPNR_ASSERT(wire_to_net[wire] == nullptr);
-        wire_to_net[wire] = net;
-        net->wires[wire].pip = PipId();
-        net->wires[wire].strength = strength;
-        refreshUiWire(wire);
-    }
+    void bindWire(WireId wire, NetInfo *net, PlaceStrength strength);
 
     void unbindWire(WireId wire)
     {

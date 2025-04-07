@@ -289,6 +289,16 @@ std::vector<std::pair<IdString, std::string>> Arch::getWireAttrs(WireId wire) co
     return {{id("INTENT"), IdString(wireIntent(wire)).str(this)}};
 }
 
+void Arch::bindWire(WireId wire, NetInfo *net, PlaceStrength strength)
+{
+    NPNR_ASSERT(wire != WireId());
+    NPNR_ASSERT(wire_to_net[wire] == nullptr);
+    wire_to_net[wire] = net;
+    net->wires[wire].pip = PipId();
+    net->wires[wire].strength = strength;
+    refreshUiWire(wire);
+}
+
 // -----------------------------------------------------------------------
 
 PipId Arch::getPipByName(IdString name) const
@@ -400,15 +410,15 @@ void Arch::setup_pip_blacklist()
                     blacklist_pips[td.type].insert(j);
             }
         } else if (boost::starts_with(type, "HCLK_IOI")) {
-            for (int j = 0; j < td.num_pips; j++) {
-                auto &pd = td.pip_data[j];
-                std::string dest_name = IdString(td.wire_data[pd.dst_index].name).str(this);
-                std::string src_name = IdString(td.wire_data[pd.src_index].name).str(this);
+            // for (int j = 0; j < td.num_pips; j++) {
+            //     auto &pd = td.pip_data[j];
+            //     std::string dest_name = IdString(td.wire_data[pd.dst_index].name).str(this);
+            //     std::string src_name = IdString(td.wire_data[pd.src_index].name).str(this);
 
-                if (boost::contains(dest_name, "RCLK_BEFORE_DIV") &&
-                    boost::contains(src_name, "IMUX"))
-                    blacklist_pips[td.type].insert(j);
-            }
+            //     if (boost::contains(dest_name, "RCLK_BEFORE_DIV") &&
+            //         boost::contains(src_name, "IMUX"))
+            //         blacklist_pips[td.type].insert(j);
+            // }
         } else if (boost::contains(type, "IOI")) {
             for (int j = 0; j < td.num_pips; j++) {
                 auto &pd = td.pip_data[j];
@@ -957,12 +967,6 @@ void Arch::routeClock()
                 auto sink_wire_name = "(uninitialized)";
                 if (sink_wire != WireId())
                     sink_wire_name = nameOfWire(sink_wire);
-                LogData logEntry2 = LogData::CreateLogStruct(
-                    LevelCode::ALWAYS_LOG,
-                    LogCategory::ROUTE,
-                    PhaseType::ROUTE,
-                    "routing arc to"
-                );    
                 log_always("        routing arc to %s.%s (wire %s):\n",usr.cell->name.c_str(this), usr.port.c_str(this), sink_wire_name);
             }
 
@@ -977,12 +981,6 @@ void Arch::routeClock()
                 for (auto uh : getPipsUphill(curr)) {
                     if (!checkPipAvail(uh)) {
                         if (getCtx()->debug) {
-                            LogData logEntry3 = LogData::CreateLogStruct(
-                                LevelCode::ALWAYS_LOG,
-                                LogCategory::ROUTE,
-                                PhaseType::ROUTE,
-                                "skipping unavailable pip"
-                            );
                             log_always("            skipping unavailable pip %s\n", getPipName(uh).c_str(this));
                         }
                         continue;
@@ -997,9 +995,11 @@ void Arch::routeClock()
                         intent == ID_NODE_VLONG || intent == ID_NODE_VQUAD || intent == ID_NODE_SINGLE ||
                         intent == ID_NODE_CLE_OUTPUT || intent == ID_NODE_OPTDELAY || intent == ID_BENTQUAD ||
                         intent == ID_DOUBLE || intent == ID_HLONG || intent == ID_HQUAD || intent == ID_OPTDELAY ||
-                        intent == ID_SINGLE || intent == ID_VLONG || intent == ID_VLONG12 || intent == ID_VQUAD ||
-                        intent == ID_PINBOUNCE)
+                        intent == ID_SINGLE || intent == ID_VLONG || intent == ID_VLONG12 || intent == ID_VQUAD)//  || intent == ID_PINBOUNCE
                         {
+                            if (getCtx()->debug){
+                                log_always("            skipping by intent %s \n",srcname.c_str());
+                            }
                             continue;
                         }
                     auto avail     = checkWireAvail(src);
@@ -1007,12 +1007,6 @@ void Arch::routeClock()
                     if (!avail && bound_net != clk_net)
                         {
                             if (getCtx()->debug){
-                                LogData logEntry5 = LogData::CreateLogStruct(
-                                    LevelCode::ALWAYS_LOG,
-                                    LogCategory::ROUTE,
-                                    PhaseType::ROUTE,
-                                    "skipping unavailable wire used by net"
-                                );
                                 log_always("            skipping unavailable wire %s used by net %s\n",srcname.c_str(), bound_net->name.c_str(this));
                             }
                             continue;

@@ -185,6 +185,14 @@ void XC7Packer::pack_gt()
                             port_net->name != ctx->id("$PACKER_GND_NET");
                 bool internal_refclk = false;
 
+                //针对100t而言GTEASTREFCLK0、GTWESTREFCLK0这样的东西向时钟用不到，接地会无法布线
+                //只有200t上存在GTP Quad级联，时钟东西向传递才会用到，所以暂且在pack时将其断开端口
+                if (boost::starts_with(port_name, "GTEASTREFCLK") || boost::starts_with(port_name, "GTWESTREFCLK")) {
+                    // 断开端口连接
+                    disconnect_port(ctx, ci, port.first);
+                    continue;
+                }
+
                 if (port_name == "DRPCLK") {
                     ci->setParam(ctx->id("_DRPCLK_USED"), Property(used));
                 } else if (boost::starts_with(port_name, "GTREFCLK")) {
@@ -194,10 +202,21 @@ void XC7Packer::pack_gt()
                         log_warning("Driver %s of net %s connected to a GTPE2_COMMON PLL is not an IBUFDS_GTE2 block, but %s\n",
                             driver->name.c_str(ctx), port_net->name.c_str(ctx), driver->type.c_str(ctx));
 
+                        // 检查是否为接地或高电平驱动
+                        if (driver->type == ctx->id("PSEUDO_GND")) {
+                            log_info("Driver is %s, disconnecting GTREFCLK port %s from net %s.\n",
+                                    driver->type.c_str(ctx), port_name.c_str(), port_net->name.c_str(ctx));
+                            
+                            // 断开端口连接
+                            disconnect_port(ctx, ci, port.first);
+                            continue;
+                        }
+
+                        //??? To Do: 不确定用途，暂时注释
                         // Do we really need this here?
                         // Would that work in other cases too?
-                        if (driver->type != id_BUFGCTRL)
-                            log_error("GTP_COMMON GTREFCLK connected to unsupported cell type %s\n", driver->type.c_str(ctx));
+                        // if (driver->type != id_BUFGCTRL)
+                        //     log_error("GTP_COMMON GTREFCLK connected to unsupported cell type %s\n", driver->type.c_str(ctx));
 
                         // vivado internally always connects to GTGREFCLK0, even if GTGREFCLK1 is connected in the verilog
                         auto gtg_port = id_GTGREFCLK0;
@@ -264,7 +283,19 @@ void XC7Packer::pack_gt()
             fold_inverter(ci, "TXUSRCLK");
             fold_inverter(ci, "TXUSRCLK2");
 
-            for (auto &port : ci->ports) {
+            // 将所有端口复制到 vector 中
+            std::vector<std::pair<IdString, PortInfo>> sorted_ports;
+            for (const auto &p : ci->ports) {
+                sorted_ports.push_back(p);
+            }
+
+            // 对 vector 按照端口名称排序
+            std::sort(sorted_ports.begin(), sorted_ports.end(),
+                [this](const std::pair<IdString, PortInfo> &a, const std::pair<IdString, PortInfo> &b) {
+                    return a.first.str(ctx) < b.first.str(ctx);
+                });
+            
+            for (const auto &port : sorted_ports) {
                 auto port_name = port.first.str(ctx);
                 auto net = get_net_or_empty(ci, port.first);
 
@@ -291,9 +322,16 @@ void XC7Packer::pack_gt()
                 }
 
                 if (boost::contains(port_name, "[") && boost::contains(port_name, "]")) {
+                    // 打印重命名前的端口名称
+                    log_info("Before renaming: port_name = %s\n", port_name.c_str());                    
+
                     auto new_port_name = std::string(port_name);
                     boost::replace_all(new_port_name, "[", "");
                     boost::replace_all(new_port_name, "]", "");
+
+                    // 打印重命名后的新端口名称
+                    log_info("After renaming: new_port_name = %s\n", new_port_name.c_str());
+
                     rename_port(ctx, ci, ctx->id(port_name), ctx->id(new_port_name));
                 }
             }

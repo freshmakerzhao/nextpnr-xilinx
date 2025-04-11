@@ -615,7 +615,24 @@ void XC7Packer::pack_io()
                     constrain_gtp(pad_cell, user_cell);
                 }
                 continue;
-            } else log_error("IBUFDS_GTE2 instance %s output port is not connected, or connected to multiple cells\n", buf_cell->name.c_str(ctx));
+            } else if (net != nullptr && net->users.size() == 2) {
+                // 如果有两个用户连接到这个网络
+                for (size_t i = 0; i < net->users.size(); ++i) {
+                    auto user_cell = net->users[i].cell;
+                    if (user_cell->type != id_GTPE2_COMMON && user_cell->type != ctx->id("BUFH") && user_cell->type != ctx->id("BUFHCE") 
+                        && user_cell->type != ctx->id("BUFG") && user_cell->type != ctx->id("BUFGCE") && user_cell->type != ctx->id("BUFGCE_1")
+                        && user_cell->type != ctx->id("BUFGMUX") && user_cell->type != ctx->id("BUFGMUX_1") && user_cell->type != ctx->id("BUFGCTRL") && user_cell->type != ctx->id("BUFGMUX_CTRL"))
+                        log_error("IBUFDS_GTE2 instance %s output port must be connected to a GTPE2_COMMON instance, but is instead connected to an instance %s of type %s\n",
+                                buf_cell->name.c_str(ctx), user_cell->name.c_str(ctx), user_cell->type.c_str(ctx));
+                    
+                    if (user_cell->type == id_GTPE2_COMMON){
+                        constrain_gtp(pad_cell, user_cell);
+                    }
+                }
+                continue;
+            } else {
+                log_error("IBUFDS_GTE2 instance %s output port is not connected, or connected to more than two cells\n", buf_cell->name.c_str(ctx));
+            }
         }
 
         // This OBUF is integrated into the GTP channel pad and does not need placing

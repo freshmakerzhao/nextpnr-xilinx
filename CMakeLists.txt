@@ -14,6 +14,13 @@ option(SERIALIZE_CHIPDB "Never build chipdb in parallel to reduce peak memory us
 set(Boost_NO_BOOST_CMAKE ON)
 
 
+set(VCPKG_PATH "E:/workspace/vcpkg" CACHE STRING "Path to vcpkg installation")
+set(CMAKE_TOOLCHAIN_FILE "${VCPKG_PATH}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Vcpkg toolchain file")
+set(CMAKE_PREFIX_PATH "${VCPKG_PATH}/installed/x64-windows;${CMAKE_PREFIX_PATH}")
+message(STATUS "VCPKG_PATH set to: ${VCPKG_PATH}")
+message(STATUS "CMAKE_TOOLCHAIN_FILE set to: ${CMAKE_TOOLCHAIN_FILE}")
+message(STATUS "CMAKE_PREFIX_PATH set to: ${CMAKE_PREFIX_PATH}")
+
 # ================ hybrdlink ===============
 option(COMPRESS_MODE "Decompression and compression options" OFF)
 if(COMPRESS_MODE)

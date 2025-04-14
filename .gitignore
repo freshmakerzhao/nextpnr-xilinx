@@ -39,7 +39,7 @@ install_manifest.txt
 *.bba
 __pycache__/
 *.pyc
-
+.vs
 ice40
 generic
 ecp5

@@ -6,7 +6,7 @@
 	path = xilinx/external/nextpnr-xilinx-meta
 	url = git@github.com:freshmakerzhao/nextpnr-xilinx-meta.git
 	branch = dev
-[submodule "3rdparty/compresstool"]
-	path = 3rdparty/compresstool
+[submodule "3rdparty/compress_tool"]
+	path = 3rdparty/compress_tool
 	url = git@github.com:freshmakerzhao/compress_tool.git
-	branch = dev
+	branch = master

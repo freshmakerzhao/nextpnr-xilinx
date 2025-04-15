@@ -1106,7 +1106,10 @@ std::vector<CriticalPath> TimingAnalyser::get_min_delay_violations()
 
             const auto &req = port.required.at(capture_id);
 
-            for (auto &[launch_id, arr] : port.arrival) {
+            for (auto it : port.arrival) {
+                const auto &launch_id = it.first;
+                const auto &arr = it.second;
+
                 const auto &launch = domains.at(launch_id);
                 const auto &launch_clock = launch.key.clock;
                 const auto dom_pair_id = domain_pair_id(launch_id, capture_id);
@@ -2267,7 +2270,9 @@ dict<domain_id_t, delay_t> TimingAnalyser::max_delay_by_domain_pairs()
 
             auto &req = ep_port.required.at(capture_id);
 
-            for (auto &[launch_id, arr] : ep_port.arrival) {
+            for (auto it : ep_port.arrival) {
+                const auto &launch_id = it.first;
+                const auto &arr = it.second;
                 const auto &launch = domains.at(capture_id);
 
                 auto dp = domain_pair_id(launch_id, capture_id);

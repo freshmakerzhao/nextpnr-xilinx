@@ -20,7 +20,6 @@ CMakeCache.txt
 *.depends
 .*.swp
 a.out
-*.json
 *.dot
 *.il
 /generic/examples/blinky.png

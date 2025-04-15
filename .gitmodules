@@ -1,10 +1,10 @@
 [submodule "xilinx/external/prjxray-db"]
 	path = xilinx/external/prjxray-db
-	url = ssh://git@192.168.11.164:30022/eda/prjxray-db.git
+	url = git@github.com:freshmakerzhao/prjxray-db.git
 	branch = dev
 [submodule "xilinx/external/nextpnr-xilinx-meta"]
 	path = xilinx/external/nextpnr-xilinx-meta
-	url = ssh://git@192.168.11.164:30022/eda/nextpnr-xilinx-meta.git
+	url = git@github.com:freshmakerzhao/nextpnr-xilinx-meta.git
 [submodule "3rdparty/compresstool"]
 	path = 3rdparty/compresstool
-	url = ssh://git@192.168.11.164:30022/eda/compresstool.git
+	url = git@github.com:freshmakerzhao/compress_tool.git

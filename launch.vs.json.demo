@@ -1,0 +1,42 @@
+{
+  "configurations": [
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "nextpnr-xilinx.exe",
+      "name": "nextpnr-xilinx.exe"
+    },
+    {
+      "name": "Debug pack",
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "args": [
+        "--chipdb",
+        "C:\\Users\\DELL\\Desktop\\test_workspace\\nextpnr-xilinx-msvc\\xc7a100t.bin",
+        "--xdc",
+        "C:\\Users\\DELL\\Desktop\\test_workspace\\nextpnr-xilinx-msvc\\xc7a100tfgg484-2.xdc",
+        "--json",
+        "C:\\Users\\DELL\\Desktop\\test_workspace\\nextpnr-xilinx-msvc\\synth.json",
+        "-l",
+        "C:\\Users\\DELL\\Desktop\\test_workspace\\nextpnr-xilinx-msvc\\pack.log",
+        "--pack-only",
+        "--write",
+        "C:\\Users\\DELL\\Desktop\\test_workspace\\nextpnr-xilinx-msvc\\pack.json"
+      ],
+      "projectTarget": "nextpnr-xilinx.exe"
+    },
+    {
+      "name": "Debug bbasm",
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "args": [
+        "-l",
+        "E:\\workspace\\nextpnr-xilinx-msvc\\xilinx\\xc7a100t.bba",
+        "E:\\workspace\\nextpnr-xilinx-msvc\\xilinx\\xc7a100t.bin"
+      ],
+      "projectTarget": "bbasm.exe"
+    }
+  ],
+  "defaults": {},
+  "version": "0.2.1"
+}

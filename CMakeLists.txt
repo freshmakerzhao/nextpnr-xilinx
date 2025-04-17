@@ -16,6 +16,7 @@ set(Boost_NO_BOOST_CMAKE ON)
 if(MSVC AND WIN32)
     # 引入配置文件
     include(${CMAKE_SOURCE_DIR}/config_scripts/config.cmake)
+    include(${CMAKE_SOURCE_DIR}/config_scripts/deploy_dependencies.cmake)
 
     message(STATUS "VCPKG_PATH set to: ${VCPKG_PATH}")
     message(STATUS "CMAKE_TOOLCHAIN_FILE set to: ${CMAKE_TOOLCHAIN_FILE}")
@@ -56,6 +57,7 @@ if (HYBRDLINK)
 endif()
 message(STATUS "COMPRESS_MODE option is ${COMPRESS_MODE}")
 message(STATUS "HYBRDLINK option is ${HYBRDLINK}")
+
 # ================ hybrdlink ===============
 
 set(link_param "")
@@ -162,7 +164,11 @@ else()
     add_definitions("-DNO_PYTHON")
 endif()
 
-find_package(Boost REQUIRED COMPONENTS ${boost_libs})
+if(MSVC)
+    find_package(Boost CONFIG REQUIRED COMPONENTS ${boost_libs})
+else()
+    find_package(Boost REQUIRED COMPONENTS ${boost_libs})
+endif()
 
 if (BUILD_GUI)
     # Find the Qt5 libraries
@@ -288,7 +294,15 @@ foreach (family ${ARCH})
 
     # 在目标被定义后，链接 HYBRDLINK 库
     target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE ${COMPRESS_LIBS})
-
+    if(MSVC)
+        target_link_libraries(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE
+            Boost::filesystem
+            Boost::thread
+            Boost::program_options
+            Boost::iostreams
+            Boost::system
+        )
+    endif()
     install(TARGETS ${PROGRAM_PREFIX}nextpnr-${family} RUNTIME DESTINATION bin)
     target_compile_definitions(${PROGRAM_PREFIX}nextpnr-${family} PRIVATE MAIN_EXECUTABLE)
 
@@ -371,3 +385,7 @@ add_custom_target(
     -i
     ${CLANGFORMAT_FILES}
 )
+
+if(MSVC AND ARCH)
+    my_deploy_dependencies(${PROGRAM_PREFIX}nextpnr-${ARCH})
+endif()

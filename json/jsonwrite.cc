@@ -329,19 +329,22 @@ bool write_json_file(std::ostream &f, std::string &filename, Context *ctx)
             log_error("failed to open JSON file.\n");
         if(ctx->compress_mode){
 #ifdef COMPRESS_MODE
+            // 写入上下文到 stringstream 中
             std::ostringstream os_buffer;
-            write_context(os_buffer, ctx);
-            std::istringstream inStream(os_buffer.str());
-            Tool::ArchiveTool tool;
+            write_context(os_buffer, ctx); // 假设 write_context 向 os_buffer 写入序列化数据
+
+            // 获取输出内容并转换为二进制 buffer
+            const std::string &dataStr = os_buffer.str();
+            std::vector<Tool::byte_t> buffer(dataStr.begin(), dataStr.end());
+
+            // 提取原始文件名
             std::string use_filename;
             size_t lastSlash = filename.find_last_of("/\\");
-            if(lastSlash == std::string::npos){
-                use_filename = filename;
-            }else{
-                // 获取文件名部分
-                use_filename = filename.substr(lastSlash + 1);
-            }
-            tool.compressWithPassword(inStream,f,use_filename,KEY);
+            use_filename = (lastSlash == std::string::npos) ? filename : filename.substr(lastSlash + 1);
+
+            // 调用压缩函数
+            Tool::ArchiveTool tool;
+            tool.compressWithPassword(buffer, f, use_filename, KEY);
 #endif
         }else{
             write_context(f, ctx);

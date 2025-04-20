@@ -29,7 +29,22 @@
       },
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "-DARCH": "xilinx"
+        "ARCH": "xilinx"
+      }
+    },
+    {
+      "name": "debug-hybrdlink-compress_mode",
+      "displayName": "debug-hybrdlink-compress_mode",
+      "inherits": "windows-base",
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ARCH": "xilinx",
+        "HYBRDLINK": "ON",
+        "COMPRESS_MODE": "ON"
       }
     },
     {

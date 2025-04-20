@@ -31,12 +31,11 @@ option(COMPRESS_MODE "Decompression and compression options" OFF)
 if(COMPRESS_MODE)
 add_definitions(-DCOMPRESS_MODE)
 # 添加子项目
-add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/)
-include_directories(${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/include/bit7z/ ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/api)
+add_subdirectory(${CMAKE_SOURCE_DIR}/3rdparty/compress_tool/)
 set(COMPRESS_LIBS "")  # 初始化变量
 if (WIN32)
     # Windows-specific设置
-    list(APPEND COMPRESS_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/win/libSecuArc64.a oleaut32 uuid)
+    list(APPEND COMPRESS_LIBS oleaut32 uuid compress_tool)
 elseif (UNIX)
     # Linux/Unix-specific设置
     list(APPEND COMPRESS_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/linux/libSecuArc64.a dl)
@@ -44,11 +43,11 @@ endif()
 # 如果 build 文件夹存在，将指定文件夹内容复制到 build 文件夹
 if (EXISTS "${CMAKE_BINARY_DIR}")
     message(STATUS "Build folder exists. Copying files...")
-    file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.so ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.dll DESTINATION ${CMAKE_BINARY_DIR}/)
+    # file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.so ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.dll DESTINATION ${CMAKE_BINARY_DIR}/)
 else()
     message(WARNING "Build folder does not exist. Skipping file copy.")
 endif()
-add_definitions(-DKEY="lwh123456")
+add_definitions(-DKEY="${PRJ_PASSWORD}")
 endif()
 
 option(HYBRDLINK "Encrption Option" OFF)

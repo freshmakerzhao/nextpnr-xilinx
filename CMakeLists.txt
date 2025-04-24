@@ -40,13 +40,7 @@ elseif (UNIX)
     # Linux/Unix-specific设置
     list(APPEND COMPRESS_LIBS ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/libs/release/libSecuArcPack.a ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/linux/libSecuArc64.a dl)
 endif()
-# 如果 build 文件夹存在，将指定文件夹内容复制到 build 文件夹
-if (EXISTS "${CMAKE_BINARY_DIR}")
-    message(STATUS "Build folder exists. Copying files...")
-    # file(COPY ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.so ${CMAKE_SOURCE_DIR}/3rdparty/compresstool/bit7z/lib/SecuEngine.dll DESTINATION ${CMAKE_BINARY_DIR}/)
-else()
-    message(WARNING "Build folder does not exist. Skipping file copy.")
-endif()
+
 add_definitions(-DKEY="${PRJ_PASSWORD}")
 endif()
 
